@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+/data/ALD-google_sheet-Jul272022-Loes_scores-Igor.csv
+/data/ALD-google_sheet-Jul272022-Loes_scores-Igor_updated.csv
+/data/augmented_files.csv
+/data/validated_loes_scores.csv
