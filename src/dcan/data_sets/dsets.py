@@ -30,6 +30,7 @@ class CandidateInfoTuple:
     subject_session_uid: str
     subject_str: str
     session_str: str
+    file_path: str
     session_date: datetime
     augmentation_index: int = None
     sort_index: float = field(init=False, repr=False)
@@ -45,16 +46,9 @@ class CandidateInfoTuple:
         # sort by Loes score
         self.sort_index = self.loes_score_float
 
+    @property
     def path_to_file(self) -> str:
-        loes_scoring_folder = '/home/feczk001/shared/data/loes_scoring/loes_scoring/'
-        subject_session_folder = f'sub-{self.subject_str}/ses-{self.session_str}'
-        if self.augmentation_index:
-            return \
-                os.path.join(
-                    loes_scoring_folder, 'Loes_score_augmented', subject_session_folder,
-                    f'mprage_{self.augmentation_index}.nii.gz')
-        else:
-            return os.path.join(loes_scoring_folder, 'Loes_score', subject_session_folder, 'mprage.nii.gz')
+        return self.path_to_file
 
 
 def get_subject(p):
@@ -70,32 +64,28 @@ def get_uid(p):
 
 
 @functools.lru_cache(1)
-def get_candidate_info_list(scores_csv, anatomical_region, require_on_disk_bool=True):
-    # We construct a set with all ald_code_uids that are present on disk.
-    # This will let us use the data, even if we haven't downloaded all of
-    # the subsets yet.
-    loes_score_images_path = '/home/feczk001/shared/data/loes_scoring/loes_scoring/Loes_score/sub-*/ses-*/'
-    nifti_ext = '.nii.gz'
-    mprage_mri_list = glob.glob(f'{loes_score_images_path}mprage{nifti_ext}')
-    mprage_present_on_disk_set = {get_uid(p) for p in mprage_mri_list}
-    present_on_disk_set = mprage_present_on_disk_set
-
-    partial_loes_scores = get_partial_loes_scores(scores_csv)
+def get_candidate_info_list(scores_csv, include_gd=False):
     candidate_info_list = []
     with open(scores_csv, "r") as f:
-        for row in list(csv.reader(f))[2:]:
-            session_str, subject_session_uid, subject_str, loes_score_float = \
-                get_subject_session_info(row, partial_loes_scores, anatomical_region)
-            if subject_session_uid not in present_on_disk_set and require_on_disk_bool:
-                continue
-            session_date = datetime.strptime(session_str, '%Y%m%d')
-            candidate_info_list.append(CandidateInfoTuple(
-                loes_score_float,
-                subject_session_uid,
-                subject_str,
-                session_str,
-                session_date
-            ))
+        for row in list(csv.reader(f))[1:]:
+            is_gd = int(row[1])
+            if (include_gd and is_gd) or (not include_gd and not(is_gd)):
+                file_path = row[0]
+                ses_pos = file_path.find('ses-')
+                date_str = file_path[ses_pos + 4:ses_pos + 12]
+                session_date = datetime.strptime(date_str, '%Y%m%d')
+                loes_score_float = float(row[2])
+                sub_start_pos = file_path.find('sub-')
+                subject_session_uid = file_path[sub_start_pos:sub_start_pos + 25]
+                subject_str, session_str = subject_session_uid.split('_')
+                candidate_info_list.append(CandidateInfoTuple(
+                    loes_score_float,
+                    subject_session_uid,
+                    subject_str,
+                    session_str,
+                    file_path,
+                    session_date
+                ))
 
     candidate_info_list.sort(reverse=True)
 
@@ -167,14 +157,13 @@ def get_mri_raw_candidate(subject_session_uid, is_val_set_bool):
 class LoesScoreDataset(Dataset):
     def __init__(self,
                  cvs_data_file,
-                 anatomical_region,
                  val_stride=0,
                  is_val_set_bool=None,
                  subject=None,
                  sortby_str='random',
                  ):
         self.is_val_set_bool = is_val_set_bool
-        self.candidateInfo_list = copy.copy(get_candidate_info_list(cvs_data_file, anatomical_region))
+        self.candidateInfo_list = copy.copy(get_candidate_info_list(cvs_data_file, False))
 
         if subject:
             self.candidateInfo_list = [
