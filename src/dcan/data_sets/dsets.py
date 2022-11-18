@@ -1,7 +1,6 @@
 import copy
 import csv
 import functools
-import glob
 import logging
 import os
 import random
@@ -12,7 +11,6 @@ import torch
 import torchio as tio
 from torch.utils.data import Dataset
 
-from dcan.data.partial_loes_scores import get_partial_loes_scores
 from util.disk import getCache
 
 log = logging.getLogger(__name__)
@@ -48,7 +46,7 @@ class CandidateInfoTuple:
 
     @property
     def path_to_file(self) -> str:
-        return self.path_to_file
+        return self.file_path
 
 
 def get_subject(p):
@@ -110,20 +108,15 @@ def get_subject_session_info(row, partial_loes_scores, anatomical_region):
 
 class LoesScoreMRIs:
     def __init__(self, candidate_info, is_val_set_bool):
-        mprage_path = candidate_info.path_to_file()
+        mprage_path = candidate_info.path_to_file
         mprage_image = tio.ScalarImage(mprage_path)
-        crop_or_pad = tio.CropOrPad(
-            (512, 512, 512),
-        )
         if is_val_set_bool:
             transform = tio.Compose([
-                crop_or_pad,
                 tio.ToCanonical(),
                 tio.ZNormalization(masking_method=tio.ZNormalization.mean),
             ])
         else:
             transform = tio.Compose([
-                crop_or_pad,
                 tio.ToCanonical(),
                 tio.ZNormalization(masking_method=tio.ZNormalization.mean),
                 tio.RandomFlip(axes='LR'),

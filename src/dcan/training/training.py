@@ -15,7 +15,6 @@ from TrainingApp import TrainingApp
 from dcan.data.partial_loes_scores import get_partial_loes_scores
 from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.training.AlexNet3D_Dropout_Regression_deeper import AlexNet3D_Dropout_Regression_deeper
-# from dcan.training.res_net_34 import get_model
 from reprex.models import AlexNet3D_Dropout_Regression
 from util.logconf import logging
 from util.util import enumerateWithEstimate
@@ -82,7 +81,7 @@ class LoesScoringTrainingApp(TrainingApp):
         self.optimizer = self.init_optimizer()
 
     def init_model(self):
-        model = AlexNet3D_Dropout_Regression(93312)
+        model = AlexNet3D_Dropout_Regression(4608)
         if self.use_cuda:
             log.info("Using CUDA; {} devices.".format(torch.cuda.device_count()))
             if torch.cuda.device_count() > 1:
