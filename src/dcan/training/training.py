@@ -60,6 +60,9 @@ class LoesScoringTrainingApp(TrainingApp):
                             default=1,
                             type=int,
                             )
+        self.parser.add_argument('--model-save-location',
+                            help='Location to save models',
+                            )
         self.parser.add_argument('comment',
                                  help="Comment suffix for Tensorboard run.",
                                  nargs='?',
@@ -220,6 +223,8 @@ class LoesScoringTrainingApp(TrainingApp):
         if hasattr(self, 'trn_writer'):
             self.trn_writer.close()
             self.val_writer.close()
+
+        torch.save(self.model.state_dict(), self.cli_args.model_save_location)
 
         try:
             standardized_rmse = self.get_standardized_rmse()
