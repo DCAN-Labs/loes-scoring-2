@@ -132,3 +132,9 @@ dmypy.json
 /data/augmented_files.csv
 /data/validated_loes_scores.csv
 /data/MNI-space_Loes_data.csv
+/.idea/
+/.idea/
+/data-unversioned/cache/dcan_loes_score/
+/runs/loes_scoring/
+/src/dcan/training/runs/loes_scoring/
+/src/dcan/training/data-unversioned/cache/dcan_loes_score/

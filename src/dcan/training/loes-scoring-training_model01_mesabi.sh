@@ -22,4 +22,4 @@ export PYTHONPATH=PYTHONPATH:"/home/miran045/reine097/projects/loes-scoring-2/sr
   /home/miran045/reine097/projects/loes-scoring-2/src/dcan/training/training.py \
   --csv-data-file "/home/miran045/reine097/projects/loes-scoring-2/data/MNI-space_Loes_data.csv" \
   --anatomical-region all --batch-size 1 --num-workers 1 --epochs 256 \
-  --model-save-location="/home/feczk001/shared/data/AlexNet/loes_scoring_01.pt"
+  --model-save-location "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_01.pt"
