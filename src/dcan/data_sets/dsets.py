@@ -62,32 +62,38 @@ def get_uid(p):
 
 
 @functools.lru_cache(1)
-def get_candidate_info_list(scores_csv, include_gd=False):
+def get_candidate_info_list(scores_csv, include_gd_only=False):
     candidate_info_list = []
     with open(scores_csv, "r") as f:
         for row in list(csv.reader(f))[1:]:
             is_gd = int(row[1])
-            if (include_gd and is_gd) or (not include_gd and not(is_gd)):
-                file_path = row[0]
-                ses_pos = file_path.find('ses-')
-                date_str = file_path[ses_pos + 4:ses_pos + 12]
-                session_date = datetime.strptime(date_str, '%Y%m%d')
-                loes_score_float = float(row[2])
-                sub_start_pos = file_path.find('sub-')
-                subject_session_uid = file_path[sub_start_pos:sub_start_pos + 25]
-                subject_str, session_str = subject_session_uid.split('_')
-                candidate_info_list.append(CandidateInfoTuple(
-                    loes_score_float,
-                    subject_session_uid,
-                    subject_str,
-                    session_str,
-                    file_path,
-                    session_date
-                ))
+            if not include_gd_only and not is_gd:
+                append_candidate(candidate_info_list, row)
+            elif include_gd_only and is_gd:
+                append_candidate(candidate_info_list, row)
 
     candidate_info_list.sort(reverse=True)
 
     return candidate_info_list
+
+
+def append_candidate(candidate_info_list, row):
+    file_path = row[0]
+    ses_pos = file_path.find('ses-')
+    date_str = file_path[ses_pos + 4:ses_pos + 12]
+    session_date = datetime.strptime(date_str, '%Y%m%d')
+    loes_score_float = float(row[2])
+    sub_start_pos = file_path.find('sub-')
+    subject_session_uid = file_path[sub_start_pos:sub_start_pos + 25]
+    subject_str, session_str = subject_session_uid.split('_')
+    candidate_info_list.append(CandidateInfoTuple(
+        loes_score_float,
+        subject_session_uid,
+        subject_str,
+        session_str,
+        file_path,
+        session_date
+    ))
 
 
 def get_subject_session_info(row, partial_loes_scores, anatomical_region):
@@ -154,9 +160,10 @@ class LoesScoreDataset(Dataset):
                  is_val_set_bool=None,
                  subject=None,
                  sortby_str='random',
+                 use_gd_only=False
                  ):
         self.is_val_set_bool = is_val_set_bool
-        self.candidateInfo_list = copy.copy(get_candidate_info_list(cvs_data_file, False))
+        self.candidateInfo_list = copy.copy(get_candidate_info_list(cvs_data_file, use_gd_only))
 
         if subject:
             self.candidateInfo_list = [

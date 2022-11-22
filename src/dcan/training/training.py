@@ -5,16 +5,17 @@ import os
 import statistics
 from math import sqrt
 
+import scipy
+import scipy.stats
 import torch
 import torch.nn as nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from TrainingApp import TrainingApp
 from dcan.data.partial_loes_scores import get_partial_loes_scores
 from dcan.data_sets.dsets import LoesScoreDataset
-from dcan.training.AlexNet3D_Dropout_Regression_deeper import AlexNet3D_Dropout_Regression_deeper
+from dcan.plot.create_scatterplot import create_scatterplot
 from reprex.models import AlexNet3D_Dropout_Regression
 from util.logconf import logging
 from util.util import enumerateWithEstimate
@@ -31,9 +32,28 @@ METRICS_LOSS_NDX = 2
 METRICS_SIZE = 3
 
 
-class LoesScoringTrainingApp(TrainingApp):
+def compute_pearson_correlation_coefficient(d):
+    xs = []
+    ys = []
+    for x in d:
+        vals = d[x]
+        for y in vals:
+            xs.append(x)
+            ys.append(y)
+    result = scipy.stats.linregress(xs, ys)
+
+    return result
+
+
+class LoesScoringTrainingApp:
     def __init__(self, sys_argv=None):
-        super().__init__()
+        self.device = None
+        self.cli_args = None
+        self.use_cuda = False
+        self.trn_writer = None
+        self.val_writer = None
+        self.totalTrainingSamples_count = 0
+
         self.parser = argparse.ArgumentParser()
         self.parser.add_argument('--tb-prefix',
                                  default='loes_scoring',
@@ -46,31 +66,49 @@ class LoesScoringTrainingApp(TrainingApp):
                                  help="Anatomical region to train on.",
                                  )
         self.parser.add_argument('--num-workers',
-                            help='Number of worker processes for background data loading',
-                            default=8,
-                            type=int,
-                            )
+                                 help='Number of worker processes for background data loading',
+                                 default=8,
+                                 type=int,
+                                 )
         self.parser.add_argument('--batch-size',
-                            help='Batch size to use for training',
-                            default=32,
-                            type=int,
-                            )
+                                 help='Batch size to use for training',
+                                 default=32,
+                                 type=int,
+                                 )
         self.parser.add_argument('--epochs',
-                            help='Number of epochs to train for',
-                            default=1,
-                            type=int,
-                            )
+                                 help='Number of epochs to train for',
+                                 default=1,
+                                 type=int,
+                                 )
+        self.parser.add_argument('--use-gd-only',
+                                 help='Use Gadolinium-enhanced scans only',
+                                 default=0,
+                                 type=int,
+                                 )
+        self.time_str = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
         self.parser.add_argument('--model-save-location',
-                            help='Location to save models',
-                            )
+                                 help='Location to save models',
+                                 default=f'./model-{self.time_str}.pt',
+                                 )
+        self.parser.add_argument('--plot-location',
+                                 help='Location to save plot',
+                                 )
+        self.parser.add_argument('--optimizer',
+                                 help="optimizer type.",
+                                 default='Adam',
+                                 )
+        self.parser.add_argument('--model',
+                                 help="Model type.",
+                                 default='AlexNet',
+                                 )
         self.parser.add_argument('comment',
                                  help="Comment suffix for Tensorboard run.",
                                  nargs='?',
                                  default='dcan',
                                  )
         self.cli_args = self.parser.parse_args(sys_argv)
-        self.time_str = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
-        partial_scores_file_path = '/home/miran045/reine097/projects/loes-scoring-2/data/9_7 MRI sessions Igor Loes score updated.csv'
+        partial_scores_file_path = \
+            '/home/miran045/reine097/projects/loes-scoring-2/data/9_7 MRI sessions Igor Loes score updated.csv'
         self.partial_loes_scores = get_partial_loes_scores(partial_scores_file_path)
 
         self.trn_writer = None
@@ -96,9 +134,10 @@ class LoesScoringTrainingApp(TrainingApp):
         # return SGD(self.model.parameters(), lr=0.001, momentum=0.99)
         return Adam(self.model.parameters())
 
-    def init_train_dl(self, csv_data_file, anatomical_region):
+    def init_train_dl(self, csv_data_file):
         train_ds = LoesScoreDataset(
             csv_data_file,
+            use_gd_only=self.cli_args.use_gd_only,
             val_stride=10,
             is_val_set_bool=False,
         )
@@ -116,9 +155,10 @@ class LoesScoringTrainingApp(TrainingApp):
 
         return train_dl
 
-    def init_val_dl(self, csv_data_file, anatomical_region):
+    def init_val_dl(self, csv_data_file):
         val_ds = LoesScoreDataset(
             csv_data_file,
+            use_gd_only=self.cli_args.use_gd_only,
             val_stride=10,
             is_val_set_bool=True,
         )
@@ -137,6 +177,9 @@ class LoesScoringTrainingApp(TrainingApp):
         return val_dl
 
     def init_tensorboard_writers(self):
+        self.create_summary_writers()
+
+    def create_summary_writers(self):
         if self.trn_writer is None:
             log_dir = os.path.join('runs', self.cli_args.tb_prefix, self.time_str)
 
@@ -145,9 +188,15 @@ class LoesScoringTrainingApp(TrainingApp):
             self.val_writer = SummaryWriter(
                 log_dir=log_dir + '-val_cls-' + self.cli_args.comment)
 
+    @staticmethod
+    def get_actual(outputs):
+        actual = outputs[0].squeeze(1)
+
+        return actual
+
     def get_standardized_rmse(self):
         with torch.no_grad():
-            val_dl = self.init_val_dl(self.cli_args.csv_data_file, self.cli_args.anatomical_region)
+            val_dl = self.init_val_dl(self.cli_args.csv_data_file)
             self.model.eval()
             batch_iter = enumerateWithEstimate(
                 val_dl,
@@ -173,7 +222,7 @@ class LoesScoringTrainingApp(TrainingApp):
 
     def get_output_distributions(self):
         with torch.no_grad():
-            val_dl = self.init_val_dl(self.cli_args.csv_data_file, self.cli_args.anatomical_region)
+            val_dl = self.init_val_dl(self.cli_args.csv_data_file)
             self.model.eval()
             batch_iter = enumerateWithEstimate(
                 val_dl,
@@ -193,16 +242,14 @@ class LoesScoringTrainingApp(TrainingApp):
                     if label_int not in distributions:
                         distributions[label_int] = []
                     distributions[label_int].append(predictions[i])
-            sorted_distributions = sorted(distributions.items(), key=lambda item: item[0])
 
-            return sorted_distributions
+            return distributions
 
     def main(self):
         log.info("Starting {}, {}".format(type(self).__name__, self.cli_args))
 
-        anatomical_region = self.cli_args.anatomical_region
-        train_dl = self.init_train_dl(self.cli_args.csv_data_file, anatomical_region)
-        val_dl = self.init_val_dl(self.cli_args.csv_data_file, anatomical_region)
+        train_dl = self.init_train_dl(self.cli_args.csv_data_file)
+        val_dl = self.init_val_dl(self.cli_args.csv_data_file)
 
         for epoch_ndx in range(1, self.cli_args.epochs + 1):
             log.info("Epoch {} of {}, {}/{} batches of size {}*{}".format(
@@ -233,7 +280,13 @@ class LoesScoringTrainingApp(TrainingApp):
             log.error(f'Could not compute stanardized RMSE because sigma is 0: {err}')
 
         output_distributions = self.get_output_distributions()
-        log.info(f'output_distributions: {output_distributions}')
+        create_scatterplot(output_distributions, self.cli_args.plot_location)
+
+        result = compute_pearson_correlation_coefficient(output_distributions)
+
+        log.info(f"correlation:    {result.rvalue}")
+        log.info(f"p-value:        {result.pvalue}")
+        log.info(f"standard error: {result.stderr}")
 
     def do_training(self, epoch_ndx, train_dl):
         self.model.train()
@@ -260,13 +313,6 @@ class LoesScoringTrainingApp(TrainingApp):
 
             loss_var.backward()
             self.optimizer.step()
-
-            # # This is for adding the model graph to TensorBoard.
-            # if epoch_ndx == 1 and batch_ndx == 0:
-            #     with torch.no_grad():
-            #         model = LunaModel()
-            #         self.trn_writer.add_graph(model, batch_tup[0], verbose=True)
-            #         self.trn_writer.close()
 
         self.totalTrainingSamples_count += len(train_dl.dataset)
 
@@ -342,31 +388,6 @@ class LoesScoringTrainingApp(TrainingApp):
 
         for key, value in metrics_dict.items():
             writer.add_scalar(key, value, self.totalTrainingSamples_count)
-
-    # def logModelMetrics(self, model):
-    #     writer = getattr(self, 'trn_writer')
-    #
-    #     model = getattr(model, 'module', model)
-    #
-    #     for name, param in model.named_parameters():
-    #         if param.requires_grad:
-    #             min_data = float(param.data.min())
-    #             max_data = float(param.data.max())
-    #             max_extent = max(abs(min_data), abs(max_data))
-    #
-    #             # bins = [x/50*max_extent for x in range(-50, 51)]
-    #
-    #             try:
-    #                 writer.add_histogram(
-    #                     name.rsplit('.', 1)[-1] + '/' + name,
-    #                     param.data.cpu().numpy(),
-    #                     # metrics_a[METRICS_PRED_NDX, negHist_mask],
-    #                     self.totalTrainingSamples_count,
-    #                     # bins=bins,
-    #                 )
-    #             except Exception as e:
-    #                 log.error([min_data, max_data])
-    #                 raise
 
 
 if __name__ == '__main__':
