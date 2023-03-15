@@ -16,7 +16,7 @@ image_data = img.get_fdata()
 input = tf.convert_to_tensor(image_data)
 baseline = torch.zeros(197, 233, 189)
 
-model_save_location = "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_01.pt"
+model_save_location = "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_test.pt"
 
 model = AlexNet3DDropoutRegression(4608)
 # reload weights on non-parallel model
