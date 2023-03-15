@@ -271,7 +271,8 @@ class LoesScoringTrainingApp:
             self.trn_writer.close()
             self.val_writer.close()
 
-        torch.save(self.model.state_dict(), self.cli_args.model_save_location)
+        # save state dict of DataParallel object
+        torch.save(self.model.state_dict(), self.cli_args.model_save_location, map_location="cpu")
 
         try:
             standardized_rmse = self.get_standardized_rmse()

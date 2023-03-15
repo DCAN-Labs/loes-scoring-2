@@ -2,6 +2,7 @@ import nibabel as nib
 import torch
 import tensorflow as tf
 from reprex.models import AlexNet3DDropoutRegression
+from captum.attr import IntegratedGradients
 
 
 example_file_score_21 = \
@@ -15,9 +16,9 @@ baseline = torch.zeros(197, 233, 189)
 
 model_save_location = "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_01.pt"
 
-model = AlexNet3DDropoutRegression(9600)
-model.load_state_dict(torch.load(model_save_location,
-                                 map_location='cpu'))
+model = AlexNet3DDropoutRegression(4608)
+# reload weights on non-parallel model
+model.load_state_dict(torch.load(model_save_location))
 model.eval()
 
 ig = IntegratedGradients(model)
