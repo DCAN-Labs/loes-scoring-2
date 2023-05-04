@@ -20,5 +20,5 @@ eval "$__conda_setup"
 echo CUDA_VISIBLE_DEVICES: "$CUDA_VISIBLE_DEVICES"
 
 cd /home/miran045/reine097/projects/loes-scoring-2/src/dcan/explainability || exit
-export PYTHONPATH=PYTHONPATH:"/home/miran045/reine097/projects/loes-scoring-2/src"
-/home/miran045/reine097/projects/loes-scoring-2/venv/bin/python /home/miran045/reine097/projects/loes-scoring-2/src/dcan/explainability/captum.py
+export PYTHONPATH=PYTHONPATH:"/home/miran045/reine097/projects/loes-scoring-2/src:/home/miran045/reine097/projects/AlexNet_Abrol2021/src:/home/miran045/reine097/projects/AlexNet_Abrol2021/reprex"
+/home/miran045/reine097/projects/AlexNet_Abrol2021/venv/bin/python /home/miran045/reine097/projects/loes-scoring-2/src/dcan/tensor_board/class_activation_mapping.py
