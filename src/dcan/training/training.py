@@ -16,7 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 from dcan.data.partial_loes_scores import get_partial_loes_scores
 from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.plot.create_scatterplot import create_scatterplot
-from reprex.models import AlexNet3DDropoutRegression
+from reprex.models import AlexNet3D
 from util.logconf import logging
 from util.util import enumerateWithEstimate
 
@@ -122,7 +122,7 @@ class LoesScoringTrainingApp:
         self.optimizer = self.init_optimizer()
 
     def init_model(self):
-        model = AlexNet3DDropoutRegression(4608)
+        model = AlexNet3D(4608)
         if self.use_cuda:
             log.info("Using CUDA; {} devices.".format(torch.cuda.device_count()))
             if torch.cuda.device_count() > 1:
