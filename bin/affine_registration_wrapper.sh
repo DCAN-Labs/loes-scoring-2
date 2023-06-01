@@ -9,9 +9,9 @@ module load fsl
 
 SUBJECT=$1
 SESSION=$2
-STUDY_DIR=/home/feczk001/shared/projects/S1067_Loes/data/Loes_DataLad
+STUDY_DIR=/home/feczk001/shared/data/loes_scoring/nascene_deid/BIDS/FINAL
 REF=/home/feczk001/shared/projects/S1067_Loes/data/MNI152/mni_icbm152_nlin_sym_09a/mni_icbm152_t1_tal_nlin_sym_09a.nii
-OUT_DIR=/home/feczk001/shared/projects/S1067_Loes/data/MNI-space_Loes_data
+OUT_DIR=/home/feczk001/shared/data/loes_scoring/nascene_deid/BIDS/atlas_reg
 
 for IN in `ls ${STUDY_DIR}/${SUBJECT}/${SESSION}/*.nii.gz`; do
     img_name=`basename $IN`
