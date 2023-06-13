@@ -272,6 +272,8 @@ class LoesScoringTrainingApp:
             self.val_writer.close()
 
         # save state dict of DataParallel object
+        if isinstance(self.model, torch.nn.DataParallel):
+            self.model = self.model.module
         torch.save(self.model.state_dict(), self.cli_args.model_save_location)
 
         try:
