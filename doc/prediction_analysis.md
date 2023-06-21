@@ -4,131 +4,132 @@ Analysis of Loes score predictions
 All files are in:
     
     /home/feczk001/shared/data/loes_scoring/nascene_deid/BIDS/anonymized_names/
-     
-Best predictions
-----------------
-    base_name  prediction
-    450        sub-07_session-08_space-MNI_101_sub-07_deidentified_SAG_T1_MPRAGE.nii.gz    5.691964
-    174  sub-03_session-10_space-MNI_105_sub-03b_deidentified_SAG_T1_MPRAGE_POST.nii.gz    5.691964
-    35         sub-02_session-07_space-MNI_100_sub-02_deidentified_SAG_T1_MPRAGE.nii.gz    5.691964
-    172  sub-03_session-10_space-MNI_104_sub-03b_deidentified_SAG_T1_MPRAGE_POST.nii.gz    5.691964
-    37         sub-02_session-07_space-MNI_101_sub-02_deidentified_SAG_T1_MPRAGE.nii.gz    5.691964
 
-Worst predictions
------------------
-    base_name   prediction
-    300   sub-05_session-08_space-MNI_028_sub-05_deidentified_SAG_T1_MPRAGE_Post.nii.gz  5909.728027
-    267   sub-05_session-03_space-MNI_019_sub-05_deidentified_SAG_T1_MPRAGE_POST.nii.gz  5733.496582
-    417   sub-07_session-04_space-MNI_019_sub-07_deidentified_SAG_T1_MPRAGE_POST.nii.gz  5650.557617
-    307  sub-05_session-08_space-MNI_103_sub-05_deidentified_SAG_T1_MPRAGE_Post_.nii.gz  5624.368164
-    421   sub-07_session-05_space-MNI_021_sub-07_deidentified_SAG_T1_MPRAGE_POST.nii.gz  5586.624023
+Gadolinium enhanced
+-------------------
 
-Best predictions by subject
----------------------------
+### Best predictions
+                                                                               base_name       error
+          sub-03_session-06_space-MNI_101_sub-03b_deidentified_SAG_T1_MPRAGE_0919.nii.gz    1.919110
+               sub-03_session-09_space-MNI_100_sub-03b_deidentified_SAG_T1_MPRAGE.nii.gz    1.919129
+    s ub-03_session-06_space-MNI_102_sub-03b_deidentified_SAG_T1_MPRAGE_Post_0919.nii.gz    1.919129
+          sub-03_session-09_space-MNI_103_sub-03b_deidentified_SAG_T1_MPRAGE_Post.nii.gz    1.919129
+               sub-03_session-09_space-MNI_101_sub-03b_deidentified_SAG_T1_MPRAGE.nii.gz    1.919129
+
+### Worst predictions
+                                                                         base_name         error
+         sub-04_session-03_space-MNI_024_sub-04a_deidentified_MPRAGE_SAG_GD.nii.gz    848.416992
+          sub-02_session-00_space-MNI_103_sub-02_deidentified_MPRAGE_SAG_GD.nii.gz    830.719238
+          sub-02_session-04_space-MNI_022_sub-02_deidentified_MPRAGE_SAG_GD.nii.gz    829.751465
+     sub-02_session-05_space-MNI_018_sub-02_deidentified_SAG_T1_MPRAGE_post.nii.gz    825.035522
+     sub-05_session-10_space-MNI_024_sub-05_deidentified_SAG_T1_MPRAGE_Post.nii.gz    778.190552
+
+### Best predictions by subject
+
     sub-01
-                                                                                   base_name  prediction
-    0  sub-01_session-00_space-MNI_002_sub-01_deidentified_18_PEDI_BRAIN_MPRage_SAGIT.nii.gz  494.939178
-    1  sub-01_session-01_space-MNI_002_sub-01_deidentified_16_PEDI_BRAIN_MPRage_SAGIT.nii.gz  673.912231
+                                                                                   base_name        error
+       sub-01_session-00_space-MNI_002_sub-01_deidentified_18_PEDI_BRAIN_MPRage_SAGIT.nii.gz    60.329544
+       sub-01_session-01_space-MNI_002_sub-01_deidentified_16_PEDI_BRAIN_MPRage_SAGIT.nii.gz    86.094208
     
     sub-02
-                                                                       base_name   prediction
-    35  sub-02_session-07_space-MNI_100_sub-02_deidentified_SAG_T1_MPRAGE.nii.gz     5.691964
-    37  sub-02_session-07_space-MNI_101_sub-02_deidentified_SAG_T1_MPRAGE.nii.gz     5.691964
-    28  sub-02_session-06_space-MNI_100_sub-02_deidentified_SAG_T1_MPRAGE.nii.gz  1842.734131
-    26  sub-02_session-06_space-MNI_002_sub-02_deidentified_SAG_T1_MPRAGE.nii.gz  1898.167236
-    29  sub-02_session-06_space-MNI_101_sub-02_deidentified_SAG_T1_MPRAGE.nii.gz  1909.547852
+                                                                       base_name         error
+        sub-02_session-07_space-MNI_101_sub-02_deidentified_SAG_T1_MPRAGE.nii.gz     14.080871
+        sub-02_session-07_space-MNI_100_sub-02_deidentified_SAG_T1_MPRAGE.nii.gz     14.080871
+        sub-02_session-06_space-MNI_002_sub-02_deidentified_SAG_T1_MPRAGE.nii.gz    270.513275
+        sub-02_session-06_space-MNI_101_sub-02_deidentified_SAG_T1_MPRAGE.nii.gz    270.878662
+        sub-02_session-06_space-MNI_100_sub-02_deidentified_SAG_T1_MPRAGE.nii.gz    274.747833
     
     sub-03
-                                                                              base_name  prediction
-    174  sub-03_session-10_space-MNI_105_sub-03b_deidentified_SAG_T1_MPRAGE_POST.nii.gz    5.691964
-    172  sub-03_session-10_space-MNI_104_sub-03b_deidentified_SAG_T1_MPRAGE_POST.nii.gz    5.691964
-    170  sub-03_session-10_space-MNI_102_sub-03b_deidentified_SAG_T1_MPRAGE_POST.nii.gz    5.691964
-    168       sub-03_session-10_space-MNI_101_sub-03b_deidentified_SAG_T1_MPRAGE.nii.gz    5.691964
-    166       sub-03_session-10_space-MNI_100_sub-03b_deidentified_SAG_T1_MPRAGE.nii.gz    5.691964
+                                                                                   base_name       error
+              sub-03_session-06_space-MNI_101_sub-03b_deidentified_SAG_T1_MPRAGE_0919.nii.gz    1.919110
+              sub-03_session-10_space-MNI_106_sub-03b_deidentified_SAG_T1_MPRAGE_POST.nii.gz    1.919129
+                   sub-03_session-09_space-MNI_100_sub-03b_deidentified_SAG_T1_MPRAGE.nii.gz    1.919129
+         sub-03_session-06_space-MNI_102_sub-03b_deidentified_SAG_T1_MPRAGE_Post_0919.nii.gz    1.919129
+                   sub-03_session-09_space-MNI_101_sub-03b_deidentified_SAG_T1_MPRAGE.nii.gz    1.919129
     
     sub-04
-                                                                               base_name   prediction
-    220           sub-04_session-04_space-MNI_101_sub-04a_deidentified_MPRAGE_SAG.nii.gz  2659.256836
-    214  sub-04_session-05_space-MNI_101_sub-04a_deidentified_T1_FLASH_MPRAGE_SAG.nii.gz  2768.128418
-    219           sub-04_session-04_space-MNI_100_sub-04a_deidentified_MPRAGE_SAG.nii.gz  2782.668457
-    213  sub-04_session-05_space-MNI_100_sub-04a_deidentified_T1_FLASH_MPRAGE_SAG.nii.gz  2817.442383
-    217           sub-04_session-04_space-MNI_002_sub-04a_deidentified_MPRAGE_SAG.nii.gz  2905.222656
+                                                                         base_name         error
+            sub-04_session-01_space-MNI_100_sub-04a_deidentified_MPRAGE_SAG.nii.gz    430.925140
+            sub-04_session-04_space-MNI_100_sub-04a_deidentified_MPRAGE_SAG.nii.gz    443.140533
+            sub-04_session-02_space-MNI_100_sub-04a_deidentified_MPRAGE_SAG.nii.gz    467.221069
+         sub-04_session-01_space-MNI_100_sub-04b_deidentified_SAG_T1_MPRAGE.nii.gz    471.476257
+         sub-04_session-01_space-MNI_004_sub-04b_deidentified_SAG_T1_MPRAGE.nii.gz    474.170837
     
     sub-05
-                                                                             base_name  prediction
-    308  sub-05_session-08_space-MNI_103_sub-05_deidentified_SAG_T1_MPRAGE_Post.nii.gz    5.691964
-    306  sub-05_session-08_space-MNI_102_sub-05_deidentified_SAG_T1_MPRAGE_Post.nii.gz    5.691964
-    304       sub-05_session-08_space-MNI_101_sub-05_deidentified_SAG_T1_MPRAGE.nii.gz    5.691964
-    302       sub-05_session-08_space-MNI_100_sub-05_deidentified_SAG_T1_MPRAGE.nii.gz    5.691964
-    298  sub-05_session-07_space-MNI_103_sub-05_deidentified_SAG_T1_MPRAGE_POST.nii.gz    5.691964
+                                                                             base_name       error
+              sub-05_session-07_space-MNI_101_sub-05_deidentified_SAG_T1_MPRAGE.nii.gz    2.919129
+              sub-05_session-07_space-MNI_100_sub-05_deidentified_SAG_T1_MPRAGE.nii.gz    2.919129
+         sub-05_session-07_space-MNI_103_sub-05_deidentified_SAG_T1_MPRAGE_POST.nii.gz    2.919129
+         sub-05_session-07_space-MNI_102_sub-05_deidentified_SAG_T1_MPRAGE_POST.nii.gz    2.919129
+         sub-05_session-08_space-MNI_103_sub-05_deidentified_SAG_T1_MPRAGE_Post.nii.gz    2.919129
     
     sub-06
-                                                                              base_name  prediction
-    377  sub-06_session-09_space-MNI_103_sub-06b_deidentified_SAG_T1_MPRAGE_Post.nii.gz    5.691964
-    375  sub-06_session-09_space-MNI_102_sub-06b_deidentified_SAG_T1_MPRAGE_Post.nii.gz    5.691964
-    373       sub-06_session-09_space-MNI_101_sub-06b_deidentified_SAG_T1_MPRAGE.nii.gz    5.691964
-    371       sub-06_session-09_space-MNI_100_sub-06b_deidentified_SAG_T1_MPRAGE.nii.gz    5.691964
-    367       sub-06_session-08_space-MNI_101_sub-06b_deidentified_SAG_T1_MPRAGE.nii.gz    5.691964
+                                                                              base_name       error
+              sub-06_session-08_space-MNI_100_sub-06b_deidentified_SAG_T1_MPRAGE.nii.gz    3.919129
+              sub-06_session-09_space-MNI_100_sub-06b_deidentified_SAG_T1_MPRAGE.nii.gz    3.919129
+              sub-06_session-09_space-MNI_101_sub-06b_deidentified_SAG_T1_MPRAGE.nii.gz    3.919129
+         sub-06_session-09_space-MNI_102_sub-06b_deidentified_SAG_T1_MPRAGE_Post.nii.gz    3.919129
+         sub-06_session-09_space-MNI_103_sub-06b_deidentified_SAG_T1_MPRAGE_Post.nii.gz    3.919129
     
     sub-07
-                                                                             base_name  prediction
-    450       sub-07_session-08_space-MNI_101_sub-07_deidentified_SAG_T1_MPRAGE.nii.gz    5.691964
-    448       sub-07_session-08_space-MNI_100_sub-07_deidentified_SAG_T1_MPRAGE.nii.gz    5.691964
-    445  sub-07_session-07_space-MNI_103_sub-07_deidentified_SAG_T1_MPRAGE_POST.nii.gz    5.691964
-    443  sub-07_session-07_space-MNI_102_sub-07_deidentified_SAG_T1_MPRAGE_POST.nii.gz    5.691964
-    441       sub-07_session-07_space-MNI_101_sub-07_deidentified_SAG_T1_MPRAGE.nii.gz    5.691964
+                                                                             base_name       error
+              sub-07_session-03_space-MNI_101_sub-07_deidentified_SAG_T1_MPRAGE.nii.gz    8.080871
+              sub-07_session-06_space-MNI_100_sub-07_deidentified_SAG_T1_MPRAGE.nii.gz    9.080871
+              sub-07_session-06_space-MNI_101_sub-07_deidentified_SAG_T1_MPRAGE.nii.gz    9.080871
+         sub-07_session-06_space-MNI_102_sub-07_deidentified_SAG_T1_MPRAGE_POST.nii.gz    9.080871
+         sub-07_session-06_space-MNI_103_sub-07_deidentified_SAG_T1_MPRAGE_POST.nii.gz    9.080871
 
-Worst predictions by subject
-----------------------------
+### Worst predictions by subject
+
     sub-01
-                                                                                   base_name  prediction
-    1  sub-01_session-01_space-MNI_002_sub-01_deidentified_16_PEDI_BRAIN_MPRage_SAGIT.nii.gz  673.912231
-    0  sub-01_session-00_space-MNI_002_sub-01_deidentified_18_PEDI_BRAIN_MPRage_SAGIT.nii.gz  494.939178
+                                                                                   base_name        error
+       sub-01_session-01_space-MNI_002_sub-01_deidentified_16_PEDI_BRAIN_MPRage_SAGIT.nii.gz    86.094208
+       sub-01_session-00_space-MNI_002_sub-01_deidentified_18_PEDI_BRAIN_MPRage_SAGIT.nii.gz    60.329544
     
     sub-02
-                                                                            base_name   prediction
-    21  sub-02_session-05_space-MNI_018_sub-02_deidentified_SAG_T1_MPRAGE_post.nii.gz  5584.492188
-    42  sub-02_session-09_space-MNI_023_sub-02_deidentified_SAG_T1_MPRAGE_Post.nii.gz  5503.115234
-    45  sub-02_session-09_space-MNI_106_sub-02_deidentified_SAG_T1_MPRAGE_Post.nii.gz  5382.111328
-    25  sub-02_session-05_space-MNI_103_sub-02_deidentified_SAG_T1_MPRAGE_post.nii.gz  5357.145996
-    44  sub-02_session-09_space-MNI_104_sub-02_deidentified_SAG_T1_MPRAGE_Post.nii.gz  5323.417480
+                                                                            base_name         error
+             sub-02_session-00_space-MNI_103_sub-02_deidentified_MPRAGE_SAG_GD.nii.gz    830.719238
+             sub-02_session-04_space-MNI_022_sub-02_deidentified_MPRAGE_SAG_GD.nii.gz    829.751465
+        sub-02_session-05_space-MNI_018_sub-02_deidentified_SAG_T1_MPRAGE_post.nii.gz    825.035522
+        sub-02_session-05_space-MNI_103_sub-02_deidentified_SAG_T1_MPRAGE_post.nii.gz    766.786133
+             sub-02_session-04_space-MNI_102_sub-02_deidentified_MPRAGE_SAG_GD.nii.gz    703.474365
     
     sub-03
-                                                                              base_name   prediction
-    202  sub-03_session-06_space-MNI_024_sub-03b_deidentified_SAG_T1_MPRAGE_Post.nii.gz  4773.288086
-    209  sub-03_session-06_space-MNI_103_sub-03b_deidentified_SAG_T1_MPRAGE_Post.nii.gz  4723.563965
-    207  sub-03_session-06_space-MNI_102_sub-03b_deidentified_SAG_T1_MPRAGE_Post.nii.gz  4717.529785
-    178  sub-03_session-09_space-MNI_025_sub-03b_deidentified_SAG_T1_MPRAGE_Post.nii.gz  4615.424316
-    196  sub-03_session-07_space-MNI_024_sub-03b_deidentified_SAG_T1_MPRAGE_Post.nii.gz  4504.121094
+                                                                                  base_name         error
+         sub-03_session-01_space-MNI_022_sub-03a_deidentified_T1_FLASH_MPRAGE_SAG_+C.nii.gz    741.636536
+         sub-03_session-03_space-MNI_023_sub-03a_deidentified_T1_FLASH_MPRAGE_SAG_+C.nii.gz    728.924683
+             sub-03_session-05_space-MNI_103_sub-03b_deidentified_SAG_T1_MPRAGE_post.nii.gz    718.844360
+         sub-03_session-01_space-MNI_102_sub-03a_deidentified_T1_FLASH_MPRAGE_SAG_+C.nii.gz    714.656616
+             sub-03_session-05_space-MNI_017_sub-03b_deidentified_SAG_T1_MPRAGE_post.nii.gz    711.849609
     
     sub-04
-                                                                              base_name   prediction
-    243  sub-04_session-01_space-MNI_022_sub-04b_deidentified_SAG_T1_MPRAGE_POST.nii.gz  5540.272949
-    247  sub-04_session-01_space-MNI_103_sub-04b_deidentified_SAG_T1_MPRAGE_POST.nii.gz  5528.761719
-    246  sub-04_session-01_space-MNI_102_sub-04b_deidentified_SAG_T1_MPRAGE_POST.nii.gz  5433.504883
-    236       sub-04_session-01_space-MNI_023_sub-04a_deidentified_MPRAGE_SAG_GD.nii.gz  4306.709473
-    224       sub-04_session-03_space-MNI_024_sub-04a_deidentified_MPRAGE_SAG_GD.nii.gz  4269.058105
+                                                                                  base_name         error
+                  sub-04_session-03_space-MNI_024_sub-04a_deidentified_MPRAGE_SAG_GD.nii.gz    848.416992
+                  sub-04_session-03_space-MNI_103_sub-04a_deidentified_MPRAGE_SAG_GD.nii.gz    778.080811
+         sub-04_session-05_space-MNI_022_sub-04a_deidentified_T1_FLASH_MPRAGE_SAG_+C.nii.gz    750.710815
+         sub-04_session-00_space-MNI_103_sub-04a_deidentified_T1_FLASH_MPRAGE_SAG_+C.nii.gz    743.387085
+                  sub-04_session-04_space-MNI_024_sub-04a_deidentified_MPRAGE_SAG_GD.nii.gz    699.599426
     
     sub-05
-                                                                              base_name   prediction
-    300   sub-05_session-08_space-MNI_028_sub-05_deidentified_SAG_T1_MPRAGE_Post.nii.gz  5909.728027
-    267   sub-05_session-03_space-MNI_019_sub-05_deidentified_SAG_T1_MPRAGE_POST.nii.gz  5733.496582
-    307  sub-05_session-08_space-MNI_103_sub-05_deidentified_SAG_T1_MPRAGE_Post_.nii.gz  5624.368164
-    305  sub-05_session-08_space-MNI_102_sub-05_deidentified_SAG_T1_MPRAGE_Post_.nii.gz  5585.828125
-    271   sub-05_session-03_space-MNI_103_sub-05_deidentified_SAG_T1_MPRAGE_POST.nii.gz  5424.405273
+                                                                             base_name         error
+         sub-05_session-10_space-MNI_024_sub-05_deidentified_SAG_T1_MPRAGE_Post.nii.gz    778.190552
+         sub-05_session-10_space-MNI_103_sub-05_deidentified_SAG_T1_MPRAGE_Post.nii.gz    769.078674
+         sub-05_session-10_space-MNI_102_sub-05_deidentified_SAG_T1_MPRAGE_Post.nii.gz    736.371521
+         sub-05_session-03_space-MNI_103_sub-05_deidentified_SAG_T1_MPRAGE_POST.nii.gz    709.248779
+              sub-05_session-00_space-MNI_103_sub-05_deidentified_MPRAGE_SAG_GD.nii.gz    707.888184
     
     sub-06
-                                                                              base_name   prediction
-    353  sub-06_session-05_space-MNI_025_sub-06a_deidentified_SAG_T1_MPRAGE_POST.nii.gz  5462.104492
-    355  sub-06_session-05_space-MNI_103_sub-06a_deidentified_SAG_T1_MPRAGE_POST.nii.gz  5432.138184
-    354  sub-06_session-05_space-MNI_102_sub-06a_deidentified_SAG_T1_MPRAGE_POST.nii.gz  5377.688965
-    351  sub-06_session-04_space-MNI_103_sub-06a_deidentified_SAG_T1_MPRAGE_POST.nii.gz  5243.200684
-    369  sub-06_session-09_space-MNI_029_sub-06b_deidentified_SAG_T1_MPRAGE_Post.nii.gz  5242.606934
+                                                                                  base_name         error
+         sub-06_session-06_space-MNI_103_sub-06a_deidentified_T1_FLASH_MPRAGE_SAG_+C.nii.gz    682.227783
+                  sub-06_session-01_space-MNI_104_sub-06a_deidentified_MPRAGE_SAG_GD.nii.gz    676.752197
+             sub-06_session-05_space-MNI_103_sub-06a_deidentified_SAG_T1_MPRAGE_POST.nii.gz    674.536133
+             sub-06_session-05_space-MNI_025_sub-06a_deidentified_SAG_T1_MPRAGE_POST.nii.gz    673.441528
+         sub-06_session-06_space-MNI_023_sub-06a_deidentified_T1_FLASH_MPRAGE_SAG_+C.nii.gz    662.486694
     
     sub-07
-                                                                             base_name   prediction
-    417  sub-07_session-04_space-MNI_019_sub-07_deidentified_SAG_T1_MPRAGE_POST.nii.gz  5650.557617
-    421  sub-07_session-05_space-MNI_021_sub-07_deidentified_SAG_T1_MPRAGE_POST.nii.gz  5586.624023
-    425  sub-07_session-05_space-MNI_103_sub-07_deidentified_SAG_T1_MPRAGE_POST.nii.gz  5560.419922
-    397  sub-07_session-01_space-MNI_019_sub-07_deidentified_SAG_T1_MPRAGE_POST.nii.gz  5479.439941
-    403  sub-07_session-01_space-MNI_106_sub-07_deidentified_SAG_T1_MPRAGE_POST.nii.gz  5462.051270
+                                                                              base_name         error
+          sub-07_session-01_space-MNI_106_sub-07_deidentified_SAG_T1_MPRAGE_POST.nii.gz    692.586792
+          sub-07_session-01_space-MNI_104_sub-07_deidentified_SAG_T1_MPRAGE_POST.nii.gz    686.953491
+          sub-07_session-01_space-MNI_019_sub-07_deidentified_SAG_T1_MPRAGE_POST.nii.gz    686.619751
+         sub-07_session-06_space-MNI_103_sub-07_deidentified_SAG_T1_MPRAGE_POST_.nii.gz    626.694519
+          sub-07_session-06_space-MNI_019_sub-07_deidentified_SAG_T1_MPRAGE_POST.nii.gz    624.083496

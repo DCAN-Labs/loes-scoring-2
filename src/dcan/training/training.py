@@ -262,6 +262,7 @@ class LoesScoringTrainingApp:
             ))
 
             trn_metrics_t = self.do_training(epoch_ndx, train_dl)
+            log.debug(f'trn_metrics_t: {trn_metrics_t}')
             self.log_metrics(epoch_ndx, 'trn', trn_metrics_t)
 
             val_metrics_t = self.do_validation(epoch_ndx, val_dl)
@@ -314,6 +315,7 @@ class LoesScoringTrainingApp:
                 train_dl.batch_size,
                 trn_metrics_g
             )
+            log.debug(f'trn_metrics_g: {trn_metrics_g}')
 
             loss_var.backward()
             self.optimizer.step()
@@ -351,6 +353,7 @@ class LoesScoringTrainingApp:
         outputs_g = self.model(input_g)
 
         loss_func = nn.MSELoss(reduction='none')
+        log.debug(f'outputs_g[0].squeeze(1): {outputs_g[0].squeeze(1)}')
         loss_g = loss_func(
             outputs_g[0].squeeze(1),
             label_g,
@@ -377,6 +380,8 @@ class LoesScoringTrainingApp:
             type(self).__name__,
         ))
 
+        log.info(f'metrics_t[METRICS_LOSS_NDX].mean(): {metrics_t[METRICS_LOSS_NDX].mean()}')
+        log.info(f'metrics_t[METRICS_LOSS_NDX].mean(): {metrics_t[METRICS_LOSS_NDX]}')
         metrics_dict = {'loss/all': metrics_t[METRICS_LOSS_NDX].mean()}
 
         log.info(

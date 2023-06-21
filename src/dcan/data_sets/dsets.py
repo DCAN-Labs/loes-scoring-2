@@ -5,7 +5,8 @@ import logging
 import os
 import random
 from dataclasses import dataclass, field
-from datetime import datetime
+import math
+import tensorflow as tf
 
 import torch
 import torchio as tio
@@ -29,7 +30,6 @@ class CandidateInfoTuple:
     subject_str: str
     session_str: str
     file_path: str
-    session_date: datetime
     augmentation_index: int = None
     sort_index: float = field(init=False, repr=False)
 
@@ -65,8 +65,13 @@ def get_uid(p):
 def get_candidate_info_list(scores_csv, include_gd_only=False):
     candidate_info_list = []
     with open(scores_csv, "r") as f:
-        for row in list(csv.reader(f))[1:]:
-            is_gd = int(row[1])
+        reader = csv.reader(f)
+        rows = list(reader)
+        headings = rows[0]
+        gad_index = headings.index('GAD (Mil=1, Moderate=2, Severe=3, No contrast=4)')
+        for row in rows[1:]:
+            gad = round(float(row[gad_index]))
+            is_gd = gad != 4
             if not include_gd_only and not is_gd:
                 append_candidate(candidate_info_list, row)
             elif include_gd_only and is_gd:
@@ -78,21 +83,17 @@ def get_candidate_info_list(scores_csv, include_gd_only=False):
 
 
 def append_candidate(candidate_info_list, row):
-    file_path = row[0]
-    ses_pos = file_path.find('ses-')
-    date_str = file_path[ses_pos + 4:ses_pos + 12]
-    session_date = datetime.strptime(date_str, '%Y%m%d')
-    loes_score_float = float(row[2])
+    file_path = row[43]
+    loes_score_float = float(row[35])
     sub_start_pos = file_path.find('sub-')
-    subject_session_uid = file_path[sub_start_pos:sub_start_pos + 25]
+    subject_session_uid = file_path[sub_start_pos:sub_start_pos + 17]
     subject_str, session_str = subject_session_uid.split('_')
     candidate_info_list.append(CandidateInfoTuple(
         loes_score_float,
         subject_session_uid,
         subject_str,
         session_str,
-        file_path,
-        session_date
+        file_path
     ))
 
 
@@ -149,6 +150,10 @@ def get_loes_score_mris(candidate_info, is_val_set_bool):
 def get_mri_raw_candidate(subject_session_uid, is_val_set_bool):
     loes_score_mris = get_loes_score_mris(subject_session_uid, is_val_set_bool)
     mprage_image_tensor = loes_score_mris.get_raw_candidate()
+    try:
+        tf.debugging.check_numerics(b, message='Checking b')
+    except Exception as e:
+        assert "Checking mprage_image_tensor : Tensor had NaN values" in e.message
 
     return mprage_image_tensor
 
