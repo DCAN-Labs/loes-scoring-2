@@ -3,9 +3,9 @@
 #SBATCH --job-name=loes-scoring-512 # job name
 
 #SBATCH --mem=180g        # memory per cpu-core (what is the default?)
-#SBATCH --time=08:00:00          # total run time limit (HH:MM:SS)
-#SBATCH -p v100
-#SBATCH --gres=gpu:v100:2
+#SBATCH --time=01:00:00          # total run time limit (HH:MM:SS)
+#SBATCH -p a100-4
+#SBATCH --gres=gpu:a100:2
 #SBATCH --ntasks=6               # total number of tasks across all nodes
 
 #SBATCH --mail-type=begin        # send 7mail when job begins

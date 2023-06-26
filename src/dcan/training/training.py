@@ -23,7 +23,7 @@ from util.util import enumerateWithEstimate
 log = logging.getLogger(__name__)
 # log.setLevel(logging.WARN)
 log.setLevel(logging.INFO)
-log.setLevel(logging.DEBUG)
+# log.setLevel(logging.DEBUG)
 
 # Used for computeBatchLoss and logMetrics to index into metrics_t/metrics_a
 METRICS_LABEL_NDX = 0
@@ -289,8 +289,11 @@ class LoesScoringTrainingApp:
 
         result = compute_pearson_correlation_coefficient(output_distributions)
 
+        # noinspection PyUnresolvedReferences
         log.info(f"correlation:    {result.rvalue}")
+        # noinspection PyUnresolvedReferences
         log.info(f"p-value:        {result.pvalue}")
+        # noinspection PyUnresolvedReferences
         log.info(f"standard error: {result.stderr}")
 
     def do_training(self, epoch_ndx, train_dl):
