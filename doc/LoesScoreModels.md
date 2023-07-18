@@ -6,7 +6,7 @@
 * standard error: 0.08727123644407582
 * SLURM script: *../src/dcan/training/loes-scoring-training_model03_mesabi.sh*
 * Model: */home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_03_128.pt*
-* Epochs: 128
+* Epochs: 128 (256 epochs overfits)
 * batch-size: 5
 * Files: Chosen irrespective of Gd enhancement
   * Igor's files: all (169 files)
