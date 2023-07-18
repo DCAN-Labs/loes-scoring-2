@@ -1,3 +1,17 @@
+# Model 3
+* Standardized RMSE: 0.5279896961137827
+![Model 3](./img/loes_scoring_03_128.png "Model 3")
+* correlation:    0.8928845104482298
+* p-value:        5.214448809117684e-08
+* standard error: 0.08727123644407582
+* SLURM script: *../src/dcan/training/loes-scoring-training_model03_mesabi.sh*
+* Model: */home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_03_128.pt*
+* Epochs: 128
+* batch-size: 5
+* Files: Chosen irrespective of Gd enhancement
+  * Igor's files: all (169 files)
+  * Nascene's files: only those with QC of 1 (36 files)
+
 # Model 1
 * Standardized RMSE: 1.2942855794648784
 ![Model 1](./img/model02_512.png "Model 0")
