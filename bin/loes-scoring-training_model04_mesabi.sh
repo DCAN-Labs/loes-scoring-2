@@ -20,8 +20,8 @@ cd /home/miran045/reine097/projects/loes-scoring-2/src/dcan/training || exit
 export PYTHONPATH=PYTHONPATH:"/home/miran045/reine097/projects/loes-scoring-2/src"
 /home/miran045/reine097/projects/AlexNet_Abrol2021/venv/bin/python \
   /home/miran045/reine097/projects/loes-scoring-2/src/dcan/training/training.py \
-  --csv-data-file "/home/miran045/reine097/projects/loes-scoring-2/data/all_loes_score_data.csv" \
+  --csv-data-file "/home/miran045/reine097/projects/loes-scoring-2/data/all_loes_score_data_qc_1_2.csv" \
   --anatomical-region all --batch-size 5 --num-workers 1 --epochs 256 \
-  --model-save-location "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_03_128.pt" \
-  --plot-location "/home/miran045/reine097/projects/loes-scoring-2/doc/img/loes_scoring_03_256.png" \
+  --model-save-location "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_04.pt" \
+  --plot-location "/home/miran045/reine097/projects/loes-scoring-2/doc/img/loes_scoring_04.png" \
   --file-path-column-index 0 --loes-score-column-index 3

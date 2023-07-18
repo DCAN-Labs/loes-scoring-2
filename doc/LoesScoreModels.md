@@ -12,6 +12,20 @@
   * Igor's files: all (169 files)
   * Nascene's files: only those with QC of 1 (36 files)
 
+# Model 4
+* Standardized RMSE: 1.0055314462612834
+![Model 4](./img/loes_scoring_04.png "Model 4")
+* correlation:    0.7923266209658204
+* p-value:        1.4078355863453417e-06
+* standard error: 1.4078355863453417e-06
+* SLURM script: *../src/dcan/training/loes-scoring-training_model04_mesabi.sh*
+* Model: */home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_04.pt*
+* Epochs: 128
+* batch-size: 5
+* Files: Chosen irrespective of Gd enhancement
+  * Igor's files: all (169 files)
+  * Nascene's files: only those with QC of 1 or 2 (85 files)
+
 # Model 1
 * Standardized RMSE: 1.2942855794648784
 ![Model 1](./img/model02_512.png "Model 0")
