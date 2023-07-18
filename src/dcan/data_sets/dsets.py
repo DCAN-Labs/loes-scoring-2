@@ -26,15 +26,12 @@ raw_cache = getCache('dcan_loes_score')
 class CandidateInfoTuple:
     """Class for keeping track subject/session info."""
     loes_score_float: float
-    subject_session_uid: str
-    subject_str: str
-    session_str: str
     file_path: str
     augmentation_index: int = None
     sort_index: float = field(init=False, repr=False)
 
     def __hash__(self):
-        return hash(self.subject_session_uid)
+        return hash(self.file_path)
 
     @property
     def subject(self) -> str:
@@ -62,37 +59,34 @@ def get_uid(p):
 
 
 @functools.lru_cache(1)
-def get_candidate_info_list(scores_csv, include_gd_only=False):
+def get_candidate_info_list(scores_csv, file_path_row_index, loes_score_row_index, include_gd_only=False, include_all=True):
     candidate_info_list = []
     with open(scores_csv, "r") as f:
         reader = csv.reader(f)
         rows = list(reader)
         headings = rows[0]
-        gad_index = headings.index('GAD (Mil=1, Moderate=2, Severe=3, No contrast=4)')
         for row in rows[1:]:
-            gad = round(float(row[gad_index]))
-            is_gd = gad != 4
-            if not include_gd_only and not is_gd:
-                append_candidate(candidate_info_list, row)
-            elif include_gd_only and is_gd:
-                append_candidate(candidate_info_list, row)
+            if include_all:
+                append_candidate(candidate_info_list, row, file_path_row_index, loes_score_row_index)
+            else:
+                gad_index = headings.index('GAD (Mil=1, Moderate=2, Severe=3, No contrast=4)')
+                gad = round(float(row[gad_index]))
+                is_gd = gad != 4
+                if not include_gd_only and not is_gd:
+                    append_candidate(candidate_info_list, row)
+                elif include_gd_only and is_gd:
+                    append_candidate(candidate_info_list, row)
 
     candidate_info_list.sort(reverse=True)
 
     return candidate_info_list
 
 
-def append_candidate(candidate_info_list, row):
-    file_path = row[43]
-    loes_score_float = float(row[35])
-    sub_start_pos = file_path.find('sub-')
-    subject_session_uid = file_path[sub_start_pos:sub_start_pos + 17]
-    subject_str, session_str = subject_session_uid.split('_')
+def append_candidate(candidate_info_list, row, file_path_row_index, loes_score_row_index):
+    file_path = row[file_path_row_index]
+    loes_score_float = float(row[loes_score_row_index])
     candidate_info_list.append(CandidateInfoTuple(
         loes_score_float,
-        subject_session_uid,
-        subject_str,
-        session_str,
         file_path
     ))
 
@@ -150,17 +144,13 @@ def get_loes_score_mris(candidate_info, is_val_set_bool):
 def get_mri_raw_candidate(subject_session_uid, is_val_set_bool):
     loes_score_mris = get_loes_score_mris(subject_session_uid, is_val_set_bool)
     mprage_image_tensor = loes_score_mris.get_raw_candidate()
-    try:
-        tf.debugging.check_numerics(b, message='Checking b')
-    except Exception as e:
-        assert "Checking mprage_image_tensor : Tensor had NaN values" in e.message
 
     return mprage_image_tensor
 
 
 class LoesScoreDataset(Dataset):
     def __init__(self,
-                 cvs_data_file,
+                 cvs_data_file, file_path_row_index, loes_score_row_index,
                  val_stride=0,
                  is_val_set_bool=None,
                  subject=None,
@@ -168,7 +158,7 @@ class LoesScoreDataset(Dataset):
                  use_gd_only=False
                  ):
         self.is_val_set_bool = is_val_set_bool
-        self.candidateInfo_list = copy.copy(get_candidate_info_list(cvs_data_file, use_gd_only))
+        self.candidateInfo_list = copy.copy(get_candidate_info_list(cvs_data_file, file_path_row_index, loes_score_row_index, use_gd_only))
 
         if subject:
             self.candidateInfo_list = [

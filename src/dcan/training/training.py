@@ -85,6 +85,14 @@ class LoesScoringTrainingApp:
                                  default=0,
                                  type=int,
                                  )
+        self.parser.add_argument('--file-path-column-index',
+                                 help='The index of the file path in the CSV file',
+                                 type=int,
+                                 )
+        self.parser.add_argument('--loes-score-column-index',
+                                 help='The index of the Loes score in the CSV file',
+                                 type=int,
+                                 )
         self.time_str = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
         self.parser.add_argument('--model-save-location',
                                  help='Location to save models',
@@ -136,7 +144,7 @@ class LoesScoringTrainingApp:
 
     def init_train_dl(self, csv_data_file):
         train_ds = LoesScoreDataset(
-            csv_data_file,
+            csv_data_file, self.cli_args.file_path_column_index, self.cli_args.loes_score_column_index,
             use_gd_only=self.cli_args.use_gd_only,
             val_stride=10,
             is_val_set_bool=False,
@@ -157,7 +165,7 @@ class LoesScoringTrainingApp:
 
     def init_val_dl(self, csv_data_file):
         val_ds = LoesScoreDataset(
-            csv_data_file,
+            csv_data_file, self.cli_args.file_path_column_index, self.cli_args.loes_score_column_index,
             use_gd_only=self.cli_args.use_gd_only,
             val_stride=10,
             is_val_set_bool=True,

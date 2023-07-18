@@ -21,6 +21,7 @@ export PYTHONPATH=PYTHONPATH:"/home/miran045/reine097/projects/loes-scoring-2/sr
 /home/miran045/reine097/projects/AlexNet_Abrol2021/venv/bin/python \
   /home/miran045/reine097/projects/loes-scoring-2/src/dcan/training/training.py \
   --csv-data-file "/home/miran045/reine097/projects/loes-scoring-2/data/MNI-space_Loes_data.csv" \
-  --anatomical-region all --batch-size 1 --num-workers 1 --epochs 512 \
-  --model-save-location "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_02_512.pt" --use-gd-only 1 \
-  --plot-location "/home/miran045/reine097/projects/loes-scoring-2/doc/img/model02_512.png"
+  --anatomical-region all --batch-size 5 --num-workers 1 --epochs 128 \
+  --model-save-location "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_02_512_2.pt" \
+  --plot-location "/home/miran045/reine097/projects/loes-scoring-2/doc/img/model02_512_2.png" \
+  --file-path-column-index 0 --loes-score-column-index 2
