@@ -1,15 +1,12 @@
 import copy
-import csv
 import functools
 import logging
 import os
 import random
-from dataclasses import dataclass, field
-import math
-import tensorflow as tf
 
 import torch
 import torchio as tio
+from dataclasses import dataclass, field
 from torch.utils.data import Dataset
 
 from util.disk import getCache
@@ -27,6 +24,8 @@ class CandidateInfoTuple:
     """Class for keeping track subject/session info."""
     loes_score_float: float
     file_path: str
+    subject_str: str
+    session_str: str
     augmentation_index: int = None
     sort_index: float = field(init=False, repr=False)
 
@@ -58,36 +57,31 @@ def get_uid(p):
     return f'{get_subject(p)}_{get_session(p)}'
 
 
-@functools.lru_cache(1)
-def get_candidate_info_list(scores_csv, file_path_row_index, loes_score_row_index, include_gd_only=False, include_all=True):
+def get_candidate_info_list(df, candidates):
+    # TODO Add filter for Gad
     candidate_info_list = []
-    with open(scores_csv, "r") as f:
-        reader = csv.reader(f)
-        rows = list(reader)
-        headings = rows[0]
-        for row in rows[1:]:
-            if include_all:
-                append_candidate(candidate_info_list, row, file_path_row_index, loes_score_row_index)
-            else:
-                gad_index = headings.index('GAD (Mil=1, Moderate=2, Severe=3, No contrast=4)')
-                gad = round(float(row[gad_index]))
-                is_gd = gad != 4
-                if not include_gd_only and not is_gd:
-                    append_candidate(candidate_info_list, row)
-                elif include_gd_only and is_gd:
-                    append_candidate(candidate_info_list, row)
+    df = df.reset_index()  # make sure indexes pair with number of rows
+
+    for index, row in df.iterrows():
+        candidate = row['subject']
+        if candidate in candidates:
+            append_candidate(candidate_info_list, row)
 
     candidate_info_list.sort(reverse=True)
 
     return candidate_info_list
 
 
-def append_candidate(candidate_info_list, row, file_path_row_index, loes_score_row_index):
-    file_path = row[file_path_row_index]
-    loes_score_float = float(row[loes_score_row_index])
+def append_candidate(candidate_info_list, row):
+    file_path = row['file']
+    loes_score_float = float(row['loes-score'])
+    subject_str = row['subject']
+    session_str = row['session']
     candidate_info_list.append(CandidateInfoTuple(
         loes_score_float,
-        file_path
+        file_path,
+        subject_str,
+        session_str
     ))
 
 
@@ -150,28 +144,19 @@ def get_mri_raw_candidate(subject_session_uid, is_val_set_bool):
 
 class LoesScoreDataset(Dataset):
     def __init__(self,
-                 cvs_data_file, file_path_row_index, loes_score_row_index,
-                 val_stride=0,
+                 subjects, df,
                  is_val_set_bool=None,
                  subject=None,
-                 sortby_str='random',
-                 use_gd_only=False
+                 sortby_str='random'
                  ):
         self.is_val_set_bool = is_val_set_bool
-        self.candidateInfo_list = copy.copy(get_candidate_info_list(cvs_data_file, file_path_row_index, loes_score_row_index, use_gd_only))
+        self.candidateInfo_list = \
+            copy.copy(get_candidate_info_list(df, subjects))
 
         if subject:
             self.candidateInfo_list = [
                 x for x in self.candidateInfo_list if x.subject_str == subject
             ]
-
-        if is_val_set_bool:
-            assert val_stride > 0, val_stride
-            self.candidateInfo_list = self.candidateInfo_list[::val_stride]
-            assert self.candidateInfo_list
-        elif val_stride > 0:
-            del self.candidateInfo_list[::val_stride]
-            assert self.candidateInfo_list
 
         if sortby_str == 'random':
             random.shuffle(self.candidateInfo_list)

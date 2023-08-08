@@ -2,9 +2,11 @@
 import argparse
 import datetime
 import os
+import random
 import statistics
 from math import sqrt
 
+import pandas as pd
 import scipy
 import scipy.stats
 import torch
@@ -13,7 +15,6 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from dcan.data.partial_loes_scores import get_partial_loes_scores
 from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.plot.create_scatterplot import create_scatterplot
 from reprex.models import AlexNet3D
@@ -43,6 +44,22 @@ def compute_pearson_correlation_coefficient(d):
     result = scipy.stats.linregress(xs, ys)
 
     return result
+
+
+def get_subject_from_file_name(file_name):
+    start_pos = file_name.find('sub')
+    end_pos = file_name.find('ses', start_pos) - 1
+    subject = file_name[start_pos:end_pos]
+
+    return subject
+
+
+def get_session_from_file_name(file_name):
+    start_pos = file_name.find('ses')
+    end_pos = file_name.find('_', start_pos)
+    session = file_name[start_pos:end_pos]
+
+    return session
 
 
 class LoesScoringTrainingApp:
@@ -115,9 +132,7 @@ class LoesScoringTrainingApp:
                                  default='dcan',
                                  )
         self.cli_args = self.parser.parse_args(sys_argv)
-        partial_scores_file_path = \
-            '/home/miran045/reine097/projects/loes-scoring-2/data/9_7 MRI sessions Igor Loes score updated.csv'
-        self.partial_loes_scores = get_partial_loes_scores(partial_scores_file_path)
+        self.df = pd.read_csv(self.cli_args.csv_data_file)
 
         self.trn_writer = None
         self.val_writer = None
@@ -128,6 +143,8 @@ class LoesScoringTrainingApp:
 
         self.model = self.init_model()
         self.optimizer = self.init_optimizer()
+        self.train_subjects = []
+        self.val_subjects = []
 
     def init_model(self):
         model = AlexNet3D(4608)
@@ -142,13 +159,11 @@ class LoesScoringTrainingApp:
         # return SGD(self.model.parameters(), lr=0.001, momentum=0.99)
         return Adam(self.model.parameters())
 
-    def init_train_dl(self, csv_data_file):
-        train_ds = LoesScoreDataset(
-            csv_data_file, self.cli_args.file_path_column_index, self.cli_args.loes_score_column_index,
-            use_gd_only=self.cli_args.use_gd_only,
-            val_stride=10,
-            is_val_set_bool=False,
-        )
+    def init_train_dl(self, df, train_subjects):
+        train_ds = LoesScoreDataset(train_subjects,
+                                    df,
+                                    is_val_set_bool=False,
+                                    )
 
         batch_size = self.cli_args.batch_size
         if self.use_cuda:
@@ -163,13 +178,11 @@ class LoesScoringTrainingApp:
 
         return train_dl
 
-    def init_val_dl(self, csv_data_file):
-        val_ds = LoesScoreDataset(
-            csv_data_file, self.cli_args.file_path_column_index, self.cli_args.loes_score_column_index,
-            use_gd_only=self.cli_args.use_gd_only,
-            val_stride=10,
-            is_val_set_bool=True,
-        )
+    def init_val_dl(self, df, val_subjects):
+        val_ds = LoesScoreDataset(val_subjects,
+                                  df,
+                                  is_val_set_bool=True,
+                                  )
 
         batch_size = self.cli_args.batch_size
         if self.use_cuda:
@@ -204,7 +217,7 @@ class LoesScoringTrainingApp:
 
     def get_standardized_rmse(self):
         with torch.no_grad():
-            val_dl = self.init_val_dl(self.cli_args.csv_data_file)
+            val_dl = self.init_val_dl(self.df, self.val_subjects)
             self.model.eval()
             batch_iter = enumerateWithEstimate(
                 val_dl,
@@ -230,7 +243,7 @@ class LoesScoringTrainingApp:
 
     def get_output_distributions(self):
         with torch.no_grad():
-            val_dl = self.init_val_dl(self.cli_args.csv_data_file)
+            val_dl = self.init_val_dl(self.df, self.val_subjects)
             self.model.eval()
             batch_iter = enumerateWithEstimate(
                 val_dl,
@@ -255,9 +268,22 @@ class LoesScoringTrainingApp:
 
     def main(self):
         log.info("Starting {}, {}".format(type(self).__name__, self.cli_args))
+        self.df['subject'] = self.df.apply(lambda row: get_subject_from_file_name(row['file']), axis=1)
 
-        train_dl = self.init_train_dl(self.cli_args.csv_data_file)
-        val_dl = self.init_val_dl(self.cli_args.csv_data_file)
+        self.df['session'] = self.df.apply(lambda row: get_session_from_file_name(row['file']), axis=1)
+
+        provenances = list(self.df.provenance.unique())
+        for provenance in provenances:
+            provenance_df = self.df.loc[self.df['provenance'] == provenance]
+            subjects = list(provenance_df.subject.unique())
+            train_size = round(len(subjects) * 0.8)
+            provenance_train_subjects = random.sample(subjects, train_size)
+            provenance_val_subjects = [subject for subject in subjects if subject not in provenance_train_subjects]
+            self.train_subjects.extend(provenance_train_subjects)
+            self.val_subjects.extend(provenance_val_subjects)
+
+        train_dl = self.init_train_dl(self.df, self.train_subjects)
+        val_dl = self.init_val_dl(self.df, self.val_subjects)
 
         for epoch_ndx in range(1, self.cli_args.epochs + 1):
             log.info("Epoch {} of {}, {}/{} batches of size {}*{}".format(
