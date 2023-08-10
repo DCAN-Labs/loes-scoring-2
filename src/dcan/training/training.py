@@ -79,9 +79,6 @@ class LoesScoringTrainingApp:
         self.parser.add_argument('--csv-data-file',
                                  help="CSV data file.",
                                  )
-        self.parser.add_argument('--anatomical-region',
-                                 help="Anatomical region to train on.",
-                                 )
         self.parser.add_argument('--num-workers',
                                  help='Number of worker processes for background data loading',
                                  default=8,
@@ -125,6 +122,22 @@ class LoesScoringTrainingApp:
         self.parser.add_argument('--model',
                                  help="Model type.",
                                  default='AlexNet',
+                                 )
+        self.parser.add_argument("--include-ashish-data",
+                                 default=1,
+                                 type=int,
+                                 )
+        self.parser.add_argument("--ashish-gd",
+                                 default='*',
+                                 type=str,
+                                 )
+        self.parser.add_argument("--include-nascene-data",
+                                 default=0,
+                                 type=int,
+                                 )
+        self.parser.add_argument("--nascene-min-qc",
+                                 default=0,
+                                 type=int,
                                  )
         self.parser.add_argument('comment',
                                  help="Comment suffix for Tensorboard run.",
@@ -274,7 +287,14 @@ class LoesScoringTrainingApp:
 
         provenances = list(self.df.provenance.unique())
         for provenance in provenances:
+            if provenance == 'igor' and self.cli_args.include_ashish_data == 0:
+                continue
+            if provenance == 'nascene' and self.cli_args.include_nascene_data == 0:
+                continue
             provenance_df = self.df.loc[self.df['provenance'] == provenance]
+            if provenance == 'igor':
+                if self.cli_args.ashish_gd in [0, 1]:
+                    provenance_df = provenance_df.loc[provenance_df['Gd'] == self.cli_args.ashish_gd]
             subjects = list(provenance_df.subject.unique())
             train_size = round(len(subjects) * 0.8)
             provenance_train_subjects = random.sample(subjects, train_size)

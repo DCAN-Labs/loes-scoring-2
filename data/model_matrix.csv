@@ -1,0 +1,3 @@
+model,include_ashish_data,ashish_gd,include_nascene_data,nascene_min_qc,epochs,num-workers,optimizer,train_size,standardized_rmse,      correlation,             p-value,     standard error
+Model1,                 1,        *,                   0,             *,   128,          1,     Adam,       0.8,1.206785682955434,0.817205779721323,6.18675208209489e-07,0.07132685112047961
+
