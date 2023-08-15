@@ -295,6 +295,8 @@ class LoesScoringTrainingApp:
             if provenance == 'igor':
                 if self.cli_args.ashish_gd in [0, 1]:
                     provenance_df = provenance_df.loc[provenance_df['Gd'] == self.cli_args.ashish_gd]
+            else:
+                provenance_df = provenance_df.loc[(provenance_df['QC'] == "1") | (provenance_df['QC'] == "2")]
             subjects = list(provenance_df.subject.unique())
             train_size = round(len(subjects) * 0.8)
             provenance_train_subjects = random.sample(subjects, train_size)
