@@ -94,11 +94,6 @@ class LoesScoringTrainingApp:
                                  default=1,
                                  type=int,
                                  )
-        self.parser.add_argument('--use-gd-only',
-                                 help='Use Gadolinium-enhanced scans only',
-                                 default=0,
-                                 type=int,
-                                 )
         self.parser.add_argument('--file-path-column-index',
                                  help='The index of the file path in the CSV file',
                                  type=int,
@@ -122,22 +117,6 @@ class LoesScoringTrainingApp:
         self.parser.add_argument('--model',
                                  help="Model type.",
                                  default='AlexNet',
-                                 )
-        self.parser.add_argument("--include-ashish-data",
-                                 default=1,
-                                 type=int,
-                                 )
-        self.parser.add_argument("--ashish-gd",
-                                 default='*',
-                                 type=str,
-                                 )
-        self.parser.add_argument("--include-nascene-data",
-                                 default=0,
-                                 type=int,
-                                 )
-        self.parser.add_argument("--nascene-min-qc",
-                                 default=0,
-                                 type=int,
                                  )
         self.parser.add_argument('comment',
                                  help="Comment suffix for Tensorboard run.",
@@ -285,35 +264,12 @@ class LoesScoringTrainingApp:
 
         self.df['session'] = self.df.apply(lambda row: get_session_from_file_name(row['file']), axis=1)
 
-        provenances = list(self.df.provenance.unique())
-        for provenance in provenances:
-            if provenance == 'igor' and self.cli_args.include_ashish_data == 0:
-                continue
-            if provenance == 'nascene' and self.cli_args.include_nascene_data == 0:
-                continue
-            provenance_df = self.df.loc[self.df['provenance'] == provenance]
-            if provenance == 'igor':
-                if self.cli_args.ashish_gd in [0, 1]:
-                    provenance_df = provenance_df.loc[provenance_df['Gd'] == self.cli_args.ashish_gd]
-            else:
-                if self.cli_args.nascene_min_qc == 3:
-                    provenance_df = \
-                        provenance_df.loc[(provenance_df['QC'] == '1') | (provenance_df['QC'] == '2') |
-                                          (provenance_df['QC'] == '3')]
-                elif self.cli_args.nascene_min_qc == 2:
-                    provenance_df = \
-                        provenance_df.loc[
-                            (provenance_df['QC'] == '1') | (provenance_df['QC'] == '2')]
-                else:
-                    provenance_df = \
-                        provenance_df.loc[
-                            (provenance_df['QC'] == '1')]
-            subjects = list(provenance_df.subject.unique())
-            train_size = round(len(subjects) * 0.8)
-            provenance_train_subjects = random.sample(subjects, train_size)
-            provenance_val_subjects = [subject for subject in subjects if subject not in provenance_train_subjects]
-            self.train_subjects.extend(provenance_train_subjects)
-            self.val_subjects.extend(provenance_val_subjects)
+        subjects = list(self.df.subject.unique())
+        train_size = round(len(subjects) * 0.8)
+        provenance_train_subjects = random.sample(subjects, train_size)
+        provenance_val_subjects = [subject for subject in subjects if subject not in provenance_train_subjects]
+        self.train_subjects.extend(provenance_train_subjects)
+        self.val_subjects.extend(provenance_val_subjects)
 
         train_dl = self.init_train_dl(self.df, self.train_subjects)
         val_dl = self.init_val_dl(self.df, self.val_subjects)
