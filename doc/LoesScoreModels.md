@@ -30,3 +30,14 @@
 * SLURM script: *../src/dcan/training/loes-scoring-training_model01_mesabi.sh*
 * Model: */home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_02_512.pt*
 * Epochs: 128
+
+# Model 4
+* data: all of Ashish's data and Nascene's session data with QC of 1
+* Standardized RMSE: 2.0390140967745025
+![Model 4](./img/model04.png "Model 4")
+* correlation:    0.011185159238607002
+* p-value:        0.9366429419513976
+* standard error: 0.08188842704604608
+* SLURM script: *../src/dcan/training/loes-scoring-training_model04_mesabi.sh*
+* Model: */home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_04.pt*
+* Epochs: 512
