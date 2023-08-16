@@ -1,3 +1,14 @@
+# Model 5
+* data: all of Ashish's Gd-enhanced data
+* Standardized RMSE: 0.5996136185352607
+![Model 5](./img/model05.png "Model 5")
+* correlation:    0.8541613776103457
+* p-value:        0.0004045969574059146
+* standard error: 0.1377646039381321
+* SLURM script: *../src/dcan/training/loes-scoring-training_model05_mesabi.sh*
+* Model: */home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_05.pt*
+* Epochs: 512
+
 # Model 3
 * data: all of Ashish's data
 * Standardized RMSE: 0.8681073956588595
