@@ -42,8 +42,22 @@
 * Model: */home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_02_512.pt*
 * Epochs: 128
 
+# Model 6
+* data: all of Ashish's non-Gd data
+* Standardized RMSE: 2.0317264758139366
+![Model 6](./img/model06.png "Model 1")
+* correlation:    0.6802879190059432
+* p-value:        0.0001827859542662024
+* standard error: 0.07425917812043135
+* SLURM script: *../src/dcan/training/loes-scoring-training_model06_mesabi.sh*
+* Model: */home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_06.pt*
+* Epochs: 128
+
 # Model 4
 * data: all of Ashish's data and Nascene's session data with QC of 1
+  * 205 total cases
+    * Ashish: 169
+    * David: 36
 * Standardized RMSE: 2.0390140967745025
 ![Model 4](./img/model04.png "Model 4")
 * correlation:    0.011185159238607002
