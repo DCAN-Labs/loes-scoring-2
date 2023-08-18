@@ -1,5 +1,7 @@
+#  The hyper-parameters include defining the number of epochs, batch size, learning rate, loss function along with the optimizer.
+
 model,include_ashish_data,ashish_gd,include_nascene_data,nascene_min_qc,epochs,num-workers,optimizer,train_size,standardized_rmse,       correlation,             p-value,     standard error
-Model5,                 1,        1,                   0,             *,   512,          1,     Adam,       0.8,0.5996136185352607,0.8541613776103457,0.0004045969574059146,0.1377646039381321
+Model5,                 1,        1,                   0,             *,   512,          1,     Adam,       0.8,1.3465736121901255,0.6639005760048992,0.0014129271260232773,0.09497052216668729
 Model3,                 1,        *,                   0,             *,   512,          1,     Adam,       0.8,0.8681073956588595,0.843721682323223,2.9023678644837652e-11,0.05826465079588512
 Model2,                 1,        *,                   0,             *,   256,          1,     Adam,       0.8,1.4974884284668133,0.861177276333397,6.596685767672446e-08,0.057489244684954886
 Model1,                 1,        *,                   0,             *,   128,          1,     Adam,       0.8,1.206785682955434, 0.817205779721323, 6.18675208209489e-07,0.07132685112047961

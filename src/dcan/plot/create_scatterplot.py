@@ -26,6 +26,8 @@ def create_scatterplot(d, output_file):
     ax.set_aspect('equal')
     ax.set_xlim(lims)
     ax.set_ylim(lims)
+    plt.axvline(x=10, color='b', ls='--')
+    plt.axhline(y=10, color='b', ls='--')
     plt.xlabel("Actual Loes score")
     plt.ylabel("Predicted Loes score")
 

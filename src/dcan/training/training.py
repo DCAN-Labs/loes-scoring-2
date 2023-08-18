@@ -261,15 +261,21 @@ class LoesScoringTrainingApp:
     def main(self):
         log.info("Starting {}, {}".format(type(self).__name__, self.cli_args))
         self.df['subject'] = self.df.apply(lambda row: get_subject_from_file_name(row['file']), axis=1)
-
         self.df['session'] = self.df.apply(lambda row: get_session_from_file_name(row['file']), axis=1)
 
         subjects = list(self.df.subject.unique())
-        train_size = round(len(subjects) * 0.8)
-        provenance_train_subjects = random.sample(subjects, train_size)
-        provenance_val_subjects = [subject for subject in subjects if subject not in provenance_train_subjects]
-        self.train_subjects.extend(provenance_train_subjects)
-        self.val_subjects.extend(provenance_val_subjects)
+        grouped = self.df.groupby('subject')['loes-score'].mean()
+        sorted_groups = grouped.sort_values(ascending=True)
+        i = 0
+        train_subjects = []
+        for item in sorted_groups.items():
+            if i % 5 != 0:
+                train_subjects.append(item[0])
+            i += 1
+
+        val_subjects = [subject for subject in subjects if subject not in train_subjects]
+        self.train_subjects.extend(train_subjects)
+        self.val_subjects.extend(val_subjects)
 
         train_dl = self.init_train_dl(self.df, self.train_subjects)
         val_dl = self.init_val_dl(self.df, self.val_subjects)
