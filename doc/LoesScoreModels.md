@@ -44,12 +44,12 @@
 
 # Model 6
 * data: all of Ashish's non-Gd data
-* Standardized RMSE: 2.0317264758139366
-![Model 6](./img/model06.png "Model 1")
-* correlation:    0.6802879190059432
-* p-value:        0.0001827859542662024
-* standard error: 0.07425917812043135
-* SLURM script: *../src/dcan/training/loes-scoring-training_model06_mesabi.sh*
+* Standardized RMSE: 2.5078898627029402
+![Model 6](./img/model06.png "Model 6")
+* correlation:    0.6090500328217285
+* p-value:        0.0020389477560696896
+* standard error: 0.06098120081065121
+* SLURM script: *../bin/loes-scoring-training_model06_mesabi.sh*
 * Model: */home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_06.pt*
 * Epochs: 128
 
