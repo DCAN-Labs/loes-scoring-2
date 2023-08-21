@@ -33,12 +33,12 @@
 
 # Model 1
 * data: all of Ashish's data
-* Standardized RMSE: 1.206785682955434
+* Standardized RMSE: 1.1518592233119442
 ![Model 1](./img/model01.png "Model 1")
-* correlation:    0.8062695135102309
-* p-value:        6.18675208209489e-07
-* standard error: 0.11887297424632068
-* SLURM script: *../src/dcan/training/loes-scoring-training_model01_mesabi.sh*
+* correlation:    0.7137920287364632
+* p-value:        1.233154773204162e-08
+* standard error: 0.07224898056380212
+* SLURM script: *../bin/loes-scoring-training_model01_mesabi.sh*
 * Model: */home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_02_512.pt*
 * Epochs: 128
 
