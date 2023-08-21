@@ -58,11 +58,11 @@
   * 205 total cases
     * Ashish: 169
     * David: 36
-* Standardized RMSE: 2.0390140967745025
+* Standardized RMSE: 1.659556377232974
 ![Model 4](./img/model04.png "Model 4")
-* correlation:    0.011185159238607002
-* p-value:        0.9366429419513976
-* standard error: 0.08188842704604608
-* SLURM script: *../src/dcan/training/loes-scoring-training_model04_mesabi.sh*
+* correlation:    0.3296244064653097
+* p-value:        0.005327841565183674
+* standard error: 0.06979725258727118
+* SLURM script: *../bin/loes-scoring-training_model04_mesabi.sh*
 * Model: */home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_04.pt*
 * Epochs: 512
