@@ -8,6 +8,7 @@
 * SLURM script: *../bin/loes-scoring-training_model01_mesabi.sh*
 * Model: */home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_02_512.pt*
 * Epochs: 128
+* lr: 0.0001
 
 # Model 5
 * data: all of Ashish's Gd-enhanced data
