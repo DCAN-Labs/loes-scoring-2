@@ -11,7 +11,7 @@ import scipy
 import scipy.stats
 import torch
 import torch.nn as nn
-from torch.optim import Adam
+from torch.optim import Adam, SGD
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
@@ -149,7 +149,7 @@ class LoesScoringTrainingApp:
 
     def init_optimizer(self):
         # return SGD(self.model.parameters(), lr=0.001, momentum=0.99)
-        return Adam(self.model.parameters())
+        return Adam(self.model.parameters(), lr=0.0001)
 
     def init_train_dl(self, df, train_subjects):
         train_ds = LoesScoreDataset(train_subjects,

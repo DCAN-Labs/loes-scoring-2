@@ -138,3 +138,5 @@ dmypy.json
 /src/dcan/training/runs/loes_scoring/
 /src/dcan/training/data-unversioned/cache/dcan_loes_score/
 /data/all_data.csv
+/data/all/
+/data/filtered/
