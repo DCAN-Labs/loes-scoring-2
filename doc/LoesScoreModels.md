@@ -10,6 +10,18 @@
 * Epochs: 128
 * lr: 0.0001
 
+# Model 6
+* data: all of Ashish's non-Gd data
+* Standardized RMSE: 1.319839811464443
+![Model 6](./img/model06.png "Model 6")
+* correlation:    0.8416762616021709
+* p-value:        4.819603892634009e-07
+* standard error: 0.062030476568710614
+* SLURM script: *../bin/loes-scoring-training_model06_mesabi.sh*
+* Model: */home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_06.pt*
+* Epochs: 128
+* lr: 0001
+
 # Model 5
 * data: all of Ashish's Gd-enhanced data
 * Standardized RMSE: 1.3465736121901255
@@ -56,16 +68,3 @@
 * SLURM script: *../bin/loes-scoring-training_model04_mesabi.sh*
 * Model: */home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_04.pt*
 * Epochs: 512
-
-# Model 6
-* data: all of Ashish's non-Gd data
-* Standardized RMSE: 1.319839811464443
-![Model 6](./img/model06.png "Model 6")
-* correlation:    0.8416762616021709
-* p-value:        4.819603892634009e-07
-* standard error: 0.062030476568710614
-* SLURM script: *../bin/loes-scoring-training_model06_mesabi.sh*
-* Model: */home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_06.pt*
-* Epochs: 128
-* lr: 0001
-
