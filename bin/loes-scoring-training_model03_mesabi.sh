@@ -22,5 +22,5 @@ export PYTHONPATH=PYTHONPATH:"/home/miran045/reine097/projects/loes-scoring-2/sr
   /home/miran045/reine097/projects/loes-scoring-2/src/dcan/training/training.py \
   --csv-data-file "/home/miran045/reine097/projects/loes-scoring-2/data/filtered/ashish_all.csv" \
   --batch-size 1 --num-workers 1 --epochs 512 \
-  --model-save-location "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_03.pt" \
-  --plot-location "/home/miran045/reine097/projects/loes-scoring-2/doc/img/model03.png"
+  --model-save-location "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_03_temp.pt" \
+  --plot-location "/home/miran045/reine097/projects/loes-scoring-2/doc/img/model03_temp.png" --lr 0.0001

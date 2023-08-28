@@ -123,6 +123,11 @@ class LoesScoringTrainingApp:
                                  nargs='?',
                                  default='dcan',
                                  )
+        self.parser.add_argument('--lr',
+                                 help='Learning rate',
+                                 default=0.001,
+                                 type=float,
+                                 )
         self.cli_args = self.parser.parse_args(sys_argv)
         self.df = pd.read_csv(self.cli_args.csv_data_file)
 
@@ -149,7 +154,7 @@ class LoesScoringTrainingApp:
 
     def init_optimizer(self):
         # return SGD(self.model.parameters(), lr=0.001, momentum=0.99)
-        return Adam(self.model.parameters(), lr=0.0001)
+        return Adam(self.model.parameters(), lr=self.cli_args.lr)
 
     def init_train_dl(self, df, train_subjects):
         train_ds = LoesScoreDataset(train_subjects,
