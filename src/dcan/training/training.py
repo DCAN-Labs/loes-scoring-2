@@ -2,20 +2,21 @@
 import argparse
 import datetime
 import os
-import random
 import statistics
-from math import sqrt
+from itertools import chain
 
 import pandas as pd
 import scipy
 import scipy.stats
 import torch
 import torch.nn as nn
-from torch.optim import Adam, SGD
+from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from torchmetrics.regression import MeanSquaredError
 
 from dcan.data_sets.dsets import LoesScoreDataset
+from dcan.models.ResNet import ResNet, ResidualBlock
 from dcan.plot.create_scatterplot import create_scatterplot
 from reprex.models import AlexNet3D
 from util.logconf import logging
@@ -33,6 +34,10 @@ METRICS_LOSS_NDX = 2
 METRICS_SIZE = 3
 
 
+def flatten_chain(matrix):
+    return list(chain.from_iterable(matrix))
+
+
 def compute_pearson_correlation_coefficient(d):
     xs = []
     ys = []
@@ -41,9 +46,27 @@ def compute_pearson_correlation_coefficient(d):
         for y in vals:
             xs.append(x)
             ys.append(y)
-    result = scipy.stats.linregress(xs, ys)
+    result = scipy.stats.linregress(xs, flatten_chain(ys))
 
     return result
+
+
+def get_standardized_rmse(d):
+    target = []
+    preds = []
+    for x in d:
+        vals = d[x]
+        for y in vals:
+            target.append(x)
+            preds.append(y)
+    mean_squared_error = MeanSquaredError()
+    preds_t = torch.FloatTensor(preds)
+    preds_t = torch.flatten(preds_t)
+    target = torch.FloatTensor(target)
+    rmse = mean_squared_error(preds_t, target)
+    sigma = statistics.stdev(flatten_chain(preds))
+
+    return rmse / sigma
 
 
 def get_subject_from_file_name(file_name):
@@ -144,7 +167,11 @@ class LoesScoringTrainingApp:
         self.val_subjects = []
 
     def init_model(self):
-        model = AlexNet3D(4608)
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        if self.cli_args.model == 'ResNet':
+            model = ResNet(ResidualBlock, [3, 4, 6, 3]).to(device)
+        else:
+            model = AlexNet3D(4608)
         if self.use_cuda:
             log.info("Using CUDA; {} devices.".format(torch.cuda.device_count()))
             if torch.cuda.device_count() > 1:
@@ -206,38 +233,6 @@ class LoesScoringTrainingApp:
             self.val_writer = SummaryWriter(
                 log_dir=log_dir + '-val_cls-' + self.cli_args.comment)
 
-    @staticmethod
-    def get_actual(outputs):
-        actual = outputs[0].squeeze(1)
-
-        return actual
-
-    def get_standardized_rmse(self):
-        with torch.no_grad():
-            val_dl = self.init_val_dl(self.df, self.val_subjects)
-            self.model.eval()
-            batch_iter = enumerateWithEstimate(
-                val_dl,
-                "get_standardized_rmse",
-                start_ndx=val_dl.num_workers,
-            )
-            squares_list = []
-            prediction_list = []
-            for batch_ndx, batch_tup in batch_iter:
-                input_t, label_t = batch_tup
-                x = input_t.to(self.device, non_blocking=True)
-                labels = label_t.to(self.device, non_blocking=True)
-                outputs = self.model(x)
-                actual = self.get_actual(outputs)
-                prediction_list.extend(actual.tolist())
-                difference = torch.subtract(labels, actual)
-                squares = torch.square(difference)
-                squares_list.extend(squares.tolist())
-            rmse = sqrt(sum(squares_list) / len(squares_list))
-            sigma = statistics.stdev(prediction_list)
-
-            return rmse / sigma
-
     def get_output_distributions(self):
         with torch.no_grad():
             val_dl = self.init_val_dl(self.df, self.val_subjects)
@@ -253,7 +248,7 @@ class LoesScoringTrainingApp:
                 x = input_t.to(self.device, non_blocking=True)
                 labels = label_t.to(self.device, non_blocking=True)
                 outputs = self.model(x)
-                predictions = self.get_actual(outputs).tolist()
+                predictions = outputs.tolist()
                 n = len(labels)
                 for i in range(n):
                     label_int = int(labels[i].item())
@@ -311,15 +306,15 @@ class LoesScoringTrainingApp:
             self.model = self.model.module
         torch.save(self.model.state_dict(), self.cli_args.model_save_location)
 
-        try:
-            standardized_rmse = self.get_standardized_rmse()
-            log.info(f'standardized_rmse: {standardized_rmse}')
-        except ZeroDivisionError as err:
-            log.error(f'Could not compute stanardized RMSE because sigma is 0: {err}')
-
         output_distributions = self.get_output_distributions()
         if self.cli_args.plot_location:
             create_scatterplot(output_distributions, self.cli_args.plot_location)
+
+        try:
+            standardized_rmse = get_standardized_rmse(output_distributions)
+            log.info(f'standardized_rmse: {standardized_rmse}')
+        except ZeroDivisionError as err:
+            log.error(f'Could not compute stanardized RMSE because sigma is 0: {err}')
 
         result = compute_pearson_correlation_coefficient(output_distributions)
 
@@ -389,10 +384,10 @@ class LoesScoringTrainingApp:
 
         outputs_g = self.model(input_g)
 
-        loss_func = nn.MSELoss(reduction='none')
-        log.debug(f'outputs_g[0].squeeze(1): {outputs_g[0].squeeze(1)}')
+        loss_func = nn.MSELoss()
+        outputs_g = torch.flatten(outputs_g)
         loss_g = loss_func(
-            outputs_g[0].squeeze(1),
+            outputs_g,
             label_g,
         )
         start_ndx = batch_ndx * batch_size
@@ -417,8 +412,6 @@ class LoesScoringTrainingApp:
             type(self).__name__,
         ))
 
-        log.info(f'metrics_t[METRICS_LOSS_NDX].mean(): {metrics_t[METRICS_LOSS_NDX].mean()}')
-        log.info(f'metrics_t[METRICS_LOSS_NDX].mean(): {metrics_t[METRICS_LOSS_NDX]}')
         metrics_dict = {'loss/all': metrics_t[METRICS_LOSS_NDX].mean()}
 
         log.info(

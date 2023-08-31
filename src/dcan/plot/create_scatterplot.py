@@ -1,5 +1,9 @@
 import sys
 
+import matplotlib
+
+matplotlib.use('Agg')
+# noinspection PyPep8
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -13,7 +17,7 @@ def create_scatterplot(d, output_file):
             xs.append(x)
             ys.append(y)
 
-    fig, ax = plt.subplots()
+    _, ax = plt.subplots()
     plt.scatter(xs, ys)
     plt.title('Actual Loes score vs. predicted Loes score')
     lims = [
@@ -32,7 +36,6 @@ def create_scatterplot(d, output_file):
     plt.ylabel("Predicted Loes score")
 
     plt.savefig(output_file)
-    plt.show()
 
 
 if __name__ == "__main__":
