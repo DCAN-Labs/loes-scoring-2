@@ -1,9 +1,11 @@
 # Author: Paul Reiners
 import argparse
 import datetime
+import math
 import os
 import statistics
 from itertools import chain
+from sklearn.metrics import mean_squared_error
 
 import pandas as pd
 import scipy
@@ -11,9 +13,9 @@ import scipy.stats
 import torch
 import torch.nn as nn
 from torch.optim import Adam
+from torch.optim.sgd import SGD
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from torchmetrics.regression import MeanSquaredError
 
 from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.models.ResNet import ResNet, ResidualBlock
@@ -59,11 +61,8 @@ def get_standardized_rmse(d):
         for y in vals:
             target.append(x)
             preds.append(y)
-    mean_squared_error = MeanSquaredError()
-    preds_t = torch.FloatTensor(preds)
-    preds_t = torch.flatten(preds_t)
-    target = torch.FloatTensor(target)
-    rmse = mean_squared_error(preds_t, target)
+    mse = mean_squared_error(Y_true, Y_pred)
+    rmse = math.sqrt(mse)
     sigma = statistics.stdev(flatten_chain(preds))
 
     return rmse / sigma
@@ -182,8 +181,10 @@ class LoesScoringTrainingApp:
         return model
 
     def init_optimizer(self):
-        # return SGD(self.model.parameters(), lr=0.001, momentum=0.99)
-        return Adam(self.model.parameters(), lr=self.cli_args.lr)
+        if self.cli_args.optimizer.lower() == 'adam':
+            return Adam(self.model.parameters(), lr=self.cli_args.lr)
+        else:
+            return SGD(self.model.parameters(), lr=0.001, momentum=0.99)
 
     def init_train_dl(self, df, train_subjects):
         train_ds = LoesScoreDataset(train_subjects,
