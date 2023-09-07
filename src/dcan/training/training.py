@@ -61,7 +61,7 @@ def get_standardized_rmse(d):
         for y in vals:
             target.append(x)
             preds.append(y)
-    mse = mean_squared_error(Y_true, Y_pred)
+    mse = mean_squared_error(target, preds)
     rmse = math.sqrt(mse)
     sigma = statistics.stdev(flatten_chain(preds))
 
