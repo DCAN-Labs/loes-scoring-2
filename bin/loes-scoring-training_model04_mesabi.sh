@@ -23,4 +23,4 @@ export PYTHONPATH=PYTHONPATH:"/home/miran045/reine097/projects/loes-scoring-2/sr
   --csv-data-file "/home/miran045/reine097/projects/loes-scoring-2/data/filtered/ashish_and_nascene_qc1.csv" \
   --batch-size 1 --num-workers 1 --epochs 512 \
   --model-save-location "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_04.pt" \
-  --plot-location "/home/miran045/reine097/projects/loes-scoring-2/doc/img/model04.png"
+  --plot-location "/home/miran045/reine097/projects/loes-scoring-2/doc/img/model04.png" --model "ResNet"
