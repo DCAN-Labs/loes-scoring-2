@@ -140,3 +140,4 @@ dmypy.json
 /data/all_data.csv
 /data/all/
 /data/filtered/
+/src/dcan/data/MNIST/raw/
