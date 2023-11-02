@@ -5,20 +5,20 @@ import math
 import os
 import statistics
 from itertools import chain
-from sklearn.metrics import mean_squared_error
 
+import numpy as np
 import pandas as pd
 import scipy
 import scipy.stats
 import torch
 import torch.nn as nn
+from sklearn.metrics import mean_squared_error
 from torch.optim import Adam
 from torch.optim.sgd import SGD
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from dcan.data_sets.dsets import LoesScoreDataset
-from dcan.models.ResNet import ResNet, ResidualBlock
 from dcan.plot.create_scatterplot import create_scatterplot
 from reprex.models import AlexNet3D
 from util.logconf import logging
@@ -94,6 +94,25 @@ class LoesScoringTrainingApp:
         self.totalTrainingSamples_count = 0
 
         self.parser = argparse.ArgumentParser()
+        self.time_str = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
+        self.initialize_parser()
+        self.cli_args = self.parser.parse_args(sys_argv)
+        self.df = pd.read_csv(self.cli_args.csv_data_file)
+        self.output_df = None
+
+        self.trn_writer = None
+        self.val_writer = None
+        self.totalTrainingSamples_count = 0
+
+        self.use_cuda = torch.cuda.is_available()
+        self.device = torch.device("cuda" if self.use_cuda else "cpu")
+
+        self.model = self.init_model()
+        self.optimizer = self.init_optimizer()
+        self.train_subjects = []
+        self.val_subjects = []
+
+    def initialize_parser(self):
         self.parser.add_argument('--tb-prefix',
                                  default='loes_scoring',
                                  help="Data prefix to use for Tensorboard run. Defaults to loes_scoring.",
@@ -101,6 +120,36 @@ class LoesScoringTrainingApp:
         self.parser.add_argument('--csv-data-file',
                                  help="CSV data file.",
                                  )
+        self.parser.add_argument('--output-csv-file',
+                                 help="Output CSV file.",
+                                 )
+        self.add_parser_argument()
+        self.parser.add_argument('--plot-location',
+                                 help='Location to save plot',
+                                 )
+        self.add_more_parser_arguments()
+
+    def add_more_parser_arguments(self):
+        self.parser.add_argument('--optimizer',
+                                 help="optimizer type.",
+                                 default='Adam',
+                                 )
+        self.parser.add_argument('--model',
+                                 help="Model type.",
+                                 default='AlexNet',
+                                 )
+        self.parser.add_argument('comment',
+                                 help="Comment suffix for Tensorboard run.",
+                                 nargs='?',
+                                 default='dcan',
+                                 )
+        self.parser.add_argument('--lr',
+                                 help='Learning rate',
+                                 default=0.001,
+                                 type=float,
+                                 )
+
+    def add_parser_argument(self):
         self.parser.add_argument('--num-workers',
                                  help='Number of worker processes for background data loading',
                                  default=8,
@@ -124,55 +173,14 @@ class LoesScoringTrainingApp:
                                  help='The index of the Loes score in the CSV file',
                                  type=int,
                                  )
-        self.time_str = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
         self.parser.add_argument('--model-save-location',
                                  help='Location to save models',
                                  default=f'./model-{self.time_str}.pt',
                                  )
-        self.parser.add_argument('--plot-location',
-                                 help='Location to save plot',
-                                 )
-        self.parser.add_argument('--optimizer',
-                                 help="optimizer type.",
-                                 default='Adam',
-                                 )
-        self.parser.add_argument('--model',
-                                 help="Model type.",
-                                 default='AlexNet',
-                                 )
-        self.parser.add_argument('comment',
-                                 help="Comment suffix for Tensorboard run.",
-                                 nargs='?',
-                                 default='dcan',
-                                 )
-        self.parser.add_argument('--lr',
-                                 help='Learning rate',
-                                 default=0.001,
-                                 type=float,
-                                 )
-        self.cli_args = self.parser.parse_args(sys_argv)
-        self.df = pd.read_csv(self.cli_args.csv_data_file)
-
-        self.trn_writer = None
-        self.val_writer = None
-        self.totalTrainingSamples_count = 0
-
-        self.use_cuda = torch.cuda.is_available()
-        self.device = torch.device("cuda" if self.use_cuda else "cpu")
-
-        self.model = self.init_model()
-        self.optimizer = self.init_optimizer()
-        self.train_subjects = []
-        self.val_subjects = []
 
     def init_model(self):
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        if self.cli_args.model == 'ResNet':
-            log.info("Using ResNet3D")
-            model = ResNet3D().to(device)
-        else:
-            log.info("Using AlexNet")
-            model = AlexNet3D(4608)
+        log.info("Using AlexNet")
+        model = AlexNet3D(4608)
         if self.use_cuda:
             log.info("Using CUDA; {} devices.".format(torch.cuda.device_count()))
             if torch.cuda.device_count() > 1:
@@ -251,20 +259,46 @@ class LoesScoringTrainingApp:
                 x = input_t.to(self.device, non_blocking=True)
                 labels = label_t.to(self.device, non_blocking=True)
                 outputs = self.model(x)
-                predictions = outputs.tolist()
-                n = len(labels)
-                for i in range(n):
-                    label_int = int(labels[i].item())
-                    if label_int not in distributions:
-                        distributions[label_int] = []
-                    distributions[label_int].append(predictions[i])
+                self.create_distributions(distributions, labels, outputs)
+
+            return distributions
+
+    @staticmethod
+    def create_distributions(distributions, labels, outputs):
+        predictions = outputs.tolist()
+        n = len(labels)
+        for i in range(n):
+            label_int = int(labels[i].item())
+            if label_int not in distributions:
+                distributions[label_int] = []
+            distributions[label_int].append(predictions[i])
+
+    def update_output_data_file_with_results(self):
+        with torch.no_grad():
+            val_dl = self.init_val_dl(self.df, self.val_subjects)
+            self.model.eval()
+            batch_iter = enumerateWithEstimate(
+                val_dl,
+                "update_output_data_file_with_results",
+                start_ndx=val_dl.num_workers,
+            )
+            distributions = dict()
+            for batch_ndx, batch_tup in batch_iter:
+                input_t, label_t = batch_tup
+                x = input_t.to(self.device, non_blocking=True)
+                log.info(f'x: {x}')
+                labels = label_t.to(self.device, non_blocking=True)
+                outputs = self.model(x)
+                self.create_distributions(distributions, labels, outputs)
 
             return distributions
 
     def main(self):
-        log.info("Starting {}, {}".format(type(self).__name__, self.cli_args))
-        self.df['subject'] = self.df.apply(lambda row: get_subject_from_file_name(row['file']), axis=1)
-        self.df['session'] = self.df.apply(lambda row: get_session_from_file_name(row['file']), axis=1)
+        self.set_subject_session()
+
+        self.output_df = self.df.copy()
+        self.output_df['train/validation/test'] = ''
+        self.output_df['loes_score_prediction'] = np.nan
 
         subjects = list(self.df.subject.unique())
         grouped = self.df.groupby('subject')['loes-score'].mean()
@@ -280,33 +314,12 @@ class LoesScoringTrainingApp:
         self.train_subjects.extend(train_subjects)
         self.val_subjects.extend(val_subjects)
 
-        train_dl = self.init_train_dl(self.df, self.train_subjects)
-        val_dl = self.init_val_dl(self.df, self.val_subjects)
+        for train_subject in train_subjects:
+            self.output_df.loc[self.output_df['subject'] == train_subject, 'train/validation/test'] = 'train'
+        for val_subject in val_subjects:
+            self.output_df.loc[self.output_df['subject'] == val_subject, 'train/validation/test'] = 'test'
 
-        for epoch_ndx in range(1, self.cli_args.epochs + 1):
-            log.info("Epoch {} of {}, {}/{} batches of size {}*{}".format(
-                epoch_ndx,
-                self.cli_args.epochs,
-                len(train_dl),
-                len(val_dl),
-                self.cli_args.batch_size,
-                (torch.cuda.device_count() if self.use_cuda else 1),
-            ))
-
-            trn_metrics_t = self.do_training(epoch_ndx, train_dl)
-            log.debug(f'trn_metrics_t: {trn_metrics_t}')
-            self.log_metrics(epoch_ndx, 'trn', trn_metrics_t)
-
-            val_metrics_t = self.do_validation(epoch_ndx, val_dl)
-            self.log_metrics(epoch_ndx, 'val', val_metrics_t)
-
-        if hasattr(self, 'trn_writer'):
-            self.trn_writer.close()
-            self.val_writer.close()
-
-        # save state dict of DataParallel object
-        if isinstance(self.model, torch.nn.DataParallel):
-            self.model = self.model.module
+        self.train()
         torch.save(self.model.state_dict(), self.cli_args.model_save_location)
 
         output_distributions = self.get_output_distributions()
@@ -327,6 +340,37 @@ class LoesScoringTrainingApp:
         log.info(f"p-value:        {result.pvalue}")
         # noinspection PyUnresolvedReferences
         log.info(f"standard error: {result.stderr}")
+
+    def train(self):
+        train_dl = self.init_train_dl(self.df, self.train_subjects)
+        val_dl = self.init_val_dl(self.df, self.val_subjects)
+        for epoch_ndx in range(1, self.cli_args.epochs + 1):
+            log.info("Epoch {} of {}, {}/{} batches of size {}*{}".format(
+                epoch_ndx,
+                self.cli_args.epochs,
+                len(train_dl),
+                len(val_dl),
+                self.cli_args.batch_size,
+                (torch.cuda.device_count() if self.use_cuda else 1),
+            ))
+
+            trn_metrics_t = self.do_training(epoch_ndx, train_dl)
+            log.debug(f'trn_metrics_t: {trn_metrics_t}')
+            self.log_metrics(epoch_ndx, 'trn', trn_metrics_t)
+
+            val_metrics_t = self.do_validation(epoch_ndx, val_dl)
+            self.log_metrics(epoch_ndx, 'val', val_metrics_t)
+        if hasattr(self, 'trn_writer'):
+            self.trn_writer.close()
+            self.val_writer.close()
+        # save state dict of DataParallel object
+        if isinstance(self.model, torch.nn.DataParallel):
+            self.model = self.model.module
+
+    def set_subject_session(self):
+        log.info("Starting {}, {}".format(type(self).__name__, self.cli_args))
+        self.df['subject'] = self.df.apply(lambda row: get_subject_from_file_name(row['file']), axis=1)
+        self.df['session'] = self.df.apply(lambda row: get_session_from_file_name(row['file']), axis=1)
 
     def do_training(self, epoch_ndx, train_dl):
         self.model.train()
@@ -360,6 +404,9 @@ class LoesScoringTrainingApp:
         return trn_metrics_g.to('cpu')
 
     def do_validation(self, epoch_ndx, val_dl):
+        return self.validate(epoch_ndx, val_dl)
+
+    def validate(self, epoch_ndx, val_dl):
         with torch.no_grad():
             self.model.eval()
             val_metrics_g = torch.zeros(
@@ -376,7 +423,6 @@ class LoesScoringTrainingApp:
             for batch_ndx, batch_tup in batch_iter:
                 self.compute_batch_loss(
                     batch_ndx, batch_tup, val_dl.batch_size, val_metrics_g)
-
         return val_metrics_g.to('cpu')
 
     def compute_batch_loss(self, batch_ndx, batch_tup, batch_size, metrics_g):
@@ -409,14 +455,15 @@ class LoesScoringTrainingApp:
             mode_str,
             metrics_t,
     ):
+        self.do_logging(epoch_ndx, metrics_t, mode_str)
+
+    def do_logging(self, epoch_ndx, metrics_t, mode_str):
         self.init_tensorboard_writers()
         log.info("E{} {}".format(
             epoch_ndx,
             type(self).__name__,
         ))
-
         metrics_dict = {'loss/all': metrics_t[METRICS_LOSS_NDX].mean()}
-
         log.info(
             ("E{} {:8} {loss/all:.4f} loss, "
              ).format(
@@ -425,9 +472,7 @@ class LoesScoringTrainingApp:
                 **metrics_dict,
             )
         )
-
         writer = getattr(self, mode_str + '_writer')
-
         for key, value in metrics_dict.items():
             writer.add_scalar(key, value, self.totalTrainingSamples_count)
 
