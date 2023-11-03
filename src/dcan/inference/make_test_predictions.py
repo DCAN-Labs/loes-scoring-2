@@ -25,13 +25,15 @@ def process_data(model_save_location, val_csv_location, val_csv_save_location):
     model.eval()
 
     df = pd.read_csv(val_csv_location)
-    df['prediction'] = ''
-    df = df.reset_index()
     ratings_dict = dict()
     with torch.no_grad():
+        use_cuda = torch.cuda.is_available()
+        device = torch.device("cuda" if use_cuda else "cpu")
         squares_list = []
         prediction_list = []
         for index, row in df.iterrows():
+            if row['train/validation/test'] != 'test':
+                continue
             image_path = row['file']
             try:
                 actual_loes_score = row['loes-score']
@@ -41,12 +43,9 @@ def process_data(model_save_location, val_csv_location, val_csv_save_location):
                 log.error(f"Loes score error on line {index + 2}")
 
                 continue
-            image_path = row['file']
             image = tio.ScalarImage(image_path)
 
             image_tensor = image.data
-
-            image_tensor = torch.unsqueeze(image_tensor, dim=0)
             output = model(image_tensor)
             prediction = output[0].item()
             df.at[index, 'prediction'] = prediction
@@ -65,4 +64,13 @@ def process_data(model_save_location, val_csv_location, val_csv_save_location):
 
 
 if __name__ == "__main__":
-    process_data(sys.argv[1], sys.argv[2], sys.argv[3])
+    csv_in_folder = sys.argv[1]
+    models_folder = sys.argv[2]
+    csv_out_folder = sys.argv[3]
+    for i in range(5):
+        csv_in_file = os.path.join(csv_in_folder, f'fold{i}.csv')
+        model_file = \
+            os.path.join(
+                models_folder, "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_model_1_cv", f'fold{i}.pt')
+        csv_out_file = os.path.join(csv_out_folder, f'fold{i}.csv')
+        process_data(model_file, csv_in_file, csv_out_file)
