@@ -141,3 +141,4 @@ dmypy.json
 /data/all/
 /data/filtered/
 /src/dcan/data/MNIST/raw/
+/doc/img/model01_temp.png
