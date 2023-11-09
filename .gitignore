@@ -142,3 +142,6 @@ dmypy.json
 /data/filtered/
 /src/dcan/data/MNIST/raw/
 /doc/img/model01_temp.png
+/src/dcan/models/data/FashionMNIST/raw/
+/src/dcan/models/data/FashionMNIST/raw/
+/src/dcan/models/runs/fashion_mnist_experiment_1/
