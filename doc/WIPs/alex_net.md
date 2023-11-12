@@ -22,7 +22,7 @@ This block is a function that computes a set of output images from an input imag
 additions and 
 multiplications combined with a non-linear function computed by `ReLU`.  
 
-1. Conv3d(...)  # TODO Give plain English description
+1. Conv3d(...)  For the purposes of explaining AlexNet, we can consider `Conv3d` to be a `k x k x k` cube with each voxel containing a number.  This is scanned across and through `k x k x k` sub-cubicles of the 3-dimensional MRI.  That is, we are taking the dot product of the `k x k x k` convulotion kernel with the `k x k x k` sub-cubicles of the MRI.  
 2. BatchNorm3d(...)  # TODO Give plain English description
 3. ReLU(...)  # TODO Give plain English description
 4. MaxPool3d(...)  # TODO Give plain English description
