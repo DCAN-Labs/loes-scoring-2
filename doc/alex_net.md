@@ -1,23 +1,37 @@
 # AlexNet 
 ## Architecture
 
-This is based on Section 2.1.2 of 
-*Deep Learning with PyTorch* by
-Luca Pietro Giovanni Antiga, Eli Stevens, and Thomas Viehmann and
-published by Manning Publications.
+We are using the [DCAN-Labs / AlexNet_Abrol2021](https://github.com/DCAN-Labs/AlexNet_Abrol2021) GitHub repository for our implementation of AlexNet.
 
-[TODO Add formal attributions] 
+AlexNet is an instance of a [convolutional neural network](https://en.wikipedia.org/wiki/Convolutional_neural_network) [CNN].
 
-> In figure 2.3, input images come in from the left and go through five stacks of filters, each producing a number of output images. After each filter, the images are reduced in size, as annotated. The images produced by the last stack of filters are laid out as a 4,096-element 1D vector and classified to produce 1,000 output probabilities, one for each output class.
+### Input and output layers
+Inputs to AlexNet are three-dimensional MRI images.  The output, for a given MRI, is the predicted Loes score.
+Loes scores range from a low of 0 to a high of 34 at increments of 0.5.
 
-![Figure 2.3.  The AlexNet architecture](https://learning.oreilly.com/api/v2/epubs/urn:orm:book:9781617295263/files/Images/CH02_F03_Stevens2_GS.png)
+### Intermediate layers
+The intermediate, hidden layers are blocks.  Each block is constructed like this (I've elided the
+parameters for now):        
 
-Mapping from AlexNet for ImageNet to our AlexNet for Loes scoring
+        (0): Conv3d(...)
+        (1): BatchNorm3d(...)
+        (2): ReLU(...)
+        (3): MaxPool3d()
+
+This block is a function that computes a set of output images from an input image.  The function consists of 
+additions and 
+multiplications combined with a non-linear function computed by `ReLU`.  With CNNs, by constructing 
+different blocks consisting of different types of constituent parts with different parameters
+in different orders,  we can construct functions that are arbitrarily close to a given function.  The 
+given function that we are trying to approximate in our case is the function `mri_to_loes_score` with the domain of
+MRIs and the range of Loes scores.
+
+## Formal definition of architecture
 
     from reprex.models import AlexNet3D
-    alexnet = AlexNet3D(4096)
-
+    alexnet = AlexNet3D(4608)
     alexnet
+    Out[7]: 
     AlexNet3D(
       (features): Sequential(
         (0): Conv3d(1, 64, kernel_size=(5, 5, 5), stride=(2, 2, 2))
@@ -41,10 +55,9 @@ Mapping from AlexNet for ImageNet to our AlexNet for Loes scoring
       )
       (classifier): Sequential(
         (0): Dropout(p=0.5, inplace=False)
-        (1): Linear(in_features=4096, out_features=64, bias=True)
+        (1): Linear(in_features=4608, out_features=64, bias=True)
         (2): ReLU(inplace=True)
         (3): Dropout(p=0.5, inplace=False)
         (4): Linear(in_features=64, out_features=1, bias=True)
-
-
-
+      )
+    )
