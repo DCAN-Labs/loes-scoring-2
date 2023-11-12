@@ -20,7 +20,14 @@ parameters for now):
 
 This block is a function that computes a set of output images from an input image.  The function consists of 
 additions and 
-multiplications combined with a non-linear function computed by `ReLU`.  With CNNs, by constructing 
+multiplications combined with a non-linear function computed by `ReLU`.  
+
+1. Conv3d(...)  # TODO Give plain English description
+2. BatchNorm3d(...)  # TODO Give plain English description
+3. ReLU(...)  # TODO Give plain English description
+4. MaxPool3d(...)  # TODO Give plain English description
+
+With CNNs, by constructing 
 different blocks consisting of different types of constituent parts with different parameters
 in different orders,  we can construct functions that are arbitrarily close to a given function.  The 
 given function that we are trying to approximate in our case is the function `mri_to_loes_score` with the domain of
