@@ -29,7 +29,7 @@ multiplications combined with a non-linear function computed by `ReLU`.
 
 With CNNs, by constructing 
 different blocks consisting of different types of constituent parts with different parameters
-in different orders,  we can construct functions that are arbitrarily close to a given function.  The 
+in different orders **with the appropriate activation functions**,  we can construct functions that are arbitrarily close to a given function.  The 
 given function that we are trying to approximate in our case is the function `mri_to_loes_score` with the domain of
 MRIs and the range of Loes scores.
 
