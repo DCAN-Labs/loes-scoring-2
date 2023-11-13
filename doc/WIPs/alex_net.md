@@ -10,8 +10,9 @@ Inputs to AlexNet are three-dimensional MRI images.  The output, for a given MRI
 Loes scores range from a low of 0 to a high of 34 at increments of 0.5.
 
 ### Intermediate layers
-The intermediate, hidden layers are blocks.  Each block is constructed like this (I've elided the
-parameters for now):        
+The intermediate, hidden layers are blocks.  Each block is constructed like this (For simplicity, I've 
+elided the
+parameters):        
 
         (0): Conv3d(...)
         (1): BatchNorm3d(...)
@@ -22,10 +23,14 @@ This block is a function that computes a set of output images from an input imag
 additions and 
 multiplications combined with a non-linear function computed by `ReLU`.  
 
-1. Conv3d(...)  # For the purposes of explaining AlexNet, we can consider `Conv3d` to be a `k x k x k` cube with each voxel containing a number.  This is scanned across and through `k x k x k` sub-cubicles of the 3-dimensional MRI.  That is, we are taking the dot product of the `k x k x k` convulotion kernel with the `k x k x k` sub-cubicles of the MRI.  
-2. BatchNorm3d(...)  # Batch normalization.  Normalizes the output of the previous layer.  This is to keep the values 'reasonable' for Step 3.  
-3. ReLU(...)  # Rectified linear unit.  We use ReLU as our activation function.
-4. MaxPool3d(...)  # TODO Give plain English description
+1. Conv3d(...): For the purposes of explaining AlexNet, we can consider `Conv3d` to be a `k x k x k` cube 
+with each voxel containing a number.  This is scanned across and through `k x k x k` sub-cubicles of the 
+3-dimensional MRI.  That is, we are taking the dot product of the `k x k x k` convulotion kernel with the 
+`k x k x k` sub-cubicles of the MRI.  Convolutions with a small kernel identify features at a low level.
+2. BatchNorm3d(...): Batch normalization.  Normalizes the output of the previous layer.  This is to keep the values 'reasonable' for Step 3.  
+3. ReLU(...): Rectified linear unit.  We use ReLU as our activation function.  The activation function
+add non-linearity to the model.
+4. MaxPool3d(...): Downsamples the data.  Preserves the *big picture*.
 
 With CNNs, by constructing 
 different blocks consisting of different types of constituent parts with different parameters
