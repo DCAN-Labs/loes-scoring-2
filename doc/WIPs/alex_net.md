@@ -23,8 +23,8 @@ additions and
 multiplications combined with a non-linear function computed by `ReLU`.  
 
 1. Conv3d(...)  # For the purposes of explaining AlexNet, we can consider `Conv3d` to be a `k x k x k` cube with each voxel containing a number.  This is scanned across and through `k x k x k` sub-cubicles of the 3-dimensional MRI.  That is, we are taking the dot product of the `k x k x k` convulotion kernel with the `k x k x k` sub-cubicles of the MRI.  
-2. BatchNorm3d(...)  # Batch normalization.  Normalizes the output of the previous layer.  This is to keep the values from going
-3. ReLU(...)  # TODO Give plain English description
+2. BatchNorm3d(...)  # Batch normalization.  Normalizes the output of the previous layer.  This is to keep the values 'reasonable' for Step 3.  
+3. ReLU(...)  # Rectified linear unit.  We use ReLU as our activation function.
 4. MaxPool3d(...)  # TODO Give plain English description
 
 With CNNs, by constructing 
