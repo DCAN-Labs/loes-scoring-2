@@ -1,14 +1,16 @@
 # Model 1
 * data: all of Ashish's data
-* Standardized RMSE: 0.7221896282431954
+* Standardized RMSE: 1.2361675803033423
 ![Model 1](./img/model01.png "Model 1")
-* correlation:    0.7137920287364632
-* p-value:        1.233154773204162e-08
-* standard error: 0.07224898056380212
+* correlation:    0.7576594621674633
+* p-value:        4.5450967939798647e-10
+* standard error: 0.05417922815191362
 * SLURM script: *../bin/loes-scoring-training_model01_mesabi.sh*
-* Model: */home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_02_512_temp.pt*
+* Model: */home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_01.pt*
 * Epochs: 128
 * lr: 0.0001
+* subject list: /home/miran045/reine097/projects/loes-scoring-2/doc/model01/subjects.txt
+* log file: /home/miran045/reine097/projects/loes-scoring-2/doc/model01/loes-scoring-alex-net-160220934.err
 
 # Model 6
 * data: all of Ashish's non-Gd data
