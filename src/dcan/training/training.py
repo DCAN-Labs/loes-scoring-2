@@ -6,6 +6,7 @@ import os
 import statistics
 from itertools import chain
 from sklearn.metrics import mean_squared_error
+import numpy as np
 
 import pandas as pd
 import scipy
@@ -101,6 +102,9 @@ class LoesScoringTrainingApp:
         self.parser.add_argument('--csv-data-file',
                                  help="CSV data file.",
                                  )
+        self.parser.add_argument('--output-csv-file',
+                                 help="Output CSV data file.",
+                                 )
         self.parser.add_argument('--num-workers',
                                  help='Number of worker processes for background data loading',
                                  default=8,
@@ -152,6 +156,7 @@ class LoesScoringTrainingApp:
                                  )
         self.cli_args = self.parser.parse_args(sys_argv)
         self.df = pd.read_csv(self.cli_args.csv_data_file)
+        self.output_df = None
 
         self.trn_writer = None
         self.val_writer = None
@@ -268,6 +273,11 @@ class LoesScoringTrainingApp:
         self.df['subject'] = self.df.apply(lambda row: get_subject_from_file_name(row['file']), axis=1)
         self.df['session'] = self.df.apply(lambda row: get_session_from_file_name(row['file']), axis=1)
 
+        self.output_df = self.df.copy()
+        self.output_df["training"] = np.nan
+        self.output_df["validation"] = np.nan
+        # TODO Add test column
+
         subjects = list(self.df.subject.unique())
         grouped = self.df.groupby('subject')['loes-score'].mean()
         sorted_groups = grouped.sort_values(ascending=True)
@@ -280,7 +290,15 @@ class LoesScoringTrainingApp:
 
         val_subjects = [subject for subject in subjects if subject not in train_subjects]
         self.train_subjects.extend(train_subjects)
+        train_index = 0
+        for train_subject in self.train_subjects:
+            log.info(f'train_subject_{train_index:03d}: {train_subject}')
+            train_index += 1
         self.val_subjects.extend(val_subjects)
+        val_index = 0
+        for val_subject in self.val_subjects:
+            log.info(f'val_subject_{val_index:03d}: {val_subject}')
+            val_index += 1
 
         train_dl = self.init_train_dl(self.df, self.train_subjects)
         val_dl = self.init_val_dl(self.df, self.val_subjects)

@@ -1,7 +1,7 @@
 # Model 1
 * data: all of Ashish's data
 * Standardized RMSE: 0.7221896282431954
-![Model 1](./img/model01_temp.png "Model 1")
+![Model 1](./img/model01.png "Model 1")
 * correlation:    0.7137920287364632
 * p-value:        1.233154773204162e-08
 * standard error: 0.07224898056380212

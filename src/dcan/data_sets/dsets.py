@@ -150,8 +150,7 @@ class LoesScoreDataset(Dataset):
                  sortby_str='random'
                  ):
         self.is_val_set_bool = is_val_set_bool
-        self.candidateInfo_list = \
-            copy.copy(get_candidate_info_list(df, subjects))
+        self.candidateInfo_list = copy.copy(get_candidate_info_list(df, subjects))
 
         if subject:
             self.candidateInfo_list = [
