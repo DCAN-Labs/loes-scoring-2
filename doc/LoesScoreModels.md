@@ -1,5 +1,6 @@
 # Model 1
 * data: all of Ashish's data
+* Gd: Both enhanced and not enhanced scans, but not in separate channels.
 * Standardized RMSE: 1.2361675803033423
 ![Model 1](./img/model01.png "Model 1")
 * correlation:    0.7576594621674633

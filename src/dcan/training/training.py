@@ -268,6 +268,9 @@ class LoesScoringTrainingApp:
 
     def main(self):
         log.info("Starting {}, {}".format(type(self).__name__, self.cli_args))
+
+        self.df = self.df[self.df['Gd'] == 1]
+
         self.df['subject'] = self.df.apply(lambda row: get_subject_from_file_name(row['file']), axis=1)
         self.df['session'] = self.df.apply(lambda row: get_session_from_file_name(row['file']), axis=1)
 
