@@ -8,6 +8,7 @@ import torch
 import torchio as tio
 from dataclasses import dataclass, field
 from torch.utils.data import Dataset
+from typing import List
 
 from util.disk import getCache
 
@@ -57,7 +58,7 @@ def get_uid(p):
     return f'{get_subject(p)}_{get_session(p)}'
 
 
-def get_candidate_info_list(df, candidates):
+def get_candidate_info_list(df, candidates: List[str]):
     # TODO Add filter for Gad
     candidate_info_list = []
     df = df.reset_index()  # make sure indexes pair with number of rows
@@ -144,7 +145,7 @@ def get_mri_raw_candidate(subject_session_uid, is_val_set_bool):
 
 class LoesScoreDataset(Dataset):
     def __init__(self,
-                 subjects, df,
+                 subjects: List[str], df, output_df,
                  is_val_set_bool=None,
                  subject=None,
                  sortby_str='random'
@@ -169,6 +170,11 @@ class LoesScoreDataset(Dataset):
             len(self.candidateInfo_list),
             "validation" if is_val_set_bool else "training",
         ))
+        if output_df is not None:
+            for candidate_info in self.candidateInfo_list:
+                row_location = (df["subject"] == candidate_info.subject) & (df["session"] == candidate_info.session_str)
+                output_df.loc[row_location, 'training'] = 0 if is_val_set_bool else 1
+                output_df.loc[row_location, 'validation'] = 1 if is_val_set_bool else 0
 
     def __len__(self):
         return len(self.candidateInfo_list)

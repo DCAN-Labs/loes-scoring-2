@@ -11,6 +11,7 @@
 * lr: 0.0001
 * subject list: /home/miran045/reine097/projects/loes-scoring-2/doc/model01/subjects.txt
 * log file: /home/miran045/reine097/projects/loes-scoring-2/doc/model01/loes-scoring-alex-net-160220934.err
+![Model 1 training](./model01/model01-tensor-board.png "Model 1 training")
 
 # Model 6
 * data: all of Ashish's non-Gd data

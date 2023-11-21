@@ -5,21 +5,21 @@ import math
 import os
 import statistics
 from itertools import chain
-from sklearn.metrics import mean_squared_error
-import numpy as np
+from typing import List
 
+import numpy as np
 import pandas as pd
 import scipy
 import scipy.stats
 import torch
 import torch.nn as nn
+from sklearn.metrics import mean_squared_error
 from torch.optim import Adam
 from torch.optim.sgd import SGD
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from dcan.data_sets.dsets import LoesScoreDataset
-from dcan.models.ResNet import ResNet, ResidualBlock
 from dcan.plot.create_scatterplot import create_scatterplot
 from reprex.models import AlexNet3D
 from util.logconf import logging
@@ -171,8 +171,6 @@ class LoesScoringTrainingApp:
         self.val_subjects = []
 
     def init_model(self):
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        log.info("Using AlexNet")
         model = AlexNet3D(4608)
         if self.use_cuda:
             log.info("Using CUDA; {} devices.".format(torch.cuda.device_count()))
@@ -187,9 +185,9 @@ class LoesScoringTrainingApp:
         else:
             return SGD(self.model.parameters(), lr=0.001, momentum=0.99)
 
-    def init_train_dl(self, df, train_subjects):
+    def init_train_dl(self, df, train_subjects, output_df):
         train_ds = LoesScoreDataset(train_subjects,
-                                    df,
+                                    df, output_df,
                                     is_val_set_bool=False,
                                     )
 
@@ -206,9 +204,9 @@ class LoesScoringTrainingApp:
 
         return train_dl
 
-    def init_val_dl(self, df, val_subjects):
-        val_ds = LoesScoreDataset(val_subjects,
-                                  df,
+    def init_val_dl(self, df, val_subjects: List[str], output_df):
+        val_ds = LoesScoreDataset(val_subjects, df,
+                                  output_df,
                                   is_val_set_bool=True,
                                   )
 
@@ -245,7 +243,7 @@ class LoesScoringTrainingApp:
 
     def get_output_distributions(self):
         with torch.no_grad():
-            val_dl = self.init_val_dl(self.df, self.val_subjects)
+            val_dl = self.init_val_dl(self.df, self.val_subjects, None)
             self.model.eval()
             batch_iter = enumerateWithEstimate(
                 val_dl,
@@ -290,18 +288,17 @@ class LoesScoringTrainingApp:
 
         val_subjects = [subject for subject in subjects if subject not in train_subjects]
         self.train_subjects.extend(train_subjects)
-        train_index = 0
-        for train_subject in self.train_subjects:
-            log.info(f'train_subject_{train_index:03d}: {train_subject}')
-            train_index += 1
         self.val_subjects.extend(val_subjects)
-        val_index = 0
-        for val_subject in self.val_subjects:
-            log.info(f'val_subject_{val_index:03d}: {val_subject}')
-            val_index += 1
 
-        train_dl = self.init_train_dl(self.df, self.train_subjects)
-        val_dl = self.init_val_dl(self.df, self.val_subjects)
+        train_dl = self.init_train_dl(self.df, self.train_subjects, self.output_df)
+        val_dl = self.init_val_dl(self.df, self.val_subjects, self.output_df)
+
+        from pathlib import Path
+        filepath = Path(self.cli_args.output_csv_file)
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        self.output_df = self.output_df.astype({"training": int, "validation": int})
+        self.output_df.sort_values(by=['subject', 'session'])
+        self.output_df.to_csv(filepath)
 
         for epoch_ndx in range(1, self.cli_args.epochs + 1):
             log.info("Epoch {} of {}, {}/{} batches of size {}*{}".format(
