@@ -154,6 +154,9 @@ class LoesScoringTrainingApp:
                                  default=0.001,
                                  type=float,
                                  )
+        self.parser.add_argument('--non-gd-only',
+                                 action='store_true',
+                                 help="Use only non-Gd-enhanced scans.")
         self.cli_args = self.parser.parse_args(sys_argv)
         self.df = pd.read_csv(self.cli_args.csv_data_file)
         self.output_df = None
@@ -269,7 +272,8 @@ class LoesScoringTrainingApp:
     def main(self):
         log.info("Starting {}, {}".format(type(self).__name__, self.cli_args))
 
-        self.df = self.df[self.df['Gd'] == 1]
+        gd = 0 if self.cli_args.non_gd_only else 1
+        self.df = self.df[self.df['Gd'] == gd]
 
         self.df['subject'] = self.df.apply(lambda row: get_subject_from_file_name(row['file']), axis=1)
         self.df['session'] = self.df.apply(lambda row: get_session_from_file_name(row['file']), axis=1)
