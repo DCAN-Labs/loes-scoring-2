@@ -284,7 +284,7 @@ class LoesScoringTrainingApp:
         # TODO Add test column
 
         subjects = list(self.df.subject.unique())
-        grouped = self.df.groupby('subject')['loes-score'].mean()
+        grouped = self.df.groupby('subject')['loes-score'].max()
         sorted_groups = grouped.sort_values(ascending=True)
         i = 0
         train_subjects = []
