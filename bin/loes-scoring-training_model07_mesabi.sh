@@ -24,4 +24,4 @@ export PYTHONPATH=PYTHONPATH:"/home/miran045/reine097/projects/loes-scoring-2/sr
   --batch-size 1 --num-workers 1 --epochs 128 \
   --model-save-location "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_07.pt" \
   --plot-location "/home/miran045/reine097/projects/loes-scoring-2/doc/img/model07.png" \
-  --output-csv-file "/home/miran045/reine097/projects/loes-scoring-2/data/filtered/model07_out.csv"
+  --output-csv-file "/home/miran045/reine097/projects/loes-scoring-2/data/filtered/model07_out.csv" --gd 1

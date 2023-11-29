@@ -146,3 +146,5 @@ dmypy.json
 /src/dcan/models/runs/fashion_mnist_experiment_1/
 /doc/models/model09/output_256.csv
 /doc/img/model_08_temp.png
+/doc/models/model07/output.csv
+/doc/models/model08/output.csv
