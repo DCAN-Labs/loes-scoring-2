@@ -188,4 +188,4 @@ class LoesScoreDataset(Dataset):
         loes_score = candidate_info.loes_score_float
         loes_score_t = torch.tensor(loes_score)
 
-        return candidate_t, loes_score_t
+        return candidate_t, loes_score_t, candidate_info.subject_str, candidate_info.session_str

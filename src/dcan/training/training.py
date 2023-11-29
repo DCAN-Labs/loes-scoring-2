@@ -154,9 +154,9 @@ class LoesScoringTrainingApp:
                                  default=0.001,
                                  type=float,
                                  )
-        self.parser.add_argument('--non-gd-only',
-                                 action='store_true',
-                                 help="Use only non-Gd-enhanced scans.")
+        self.parser.add_argument('--gd',
+                                 type=int,
+                                 help="Use Gd-enhanced scans.")
         self.cli_args = self.parser.parse_args(sys_argv)
         self.df = pd.read_csv(self.cli_args.csv_data_file)
         self.output_df = None
@@ -255,7 +255,7 @@ class LoesScoringTrainingApp:
             )
             distributions = dict()
             for batch_ndx, batch_tup in batch_iter:
-                input_t, label_t = batch_tup
+                input_t, label_t, subjects, sessions_str = batch_tup
                 x = input_t.to(self.device, non_blocking=True)
                 labels = label_t.to(self.device, non_blocking=True)
                 outputs = self.model(x)
@@ -265,15 +265,24 @@ class LoesScoringTrainingApp:
                     label_int = int(labels[i].item())
                     if label_int not in distributions:
                         distributions[label_int] = []
-                    distributions[label_int].append(predictions[i])
+                    prediction = predictions[i]
+                    distributions[label_int].append(prediction)
+                    subject = subjects[i]
+                    session_str = sessions_str[i]
+                    index = \
+                        self.output_df[(self.output_df['subject'] == subject) &
+                                       (self.output_df['session'] == session_str)]\
+                            .index
+                    self.output_df.loc[index, 'prediction'] = prediction
 
             return distributions
 
     def main(self):
         log.info("Starting {}, {}".format(type(self).__name__, self.cli_args))
 
-        gd = 0 if self.cli_args.non_gd_only else 1
-        self.df = self.df[self.df['Gd'] == gd]
+        gd = self.cli_args.gd
+        if gd in [0, 1]:
+            self.df = self.df[self.df['Gd'] == gd]
 
         self.df['subject'] = self.df.apply(lambda row: get_subject_from_file_name(row['file']), axis=1)
         self.df['session'] = self.df.apply(lambda row: get_session_from_file_name(row['file']), axis=1)
@@ -341,9 +350,12 @@ class LoesScoringTrainingApp:
             standardized_rmse = get_standardized_rmse(output_distributions)
             log.info(f'standardized_rmse: {standardized_rmse}')
         except ZeroDivisionError as err:
-            log.error(f'Could not compute stanardized RMSE because sigma is 0: {err}')
+            log.error(f'Could not compute standardized RMSE because sigma is 0: {err}')
 
         result = compute_pearson_correlation_coefficient(output_distributions)
+
+        self.output_df.sort_values(by=['subject', 'session'])
+        self.output_df.to_csv(filepath, index=False)
 
         # noinspection PyUnresolvedReferences
         log.info(f"correlation:    {result.rvalue}")
@@ -404,7 +416,7 @@ class LoesScoringTrainingApp:
         return val_metrics_g.to('cpu')
 
     def compute_batch_loss(self, batch_ndx, batch_tup, batch_size, metrics_g):
-        input_t, label_t = batch_tup
+        input_t, label_t, _, _ = batch_tup
 
         input_g = input_t.to(self.device, non_blocking=True)
         label_g = label_t.to(self.device, non_blocking=True)

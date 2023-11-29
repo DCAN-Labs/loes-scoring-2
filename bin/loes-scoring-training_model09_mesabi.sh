@@ -11,8 +11,8 @@
 #SBATCH --mail-type=begin        # send 7mail when job begins
 #SBATCH --mail-type=end          # send email when job ends
 #SBATCH --mail-user=reine097@umn.edu
-#SBATCH -e loes-scoring-alex-net-%j.err
-#SBATCH -o loes-scoring-alex-net-%j.out
+#SBATCH -e /home/miran045/reine097/projects/loes-scoring-2/doc/models/model09/loes-scoring-alex-net-256-%j.err
+#SBATCH -o /home/miran045/reine097/projects/loes-scoring-2/doc/models/model09/loes-scoring-alex-net-256-%j.out
 
 #SBATCH -A miran045
 
@@ -21,7 +21,7 @@ export PYTHONPATH=PYTHONPATH:"/home/miran045/reine097/projects/loes-scoring-2/sr
 /home/miran045/reine097/projects/AlexNet_Abrol2021/venv/bin/python \
   /home/miran045/reine097/projects/loes-scoring-2/src/dcan/training/training.py \
   --csv-data-file "/home/miran045/reine097/projects/loes-scoring-2/data/filtered/ashish_all.csv" \
-  --batch-size 1 --num-workers 1 --epochs 128 \
-  --model-save-location "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_08.pt" \
-  --plot-location "/home/miran045/reine097/projects/loes-scoring-2/doc/img/model08.png" \
-  --output-csv-file "/home/miran045/reine097/projects/loes-scoring-2/data/filtered/model08_out.csv" --non-gd-only
+  --batch-size 1 --num-workers 1 --epochs 512 \
+  --model-save-location "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_09_256.pt" \
+  --output-csv-file "/home/miran045/reine097/projects/loes-scoring-2/doc/models/model09/output_512.csv" --gd 2 \
+  --plot-location "/home/miran045/reine097/projects/loes-scoring-2/doc/models/model09/correlation_512.png"
