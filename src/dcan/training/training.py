@@ -1,9 +1,7 @@
 # Author: Paul Reiners
 import argparse
 import datetime
-import math
 import os
-import statistics
 from itertools import chain
 from typing import List
 
@@ -13,13 +11,13 @@ import scipy
 import scipy.stats
 import torch
 import torch.nn as nn
-from sklearn.metrics import mean_squared_error
 from torch.optim import Adam
 from torch.optim.sgd import SGD
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from dcan.data_sets.dsets import LoesScoreDataset
+from dcan.metrics import get_standardized_rmse
 from dcan.plot.create_scatterplot import create_scatterplot
 from reprex.models import AlexNet3D
 from util.logconf import logging
@@ -52,21 +50,6 @@ def compute_pearson_correlation_coefficient(d):
     result = scipy.stats.linregress(xs, ys)
 
     return result
-
-
-def get_standardized_rmse(d):
-    target = []
-    preds = []
-    for x in d:
-        vals = d[x]
-        for y in vals:
-            target.append(x)
-            preds.append(y)
-    mse = mean_squared_error(target, preds)
-    rmse = math.sqrt(mse)
-    sigma = statistics.stdev(preds)
-
-    return rmse / sigma
 
 
 def get_subject_from_file_name(file_name):
@@ -157,8 +140,7 @@ class LoesScoringTrainingApp:
         self.parser.add_argument('--gd',
                                  type=int,
                                  help="Use Gd-enhanced scans.")
-        self.parser.add_argument('--use-train-validation-cols',
-                            action='store_true')
+        self.parser.add_argument('--use-train-validation-cols', action='store_true')
         self.parser.add_argument('-k', help='index for 5-fold validation', type=int, default=0)
         self.cli_args = self.parser.parse_args(sys_argv)
         self.df = pd.read_csv(self.cli_args.csv_data_file)
@@ -353,8 +335,14 @@ class LoesScoringTrainingApp:
         if self.cli_args.plot_location:
             create_scatterplot(output_distributions, self.cli_args.plot_location)
 
+        actuals = []
+        predictions = []
+        for key, val in output_distributions.items():
+            for v in val:
+                actuals.append(key)
+                predictions.append(v)
         try:
-            standardized_rmse = get_standardized_rmse(output_distributions)
+            standardized_rmse = get_standardized_rmse(actuals, predictions)
             log.info(f'standardized_rmse: {standardized_rmse}')
         except ZeroDivisionError as err:
             log.error(f'Could not compute standardized RMSE because sigma is 0: {err}')
