@@ -157,6 +157,9 @@ class LoesScoringTrainingApp:
         self.parser.add_argument('--gd',
                                  type=int,
                                  help="Use Gd-enhanced scans.")
+        self.parser.add_argument('--use-train-validation-cols',
+                            action='store_true')
+        self.parser.add_argument('-k', help='index for 5-fold validation', type=int, default=0)
         self.cli_args = self.parser.parse_args(sys_argv)
         self.df = pd.read_csv(self.cli_args.csv_data_file)
         self.output_df = None
@@ -295,12 +298,16 @@ class LoesScoringTrainingApp:
         subjects = list(self.df.subject.unique())
         grouped = self.df.groupby('subject')['loes-score'].max()
         sorted_groups = grouped.sort_values(ascending=True)
-        i = 0
-        train_subjects = []
-        for item in sorted_groups.items():
-            if i % 5 != 0:
-                train_subjects.append(item[0])
-            i += 1
+        if not self.cli_args.use_train_validation_cols:
+            i = 0
+            train_subjects = []
+            for item in sorted_groups.items():
+                if i % 5 != self.cli_args.k:
+                    train_subjects.append(item[0])
+                i += 1
+        else:
+            train_df = self.df.loc[self.df['training'] == 1]
+            train_subjects = train_df.subject.unique()
 
         val_subjects = [subject for subject in subjects if subject not in train_subjects]
         self.train_subjects.extend(train_subjects)
