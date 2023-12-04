@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 # log.setLevel(logging.DEBUG)
 
-folder = '/home/miran045/reine097/projects/loes-scoring-2/doc/models/model09/'
+folder = '/home/miran045/reine097/projects/loes-scoring-2/doc/models/model09/five_fold_validation'
 path = rf'{folder}*.csv'
 files = glob.glob(path)
 dfs = map(lambda f: pd.read_csv(f), files)
