@@ -1,5 +1,8 @@
 import glob
-import logging
+
+import scipy
+
+from util.logconf import logging
 
 import pandas as pd
 
@@ -22,3 +25,13 @@ actuals = list(rslt_df['loes-score'])
 predictions = list(rslt_df['prediction'])
 standardized_rmse = get_standardized_rmse(actuals, predictions)
 log.info(f'standardized_rmse: {standardized_rmse}')
+
+# noinspection PyUnresolvedReferences
+result = scipy.stats.linregress(actuals, predictions)
+
+# noinspection PyUnresolvedReferences
+log.info(f"correlation:    {result.rvalue}")
+# noinspection PyUnresolvedReferences
+log.info(f"p-value:        {result.pvalue}")
+# noinspection PyUnresolvedReferences
+log.info(f"standard error: {result.stderr}")

@@ -159,3 +159,10 @@ dmypy.json
 /bin/loes-scoring-alex-net-160413669.out
 /bin/loes-scoring-alex-net-160413670.err
 /bin/loes-scoring-alex-net-160413670.out
+/doc/models/five_fold_validation/correlation0.png
+/doc/models/five_fold_validation/correlation1.png
+/doc/models/five_fold_validation/correlation2.png
+/doc/models/five_fold_validation/correlation3.png
+/doc/models/five_fold_validation/correlation4.png
+/doc/models/five_fold_validation/output_all.csv
+/doc/models/model11/output.csv

@@ -39,19 +39,6 @@ def flatten_chain(matrix):
     return list(chain.from_iterable(matrix))
 
 
-def compute_pearson_correlation_coefficient(d):
-    xs = []
-    ys = []
-    for x in d:
-        vals = d[x]
-        for y in vals:
-            xs.append(x)
-            ys.append(y)
-    result = scipy.stats.linregress(xs, ys)
-
-    return result
-
-
 def get_subject_from_file_name(file_name):
     start_pos = file_name.find('sub')
     end_pos = file_name.find('ses', start_pos) - 1
@@ -347,7 +334,7 @@ class LoesScoringTrainingApp:
         except ZeroDivisionError as err:
             log.error(f'Could not compute standardized RMSE because sigma is 0: {err}')
 
-        result = compute_pearson_correlation_coefficient(output_distributions)
+        result = scipy.stats.linregress(actuals, predictions)
 
         self.output_df.sort_values(by=['subject', 'session'])
         self.output_df.to_csv(filepath, index=False)
