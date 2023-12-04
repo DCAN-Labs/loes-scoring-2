@@ -166,3 +166,5 @@ dmypy.json
 /doc/models/five_fold_validation/correlation4.png
 /doc/models/five_fold_validation/output_all.csv
 /doc/models/model11/output.csv
+/doc/models/model09/five_fold_cross_validation.csv
+/doc/models/model09/five_fold_validation/five_fold_cross_validation.csv

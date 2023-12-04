@@ -1,5 +1,3 @@
-import sys
-
 import matplotlib
 
 matplotlib.use('Agg')
@@ -8,15 +6,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def create_scatterplot(d, output_file):
-    xs = []
-    ys = []
-    for x in d:
-        vals = d[x]
-        for y in vals:
-            xs.append(x)
-            ys.append(y)
-
+def create_scatterplot(df, output_file):
+    xs = df['loes-score']
+    ys = df['prediction']
     _, ax = plt.subplots()
     plt.scatter(xs, ys)
     plt.title('Actual Loes score vs. predicted Loes score')
@@ -36,7 +28,3 @@ def create_scatterplot(d, output_file):
     plt.ylabel("Predicted Loes score")
 
     plt.savefig(output_file)
-
-
-if __name__ == "__main__":
-    create_scatterplot(sys.argv[1], sys.argv[2])

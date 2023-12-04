@@ -319,15 +319,13 @@ class LoesScoringTrainingApp:
         torch.save(self.model.state_dict(), self.cli_args.model_save_location)
 
         output_distributions = self.get_output_distributions()
-        if self.cli_args.plot_location:
-            create_scatterplot(output_distributions, self.cli_args.plot_location)
-
         actuals = []
         predictions = []
         for key, val in output_distributions.items():
             for v in val:
                 actuals.append(key)
                 predictions.append(v)
+
         try:
             standardized_rmse = get_standardized_rmse(actuals, predictions)
             log.info(f'standardized_rmse: {standardized_rmse}')
@@ -338,6 +336,11 @@ class LoesScoringTrainingApp:
 
         self.output_df.sort_values(by=['subject', 'session'])
         self.output_df.to_csv(filepath, index=False)
+
+        if self.cli_args.plot_location:
+            validation_df = self.output_df[self.output_df['validation'] == 1]
+            create_scatterplot(
+                validation_df[['loes-score', 'prediction', 'subject', 'session']], self.cli_args.plot_location)
 
         # noinspection PyUnresolvedReferences
         log.info(f"correlation:    {result.rvalue}")
