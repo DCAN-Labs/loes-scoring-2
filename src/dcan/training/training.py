@@ -146,7 +146,12 @@ class LoesScoringTrainingApp:
         self.val_subjects = []
 
     def init_model(self):
-        model = AlexNet3D(4608)
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        if self.cli_args.model == 'ResNet':
+            log.info("Using ResNet3D")
+            model = ResNet3D().to(device)
+        else:
+            model = AlexNet3D(4608)
         if self.use_cuda:
             log.info("Using CUDA; {} devices.".format(torch.cuda.device_count()))
             if torch.cuda.device_count() > 1:
