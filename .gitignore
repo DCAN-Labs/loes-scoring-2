@@ -168,3 +168,6 @@ dmypy.json
 /doc/models/model11/output.csv
 /doc/models/model09/five_fold_cross_validation.csv
 /doc/models/model09/five_fold_validation/five_fold_cross_validation.csv
+bin/captum-160468470.err
+.gitignore
+bin/captum-160468470.out
