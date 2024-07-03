@@ -3,17 +3,14 @@
 import logging
 import os
 import sys
-import shutil
-import tempfile
-
-import torch
-from torch.utils.tensorboard import SummaryWriter
-import numpy as np
 
 import monai
-from monai.apps import download_and_extract
+import numpy as np
+import pandas as pd
+import torch
 from monai.config import print_config
 from monai.data import DataLoader, ImageDataset
+from monai.networks.nets import Regressor
 from monai.transforms import (
     EnsureChannelFirst,
     Compose,
@@ -21,7 +18,14 @@ from monai.transforms import (
     Resize,
     ScaleIntensity,
 )
-from monai.networks.nets import Regressor
+from torch.utils.tensorboard import SummaryWriter
+
+from dcan.metrics import get_standardized_rmse
+
+log = logging.getLogger(__name__)
+# log.setLevel(logging.WARN)
+log.setLevel(logging.INFO)
+# log.setLevel(logging.DEBUG)
 
 pin_memory = torch.cuda.is_available()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -29,54 +33,24 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 print_config()
 
+loes_scoring_folder = '/home/feczk001/shared/data/loes_scoring/'
+df = pd.read_csv(os.path.join(loes_scoring_folder, 'Nascene_deID_files.csv'))
+
+defaced_folder = os.path.join(loes_scoring_folder, 'nascene_deid/BIDS/defaced/')
+
+
+def add_folder(row):
+    return os.path.join(defaced_folder, row['FILE'])
+
+
+df['full_path'] = df.apply(add_folder, axis=1)
+
 # Setup data directory
 root_dir = '/home/feczk001/shared/data/loes_scoring/nascene_deid/BIDS/defaced/'
-images = [
-    os.sep.join([root_dir, "sub-01_session-00_space-MNI_002_sub-01_deidentified_18_PEDI_BRAIN_MPRage_SAGIT.nii.gz"]),
-    os.sep.join([root_dir, "sub-01_session-01_space-MNI_002_sub-01_deidentified_16_PEDI_BRAIN_MPRage_SAGIT.nii.gz"]),
-    os.sep.join([root_dir, "sub-02_session-00_space-MNI_103_sub-02_deidentified_MPRAGE_SAG_GD.nii.gz"]),
-    os.sep.join([root_dir, "sub-02_session-01_space-MNI_002_sub-02_deidentified_T1_FLASH_MPRAGE_SAG.nii.gz"]),
-    os.sep.join([root_dir, "sub-02_session-01_space-MNI_016_sub-02_deidentified_T1_FLASH_MPRAGE_SAG_+C.nii.gz"]),
-    os.sep.join([root_dir, "sub-02_session-01_space-MNI_100_sub-02_deidentified_T1_FLASH_MPRAGE_SAG.nii.gz"]),
-    os.sep.join([root_dir, "sub-02_session-01_space-MNI_101_sub-02_deidentified_T1_FLASH_MPRAGE_SAG.nii.gz"]),
-    os.sep.join([root_dir, "sub-02_session-01_space-MNI_102_sub-02_deidentified_T1_FLASH_MPRAGE_SAG_+C.nii.gz"]),
-    os.sep.join([root_dir, "sub-02_session-01_space-MNI_103_sub-02_deidentified_T1_FLASH_MPRAGE_SAG_+C.nii.gz"]),
-    os.sep.join([root_dir, "sub-02_session-02_space-MNI_103_sub-02_deidentified_SAG_T1_MPRAGE.nii.gz"]),
-    os.sep.join([root_dir, "sub-02_session-03_space-MNI_002_sub-02_deidentified_T1_FLASH_MPRAGE_SAG.nii.gz"]),
-    os.sep.join([root_dir, "sub-02_session-03_space-MNI_021_sub-02_deidentified_T1_FLASH_MPRAGE_SAG_+C.nii.gz"]),
-    os.sep.join([root_dir, "sub-02_session-03_space-MNI_100_sub-02_deidentified_T1_FLASH_MPRAGE_SAG.nii.gz"]),
-    os.sep.join([root_dir, "sub-02_session-03_space-MNI_101_sub-02_deidentified_T1_FLASH_MPRAGE_SAG.nii.gz"]),
-    os.sep.join([root_dir, "sub-02_session-03_space-MNI_102_sub-02_deidentified_T1_FLASH_MPRAGE_SAG_+C.nii.gz"]),
-    os.sep.join([root_dir, "sub-02_session-03_space-MNI_103_sub-02_deidentified_T1_FLASH_MPRAGE_SAG_+C.nii.gz"]),
-    os.sep.join([root_dir, "sub-02_session-04_space-MNI_002_sub-02_deidentified_MPRAGE_SAG.nii.gz"]),
-    os.sep.join([root_dir, "sub-02_session-04_space-MNI_022_sub-02_deidentified_MPRAGE_SAG_GD.nii.gz"]),
-    os.sep.join([root_dir, "sub-02_session-04_space-MNI_100_sub-02_deidentified_MPRAGE_SAG.nii.gz"]),
-    os.sep.join([root_dir, "sub-02_session-04_space-MNI_101_sub-02_deidentified_MPRAGE_SAG.nii.gz"]),
-]
+images = list(df['full_path'])
 
 loes_scores = np.array(
-    [
-        14,
-        15,
-        18,
-        18,
-        18,
-        18,
-        18,
-        18,
-        18,
-        18,
-        18,
-        18,
-        18,
-        18,
-        18,
-        18,
-        18,
-        18,
-        18,
-        18,
-    ]
+    [[score] for score in df['loes_score']]
 )
 
 # Define transforms
@@ -99,7 +73,7 @@ train_loader = DataLoader(train_ds, batch_size=2, shuffle=True, num_workers=2, p
 val_ds = ImageDataset(image_files=images[-10:], labels=loes_scores[-10:], transform=val_transforms)
 val_loader = DataLoader(val_ds, batch_size=2, num_workers=2, pin_memory=pin_memory)
 
-model = Regressor(in_shape=[1, 96, 96, 96], out_shape=1, channels=(16, 32, 64, 128, 256), strides=(2, 2, 2, 2))
+model = Regressor(in_shape=[1, 96, 96, 96], out_shape=[1], channels=(16, 32, 64, 128, 256), strides=(2, 2, 2, 2))
 if torch.cuda.is_available():
     model.cuda()
 # It is important that we use nn.MSELoss for regression.
@@ -161,8 +135,13 @@ for epoch in range(max_epochs):
             lowest_rmse_epoch = epoch + 1
             torch.save(model.state_dict(), "best_metric_model_classification3d_array.pth")
             print("saved new best metric model")
+            try:
+                standardized_rmse = get_standardized_rmse(all_labels, all_val_outputs)
+                log.info(f'standardized_rmse: {standardized_rmse}')
+            except ZeroDivisionError as err:
+                log.error(f'Could not compute standardized RMSE because sigma is 0: {err}')
 
-        print(f"Current epoch: {epoch+1} current RMSE: {rmse:.4f} ")
+        print(f"Current epoch: {epoch + 1} current RMSE: {rmse:.4f} ")
         print(f"Best RMSE: {lowest_rmse:.4f} at epoch {lowest_rmse_epoch}")
         writer.add_scalar("val_rmse", rmse, epoch + 1)
 
