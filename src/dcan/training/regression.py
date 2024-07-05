@@ -1,3 +1,5 @@
+# export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/miran045/reine097/projects/loes-scoring-2/.venv/lib/python3.11/site-packages/nvidia/cudnn/lib/
+# ~/projects/loes-scoring-2/.venv/bin/python  ./dcan/training/regression.py
 # Setup imports
 
 import logging
@@ -54,9 +56,9 @@ loes_scores = np.array(
 )
 
 # Define transforms
-train_transforms = Compose([ScaleIntensity(), EnsureChannelFirst(), Resize((96, 96, 96)), RandRotate90()])
+train_transforms = Compose([ScaleIntensity(), EnsureChannelFirst(), Resize((197, 233, 189))])
 
-val_transforms = Compose([ScaleIntensity(), EnsureChannelFirst(), Resize((96, 96, 96))])
+val_transforms = Compose([ScaleIntensity(), EnsureChannelFirst(), Resize((197, 233, 189))])
 
 # Define nifti dataset, data loader
 check_ds = ImageDataset(image_files=images, labels=loes_scores, transform=train_transforms)
@@ -73,7 +75,7 @@ train_loader = DataLoader(train_ds, batch_size=2, shuffle=True, num_workers=2, p
 val_ds = ImageDataset(image_files=images[-10:], labels=loes_scores[-10:], transform=val_transforms)
 val_loader = DataLoader(val_ds, batch_size=2, num_workers=2, pin_memory=pin_memory)
 
-model = Regressor(in_shape=[1, 96, 96, 96], out_shape=[1], channels=(16, 32, 64, 128, 256), strides=(2, 2, 2, 2))
+model = Regressor(in_shape=[1, 197, 233, 189], out_shape=[1], channels=(16, 32, 64, 128, 256), strides=(2, 2, 2, 2))
 if torch.cuda.is_available():
     model.cuda()
 # It is important that we use nn.MSELoss for regression.
