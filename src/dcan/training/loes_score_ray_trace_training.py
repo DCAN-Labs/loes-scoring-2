@@ -1,3 +1,5 @@
+# https://pytorch.org/tutorials/beginner/hyperparameter_tuning_tutorial.html
+
 from functools import partial
 import os
 import tempfile
@@ -76,25 +78,29 @@ if checkpoint:
 else:
     start_epoch = 0
 
-def test_accuracy(net, device="cpu"):
+def measure_rmse(net, device="cpu"):
     trainset, testset = load_data()
 
     testloader = torch.utils.data.DataLoader(
         testset, batch_size=4, shuffle=False, num_workers=2
     )
 
-    correct = 0
-    total = 0
+    all_labels = []
+    all_val_outputs = []
     with torch.no_grad():
         for data in testloader:
             images, labels = data
             images, labels = images.to(device), labels.to(device)
             outputs = net(images)
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
+            all_labels.extend(labels.cpu().detach().numpy())
+            flattened_val_outputs = [val for sublist in outputs.cpu().detach().numpy() for val in sublist]
+            all_val_outputs.extend(flattened_val_outputs)
 
-    return correct / total
+    mse = np.square(np.subtract(all_labels, all_val_outputs)).mean()
+    rmse = np.sqrt(mse)
+
+    return rmse
+
 
 def train_loes_scoring(config):
     net = Net(in_shape=[1, 197, 233, 189], out_shape=[1], channels=(16, 32, 64, 128, 256), strides=(2, 2, 2, 2))
@@ -164,23 +170,30 @@ def train_loes_scoring(config):
                 running_loss = 0.0
 
         # Validation loss
+        print("got here.")
+        all_labels = []
+        all_val_outputs = []
         val_loss = 0.0
         val_steps = 0
-        total = 0
-        correct = 0
         for i, data in enumerate(valloader, 0):
             with torch.no_grad():
                 inputs, labels = data
                 inputs, labels = inputs.to(device), labels.to(device)
 
                 outputs = net(inputs)
-                _, predicted = torch.max(outputs.data, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
+                flattened_val_outputs = [np.double(val) for sublist in outputs.cpu().detach().numpy() for val in sublist]
+                all_val_outputs.extend(flattened_val_outputs)
+                print(f'all_labels: {all_labels}')
+                flattened_label_outputs = [np.double(val) for sublist in labels.cpu().detach().numpy() for val in sublist]
+                print(f'labels:     {labels}   ')
+                all_labels.extend(flattened_label_outputs)
 
                 loss = criterion(outputs, labels)
                 val_loss += loss.cpu().numpy()
                 val_steps += 1
+
+        mse = np.square(np.subtract(all_labels, all_val_outputs)).mean()
+        rmse = np.sqrt(mse)
 
         checkpoint_data = {
             "epoch": epoch,
@@ -194,7 +207,7 @@ def train_loes_scoring(config):
 
             checkpoint = Checkpoint.from_directory(checkpoint_dir)
             train.report(
-                {"loss": val_loss / val_steps, "accuracy": correct / total},
+                {"loss": val_loss / val_steps, "rmse": rmse},
                 checkpoint=checkpoint,
             )
 
@@ -224,7 +237,7 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
     best_trial = result.get_best_trial("loss", "min", "last")
     print(f"Best trial config: {best_trial.config}")
     print(f"Best trial final validation loss: {best_trial.last_result['loss']}")
-    print(f"Best trial final validation accuracy: {best_trial.last_result['accuracy']}")
+    print(f"Best trial final validation rmse: {best_trial.last_result['rmse']}")
 
     best_trained_model = Net(in_shape=[1, 197, 233, 189], out_shape=[1], channels=(16, 32, 64, 128, 256), strides=(2, 2, 2, 2))
     device = "cpu"
@@ -234,15 +247,15 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
             best_trained_model = nn.DataParallel(best_trained_model)
     best_trained_model.to(device)
 
-    best_checkpoint = result.get_best_checkpoint(trial=best_trial, metric="accuracy", mode="max")
+    best_checkpoint = result.get_best_checkpoint(trial=best_trial, metric="rmse", mode="max")
     with best_checkpoint.as_directory() as checkpoint_dir:
         data_path = Path(checkpoint_dir) / "data.pkl"
         with open(data_path, "rb") as fp:
             best_checkpoint_data = pickle.load(fp)
 
         best_trained_model.load_state_dict(best_checkpoint_data["net_state_dict"])
-        test_acc = test_accuracy(best_trained_model, device)
-        print("Best trial test set accuracy: {}".format(test_acc))
+        test_rmse = measure_rmse(best_trained_model, device)
+        print("Best trial test set rmse: {}".format(test_rmse))
 
 
 if __name__ == "__main__":
