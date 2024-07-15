@@ -18,8 +18,6 @@ from ray.tune.schedulers import ASHAScheduler
 import ray.cloudpickle as pickle
 from monai.transforms import (
     EnsureChannelFirst,
-    Compose,
-    RandRotate90,
     Resize,
     ScaleIntensity,
 )
@@ -170,7 +168,6 @@ def train_loes_scoring(config):
                 running_loss = 0.0
 
         # Validation loss
-        print("got here.")
         all_labels = []
         all_val_outputs = []
         val_loss = 0.0
@@ -183,9 +180,7 @@ def train_loes_scoring(config):
                 outputs = net(inputs)
                 flattened_val_outputs = [np.double(val) for sublist in outputs.cpu().detach().numpy() for val in sublist]
                 all_val_outputs.extend(flattened_val_outputs)
-                print(f'all_labels: {all_labels}')
                 flattened_label_outputs = [np.double(val) for sublist in labels.cpu().detach().numpy() for val in sublist]
-                print(f'labels:     {labels}   ')
                 all_labels.extend(flattened_label_outputs)
 
                 loss = criterion(outputs, labels)
