@@ -59,11 +59,6 @@ class Net(Regressor):
     def __init__(self, in_shape, out_shape, channels, strides):
         super(Net, self).__init__(in_shape, out_shape, channels, strides)
 
-config = {
-    "lr": tune.loguniform(1e-4, 1e-1),
-    "batch_size": tune.choice([2, 4, 8, 16])
-}
-
 checkpoint = get_checkpoint()
 if checkpoint:
     with checkpoint.as_directory() as checkpoint_dir:
@@ -112,7 +107,7 @@ def train_loes_scoring(config):
 
    # It is important that we use nn.MSELoss for regression.
     criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.Adam(net.parameters(), lr=config["lr"])
+    optimizer = torch.optim.Adam(net.parameters(), lr=config["lr"], weight_decay=config["weight_decay"])
 
     checkpoint = get_checkpoint()
     if checkpoint:
@@ -210,9 +205,11 @@ def train_loes_scoring(config):
     
 def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
     load_data()
+
     config = {
         "lr": tune.loguniform(1e-4, 1e-1),
         "batch_size": tune.choice([2, 4, 8, 16]),
+        "weight_decay": tune.loguniform(0.0001, 0.9990)
     }
     scheduler = ASHAScheduler(
         metric="loss",
