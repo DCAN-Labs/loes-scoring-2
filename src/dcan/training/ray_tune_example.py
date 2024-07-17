@@ -49,8 +49,8 @@ def load_data():
     transform = transforms.Compose(
         [ScaleIntensity(), EnsureChannelFirst(), Resize((197, 233, 189))])
 
-    trainset = ImageDataset(image_files=images[:10], labels=loes_scores[:10], transform=transform)
-    testset = ImageDataset(image_files=images[-10:], labels=loes_scores[-10:], transform=transform)
+    trainset = ImageDataset(image_files=images, labels=loes_scores, transform=transform)
+    testset = ImageDataset(image_files=images, labels=loes_scores, transform=transform)
 
     return trainset, testset
 
