@@ -72,7 +72,7 @@ else:
     start_epoch = 0
 
 def measure_rmse(net, device="cpu"):
-    trainset, testset = load_data()
+    _, testset = load_data()
 
     testloader = torch.utils.data.DataLoader(
         testset, batch_size=4, shuffle=False, num_workers=2
@@ -209,8 +209,10 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
     config = {
         "lr": tune.loguniform(1e-4, 1e-1),
         "batch_size": tune.choice([2, 4, 8, 16]),
-        "weight_decay": tune.loguniform(0.0001, 0.9990)
+        "weight_decay": tune.loguniform(0.0001, 0.9990),
+        "dropout": tune.uniform(0.0000, 0.9990)
     }
+
     scheduler = ASHAScheduler(
         metric="loss",
         mode="min",
