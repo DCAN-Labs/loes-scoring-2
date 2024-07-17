@@ -56,8 +56,8 @@ def load_data():
 
 
 class Net(Regressor):
-    def __init__(self, in_shape, out_shape, channels, strides):
-        super(Net, self).__init__(in_shape, out_shape, channels, strides)
+    def __init__(self, in_shape, out_shape, channels, strides, num_res_units: int = 2):
+        super(Net, self).__init__(in_shape, out_shape, channels, strides, num_res_units=num_res_units)
 
 checkpoint = get_checkpoint()
 if checkpoint:
@@ -210,7 +210,7 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
         "lr": tune.loguniform(1e-4, 1e-3),
         "batch_size": tune.choice([1, 2, 4]),
         "weight_decay": tune.loguniform(1e-4, 1e-3),
-        "dropout": tune.uniform(0.005, 0.015)
+        "num_res_units": tune.choice([1, 2, 3])
     }
 
     scheduler = ASHAScheduler(
