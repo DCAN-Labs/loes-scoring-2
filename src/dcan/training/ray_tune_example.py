@@ -25,6 +25,7 @@ from monai.data import DataLoader, ImageDataset
 import pandas as pd
 import numpy as np
 from monai.networks.nets import Regressor
+import random
 
 
 loes_scoring_folder = '/home/feczk001/shared/data/loes_scoring/'
@@ -49,11 +50,19 @@ def load_data():
     transform = transforms.Compose(
         [ScaleIntensity(), EnsureChannelFirst(), Resize((197, 233, 189))])
 
-    trainset = ImageDataset(image_files=images, labels=loes_scores, transform=transform)
-    testset = ImageDataset(image_files=images, labels=loes_scores, transform=transform)
+    n = len(images)
+    k = int(round(0.8 * n))
+    random_indices = random.sample(range(n), k)
+    trainset = \
+        ImageDataset(image_files=[images[i] for i in random_indices], 
+                     labels=[loes_scores[i] for i in random_indices], 
+                     transform=transform)
+    testset = \
+        ImageDataset(image_files=[images[i] for i in range(n) if i not in random_indices], 
+                     labels=[loes_scores[i] for i in range(n) if i not in random_indices], 
+                     transform=transform)
 
     return trainset, testset
-
 
 class Net(Regressor):
     def __init__(self, in_shape, out_shape, channels, strides, num_res_units: int = 2):
