@@ -10,7 +10,7 @@ import torch
 import torchio as tio
 from math import sqrt
 
-from reprex.models import AlexNet3D
+from dcan.inference.models import AlexNet3D
 
 log = logging.getLogger(__name__)
 # log.setLevel(logging.WARN)

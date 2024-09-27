@@ -9,8 +9,9 @@ import sys
 import torch
 import torchio as tio
 from math import sqrt
+import numpy as np
 
-from reprex.models import AlexNet3D
+from dcan.inference.models import AlexNet3D
 
 log = logging.getLogger(__name__)
 # log.setLevel(logging.WARN)
@@ -20,8 +21,9 @@ log.setLevel(logging.INFO)
 
 def process_data(model_save_location, val_csv_location, val_csv_save_location):
     model = AlexNet3D(4608)
-    model.load_state_dict(torch.load(model_save_location,
-                                     map_location='cpu'))
+    weights = torch.load(model_save_location,
+                                     map_location='cpu')
+    model.load_state_dict(weights)
     model.eval()
 
     df = pd.read_csv(val_csv_location)
@@ -37,22 +39,26 @@ def process_data(model_save_location, val_csv_location, val_csv_save_location):
             image_path = row['file']
             try:
                 actual_loes_score = row['loes-score']
-                if math.isnan(actual_loes_score):
-                    continue
             except ValueError:
                 log.error(f"Loes score error on line {index + 2}")
 
                 continue
             image = tio.ScalarImage(image_path)
 
-            image_tensor = image.data
+            # image_tensor = image.data.to(device)
+            input_tensor = image.data.float() 
+            image_tensor = torch.unsqueeze(input_tensor, dim=0)
+
+            print(image_tensor.dtype)
             output = model(image_tensor)
             prediction = output[0].item()
+            prediction_list.append(prediction)
             df.at[index, 'prediction'] = prediction
+            if math.isnan(actual_loes_score):
+                continue
             difference = actual_loes_score - prediction
             square = difference * difference
             squares_list.append(square)
-            prediction_list.append(prediction)
         log.info(ratings_dict)
         rmse = sqrt(sum(squares_list) / len(squares_list))
         sigma = statistics.stdev(prediction_list)
@@ -64,13 +70,7 @@ def process_data(model_save_location, val_csv_location, val_csv_save_location):
 
 
 if __name__ == "__main__":
-    csv_in_folder = sys.argv[1]
-    models_folder = sys.argv[2]
-    csv_out_folder = sys.argv[3]
-    for i in range(5):
-        csv_in_file = os.path.join(csv_in_folder, f'fold{i}.csv')
-        model_file = \
-            os.path.join(
-                models_folder, "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_model_1_cv", f'fold{i}.pt')
-        csv_out_file = os.path.join(csv_out_folder, f'fold{i}.csv')
-        process_data(model_file, csv_in_file, csv_out_file)
+    csv_in_file = '/users/9/reine097/loes_scoring/in.csv'
+    model_file = '/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_09_256.pt'
+    csv_out_file = '/users/9/reine097/loes_scoring/out.csv'
+    process_data(model_file, csv_in_file, csv_out_file)

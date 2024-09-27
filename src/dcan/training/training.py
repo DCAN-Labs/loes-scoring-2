@@ -19,7 +19,7 @@ from torch.utils.tensorboard import SummaryWriter
 from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.metrics import get_standardized_rmse
 from dcan.plot.create_scatterplot import create_scatterplot
-from reprex.models import AlexNet3D
+from dcan.inference.models import AlexNet3D
 from util.logconf import logging
 from util.util import enumerateWithEstimate
 
