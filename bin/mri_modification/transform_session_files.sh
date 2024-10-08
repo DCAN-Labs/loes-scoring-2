@@ -2,8 +2,6 @@
 
 SUBJECT=$2
 SESSION=$3
-# STUDY_DIR=/home/feczk001/shared/projects/S1067_Loes/data/niftis_deID/original/
-# OUT_DIR=/home/feczk001/shared/data/loes_scoring/nascene_deid/BIDS/defaced_atlas_reg
 STUDY_DIR=$1
 OUT_DIR=$4
 
