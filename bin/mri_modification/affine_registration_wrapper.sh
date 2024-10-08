@@ -6,8 +6,6 @@ module load fsl
 
 MRI_IN=$1
 MRI_OUT=$2
-# For MRI with skull:    REF=/home/feczk001/shared/projects/S1067_Loes/data/MNI152/mni_icbm152_nlin_sym_09a/mni_icbm152_t1_tal_nlin_sym_09a.nii
-# For MRI without skull: REF=/home/feczk001/shared/projects/S1067_Loes/data/MNI152/mni_icbm152_t1_tal_nlin_sym_09a_masked.nii.gz
 REF=$3
 
 echo Registering ${MRI_IN}
