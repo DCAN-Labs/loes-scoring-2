@@ -5,13 +5,12 @@
 
 STUDY_DIR=$1
 OUT_DIR=$2
-
 for sub_directory in $(find ${STUDY_DIR} -mindepth 1 -maxdepth 1 -type d); do
-    echo $sub_directory
+    SUBJECT=$(basename $sub_directory)
+    echo "Processing $SUBJECT..."
     for session_directory in $(find ${sub_directory} -mindepth 1 -maxdepth 1 -type d); do
-       echo "     $session_directory"
-       for nifti_file in $(find ${session_directory} -mindepth 1 -maxdepth 1 -type f -name "*.nii.gz"); do
-            echo "          $nifti_file"
-        done
+        SESSION=$(basename $session_directory)
+        echo "     Processing $SESSION..."
+        ./transform_session_files.sh $STUDY_DIR $SUBJECT $SESSION $OUT_DIR
     done
 done
