@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# STUDY_DIR=/home/feczk001/shared/projects/S1067_Loes/data/niftis_deID/original/
-# OUT_DIR=/home/feczk001/shared/data/loes_scoring/nascene_deid/BIDS/defaced_atlas_reg
+CURRENT_DIR=$(pwd)
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+cd $SCRIPT_DIR
 
 STUDY_DIR=$1
 OUT_DIR=$2
@@ -14,3 +15,5 @@ for sub_directory in $(find ${STUDY_DIR} -mindepth 1 -maxdepth 1 -type d); do
         ./transform_session_files.sh $STUDY_DIR $SUBJECT $SESSION $OUT_DIR
     done
 done
+
+cd $CURRENT_DIR
