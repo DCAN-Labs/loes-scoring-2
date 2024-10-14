@@ -49,28 +49,31 @@ def process_data(model_save_location, val_csv_location, val_csv_save_location):
             input_tensor = image.data.float() 
             image_tensor = torch.unsqueeze(input_tensor, dim=0)
 
-            print(image_tensor.dtype)
-            output = model(image_tensor)
-            prediction = output[0].item()
-            prediction_list.append(prediction)
-            df.at[index, 'prediction'] = prediction
+            outputs = model(image_tensor)
+            outputs = outputs[0].item()
+            outputs = float(outputs)
+            print(f'outputs: {outputs}')
+            prediction_list.append(outputs)
+            df.at[index, 'prediction'] = outputs
             if math.isnan(actual_loes_score):
+                print(f'Nan: {actual_loes_score}')
                 continue
-            difference = actual_loes_score - prediction
+            difference = actual_loes_score - outputs
             square = difference * difference
             squares_list.append(square)
         log.info(ratings_dict)
-        rmse = sqrt(sum(squares_list) / len(squares_list))
-        sigma = statistics.stdev(prediction_list)
-        standardized_rmse = rmse / sigma
-        log.info(f'standardized_rmse: {standardized_rmse}')
+        if len(squares_list) != 0:
+            rmse = sqrt(sum(squares_list) / len(squares_list))
+            sigma = statistics.stdev(prediction_list)
+            standardized_rmse = rmse / sigma
+            log.info(f'standardized_rmse: {standardized_rmse}')
+            ax1 = df.plot.scatter(x='loes_score', y = 'prediction', c = 'DarkBlue')
+            plt.show()
         df.to_csv(val_csv_save_location, index=False)
-        ax1 = df.plot.scatter(x='loes_score', y = 'prediction', c = 'DarkBlue')
-        plt.show()
 
 
 if __name__ == "__main__":
     csv_in_file = '/users/9/reine097/loes_scoring/in.csv'
     model_file = '/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_09_256.pt'
-    csv_out_file = '/users/9/reine097/loes_scoring/out.csv'
+    csv_out_file = '/users/9/reine097/loes_scoring/out_2024_10_14.csv'
     process_data(model_file, csv_in_file, csv_out_file)
