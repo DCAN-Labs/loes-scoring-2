@@ -1,7 +1,10 @@
 # Standard Operating Procedure
 
-## Normalizing files
+## Preprocessing Workflow Structure
 
-1. Call [../bin/mri_modification/transform_study_dir_files.sh](../bin/mri_modification/transform_study_dir_files.sh).  Here is an example call:
+ 1. [skull_stripping](./skull_scripting.sh) (singularity)
+ 2. [affine_registration_wrapper](./affine_registration_wrapper.sh) (flirt)
+ 3. [normalize_intensity](./normalize_intensity.sh) (fslmaths)
 
-       ./transform_study_dir_files.sh /home/feczk001/shared/projects/S1067_Loes/data/niftis_deID/original/ /home/feczk001/shared/data/loes_scoring/nascene_deid/BIDS/defaced_atlas_re
+ ## Creating WM and GM Histograms by Masking
+ TODO
