@@ -25,23 +25,32 @@ def save_nifti(data, affine, output_path):
         raise RuntimeError(f"Error saving NIfTI file: {output_path}. Error: {e}")
 
 def main():
-    # Define paths
-    in_file = Path('/home/feczk001/shared/projects/S1067_Loes/data/niftis_deID/transformed/sub-01_ses-01_space-MNI_brain_normalized_mprage.nii.gz')
-    mask_dir = Path('/home/feczk001/shared/projects/S1067_Loes/code/cortical_masking_work/anatonly_derivatives_nonGD/sub-01/ses-01/anat/')
-    mask_file = 'sub-01_ses-01_run-01_space-MNI_label-GM_probseg.nii.gz'
-    mask_path = mask_dir / mask_file
+    good_subjects = [1, 2, 4]  # List of good subjects
+    in_dir = Path('/home/feczk001/shared/projects/S1067_Loes/data/niftis_deID/transformed')
     masked_img_dir = Path('/home/feczk001/shared/projects/S1067_Loes/data/niftis_deID/masked/non_gd/gm/')
-    masked_img_file = 'masked-sub-01_ses-01_space-MNI_brain_normalized_mprage.nii.gz'
 
-    # Load images and mask
-    regular_img, regular_data = load_nifti(in_file)
-    _, mask_data = load_nifti(mask_path)
+    for good_subject in good_subjects:
+        try:
+            # Define paths
+            mask_dir = Path(f'/home/feczk001/shared/projects/S1067_Loes/code/cortical_masking_work/anatonly_derivatives_nonGD/sub-0{good_subject}/ses-01/anat/')
+            in_file = Path(f'sub-0{good_subject}_ses-01_space-MNI_brain_normalized_mprage.nii.gz')
+            in_path = in_dir / in_file
+            mask_file = f'sub-0{good_subject}_ses-01_run-01_space-MNI_label-GM_probseg.nii.gz'
+            mask_path = mask_dir / mask_file
+            masked_img_file = f'masked-sub-0{good_subject}_ses-01_space-MNI_brain_normalized_mprage.nii.gz'
 
-    # Apply mask
-    masked_data = apply_mask(regular_data, mask_data)
+            # Load images and mask
+            regular_img, regular_data = load_nifti(in_path)
+            _, mask_data = load_nifti(mask_path)
 
-    # Save masked image
-    save_nifti(masked_data, regular_img.affine, masked_img_dir / masked_img_file)
+            # Apply mask
+            masked_data = apply_mask(regular_data, mask_data)
+
+            # Save masked image
+            save_nifti(masked_data, regular_img.affine, masked_img_dir / masked_img_file)
+        
+        except Exception as e:
+            print(f"Error processing subject {good_subject}: {e}")
 
 if __name__ == "__main__":
     main()
