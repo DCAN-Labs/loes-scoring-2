@@ -1,6 +1,7 @@
 {
     "version": "0.2.0",
     "configurations": [
+
     {
         "type": "bashdb",
         "request": "launch",
@@ -16,7 +17,8 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "args": [
-                "${command:pickArgs}"
+                "/home/feczk001/shared/projects/S1067_Loes/data/niftis_deID/masked/non_gd/",
+                "/home/feczk001/shared/projects/S1067_Loes/data/niftis_deID/histograms/non_gd/"
             ]
         }
     ]
