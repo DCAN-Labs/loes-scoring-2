@@ -1,4 +1,4 @@
-# Google Research Competitions Involving the Brain
+# Kaggle Research Competitions Involving the Brain
 
 Ideas from these competitions and the winning solutions could possibly be used in future MIDB projects.
 
