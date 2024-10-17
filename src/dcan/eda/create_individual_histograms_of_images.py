@@ -5,28 +5,38 @@ import matplotlib.pyplot as plt
 import nibabel as nib
 from pathlib import Path
 
+def get_data(img_dir, img_name):
+    # Define the NIfTI file path
+    img_path = img_dir / img_name
+
+    # Load NIfTI image
+    img = nib.load(img_path)
+    gray_matter_data = img.get_fdata()
+
+    # Flatten image data and filter out zero intensities
+    flattened_data = gray_matter_data.flatten()
+
+    return flattened_data
+
+
 def plot_voxel_intensity_histogram(subject_id, img_dir, hist_dir):
     """Generate and save a histogram of voxel intensities for a given subject."""
     try:
-        # Define the NIfTI file path
-        img_name = f'masked-sub-0{subject_id}_ses-01_space-MNI_brain_normalized_GM_mprage.nii.gz'
-        img_path = img_dir / img_name
-
-        # Load NIfTI image
-        img = nib.load(img_path)
-        gray_matter_data = img.get_fdata()
-
-        # Flatten image data and filter out zero intensities
-        flattened_data = gray_matter_data.flatten()
-        df = pd.DataFrame(flattened_data, columns=['voxel_intensity'])
-        filtered_data = df[df['voxel_intensity'] > 0]
-
+        filtered_data_dict = dict()
+        for matter_type in ['GM', 'WM']:
+            img_name = f'masked-sub-0{subject_id}_ses-01_space-MNI_brain_normalized_{matter_type}_mprage.nii.gz'
+            flattened_data = get_data(img_dir. img_name)
+            filtered_data = [flattened_data[i] for i in range(len(flattened_data)) if flattened_data[i] > 0]
+            filtered_data_dict[matter_type] = filtered_data
+        df = pd.DataFrame({'white_matter_voxel_intensity': filtered_data_dict['WM'], 'gray_matter_voxel_intensity': filtered_data_dict['GM']})
         # Plot histogram
-        plt.figure(figsize=(10, 6))
-        sns.histplot(data=filtered_data, x='voxel_intensity', bins=30, color='purple')
+        fig, ax = plt.subplots()
+        sns.histplot(data=df['WM'], ax=ax, color="blue", label="White matter", kde=True)
+        sns.histplot(data=df['GM'], ax=ax, color="blue", label="Gray matter", kde=True)
         plt.title(f'Distribution of gray matter voxel intensities in {img_name}')
         plt.xlabel('Voxel intensity')
         plt.ylabel('Frequency')
+        plt.legend()
         plt.grid(True)
 
         # Save the plot
