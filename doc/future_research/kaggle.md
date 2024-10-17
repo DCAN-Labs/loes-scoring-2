@@ -5,7 +5,7 @@ Ideas from these competitions and the winning solutions could possibly be used i
 ## [Parkinson's Freezing of Gait Prediction](https://www.kaggle.com/competitions/tlvmc-parkinsons-freezing-gait-prediction)
 ### Event detection from wearable sensor data
 
-The goal of this competition is to detect freezing of gait (FOG), a debilitating symptom that afflicts many people with Parkinsons disease. You will develop a machine learning model trained on data collected from a wearable 3D lower back sensor.
+The goal of this competition is to detect freezing of gait (FOG), a debilitating symptom that afflicts many people with Parkinson's disease. You will develop a machine learning model trained on data collected from a wearable 3D lower back sensor.
 
 Your work will help researchers better understand when and why FOG episodes occur. This will improve the ability of medical professionals to optimally evaluate, monitor, and ultimately, prevent FOG events.
 
