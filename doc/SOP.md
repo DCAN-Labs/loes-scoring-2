@@ -7,4 +7,5 @@
  3. [normalize_intensity](../bin/mri_modification/normalize_intensity.sh) (fslmaths)
 
  ## Creating WM and GM Histograms by Masking
- TODO
+ 
+ 1. [create_masked_files](../src/dcan/eda/create_masked_files.py)
