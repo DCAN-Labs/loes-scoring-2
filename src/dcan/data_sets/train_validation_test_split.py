@@ -1,18 +1,22 @@
 import os
 import pandas as pd
-import os.path
 
+# Define paths
 csv_file = '/users/9/reine097/loes_scoring/s1067-loes-score/Nascene_data/defacing/defaced_outputs/loes_scores.csv'
+base_dir = '/users/9/reine097/loes_scoring/s1067-loes-score/Nascene_data/defacing/defaced_outputs/preprocessed/'
 
-def file_exists(file):
-    dir = '/users/9/reine097/loes_scoring/s1067-loes-score/Nascene_data/defacing/defaced_outputs/preprocessed/'
-    fname = os.path.join(dir, file)
-    
-    return os.path.isfile(fname)
+# Check if the file exists in the preprocessed directory
+def file_exists(file_name):
+    return os.path.isfile(os.path.join(base_dir, file_name))
 
+# Load the CSV into a DataFrame
 df = pd.read_csv(csv_file)
 
-# Apply the boolean function to the column
-df = df[df['file'].apply(file_exists)]
+# Filter the DataFrame by checking if the files exist in the specified directory
+df['file_exists'] = df['file'].apply(file_exists)
 
-print(df)
+# Only keep rows where the file exists
+df_filtered = df[df['file_exists']]
+
+# Display the filtered DataFrame
+print(df_filtered)
