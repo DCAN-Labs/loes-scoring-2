@@ -18,5 +18,8 @@ df['file_exists'] = df['file'].apply(file_exists)
 # Only keep rows where the file exists
 df_filtered = df[df['file_exists']]
 
-# Display the filtered DataFrame
-print(df_filtered)
+grouped = df.groupby(['subject', 'subject'])
+
+result = grouped.agg({'loes_score': 'mean'}) 
+
+print(result)
