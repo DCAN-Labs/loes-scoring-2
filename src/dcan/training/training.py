@@ -1,27 +1,29 @@
 import argparse
 import datetime
+import os
+from pathlib import Path
+from typing import List
+
+import numpy as np
 import pandas as pd
+import scipy.stats
 import torch
-import logging
+import torch.nn as nn
+from torch.optim import Adam, SGD
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 
 from dcan.data_sets.dsets import LoesScoreDataset
+from dcan.metrics import get_standardized_rmse
+from dcan.plot.create_scatterplot import create_scatterplot
 from dcan.inference.models import AlexNet3D
 from faimed3d.models.resnet import ResNet3D
-from torch.optim import Adam
-from torch.utils.data import DataLoader
-import os
-from torch.optim.sgd import SGD
-from torch.utils.tensorboard import SummaryWriter
-import numpy as np
-import torch.nn as nn
-
-
+from util.logconf import logging
 from util.util import enumerateWithEstimate
 
 
-
-
 log = logging.getLogger(__name__)
+
 
 # Used for computeBatchLoss and logMetrics to index into metrics_t/metrics_a
 METRICS_LABEL_NDX = 0
@@ -31,105 +33,147 @@ METRICS_SIZE = 3
 
 
 
+# Refactored Configuration class to handle CLI arguments
+class Config:
+    def __init__(self):
+        self.parser = argparse.ArgumentParser()
 
+        self.parser.add_argument('--tb-prefix', default='loes_scoring', help="Tensorboard data prefix.")
+        self.parser.add_argument('--csv-data-file', help="CSV data file.")
+        self.parser.add_argument('--output-csv-file', help="Output CSV data file.")
+        self.parser.add_argument('--num-workers', default=8, type=int, help='Number of worker processes')
+        self.parser.add_argument('--batch-size', default=32, type=int, help='Batch size for training')
+        self.parser.add_argument('--epochs', default=1, type=int, help='Number of epochs to train')
+        self.parser.add_argument('--file-path-column-index', type=int, help='Index of the file path in CSV file')
+        self.parser.add_argument('--loes-score-column-index', type=int, help='Index of the Loes score in CSV file')
+        self.parser.add_argument('--model-save-location', default=f'./model-{datetime.datetime.now().strftime("%Y-%m-%d_%H.%M.%S")}.pt')
+        self.parser.add_argument('--plot-location', help='Location to save plot')
+        self.parser.add_argument('--optimizer', default='Adam', help="Optimizer type.")
+        self.parser.add_argument('--model', default='AlexNet', help="Model type.")
+        self.parser.add_argument('comment', nargs='?', default='dcan', help="Comment for Tensorboard run")
+        self.parser.add_argument('--lr', default=0.001, type=float, help='Learning rate')
+        self.parser.add_argument('--gd', type=int, help="Use Gd-enhanced scans.")
+        self.parser.add_argument('--use-train-validation-cols', action='store_true')
+        self.parser.add_argument('-k', type=int, default=0, help='Index for 5-fold validation')
+
+    def parse_args(self, sys_argv):
+        return self.parser.parse_args(sys_argv)
+
+
+# Data Handler Class to manage dataset operations
+class DataHandler:
+    def __init__(self, df, output_df, use_cuda, batch_size, num_workers):
+        self.df = df
+        self.output_df = output_df
+        self.use_cuda = use_cuda
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+
+    def init_dl(self, subjects, is_val_set: bool = False):
+        dataset = LoesScoreDataset(subjects, self.df, self.output_df, is_val_set_bool=is_val_set)
+        batch_size = self.batch_size
+        if self.use_cuda:
+            batch_size *= torch.cuda.device_count()
+
+        return DataLoader(dataset, batch_size=batch_size, num_workers=self.num_workers, pin_memory=self.use_cuda)
+
+
+# Model Handler Class to manage model operations
+class ModelHandler:
+    def __init__(self, model_name, use_cuda, device):
+        self.model_name = model_name
+        self.use_cuda = use_cuda
+        self.device = device
+        self.model = self._init_model()
+
+    def _init_model(self):
+        if self.model_name == 'ResNet':
+            model = ResNet3D().to(self.device)
+            log.info("Using ResNet3D")
+        else:
+            model = AlexNet3D(4608).to(self.device)
+            log.info("Using AlexNet3D")
+
+        if self.use_cuda and torch.cuda.device_count() > 1:
+            log.info("Using CUDA with {} devices.".format(torch.cuda.device_count()))
+            model = nn.DataParallel(model)
+            model = model.to(self.device)
+        return model
+
+    def save_model(self, save_location):
+        if isinstance(self.model, torch.nn.DataParallel):
+            self.model = self.model.module
+        torch.save(self.model.state_dict(), save_location)
+
+    def load_model(self, model_path):
+        self.model.load_state_dict(torch.load(model_path))
+
+
+# Training/Validation Loop Handler
+class TrainingLoop:
+    def __init__(self, model_handler, optimizer, device):
+        self.model_handler = model_handler
+        self.optimizer = optimizer
+        self.device = device
+        self.total_samples = 0
+
+    def train_epoch(self, epoch, train_dl):
+        self.model_handler.model.train()
+        trn_metrics_g = torch.zeros(METRICS_SIZE, len(train_dl.dataset), device=self.device)
+        for batch_ndx, batch_tup in enumerateWithEstimate(train_dl, f"E{epoch} Training", start_ndx=train_dl.num_workers):
+            self.optimizer.zero_grad()
+            loss_var = self._compute_batch_loss(batch_ndx, batch_tup, train_dl.batch_size, trn_metrics_g)
+            loss_var.backward()
+            self.optimizer.step()
+        self.total_samples += len(train_dl.dataset)
+        return trn_metrics_g.to('cpu')
+
+    def validate_epoch(self, epoch, val_dl):
+        with torch.no_grad():
+            self.model_handler.model.eval()
+            val_metrics_g = torch.zeros(METRICS_SIZE, len(val_dl.dataset), device=self.device)
+            for batch_ndx, batch_tup in enumerateWithEstimate(val_dl, f"E{epoch} Validation", start_ndx=val_dl.num_workers):
+                self._compute_batch_loss(batch_ndx, batch_tup, val_dl.batch_size, val_metrics_g)
+        return val_metrics_g.to('cpu')
+
+    def _compute_batch_loss(self, batch_ndx, batch_tup, batch_size, metrics_g):
+        input_t, label_t, _, _ = batch_tup
+        input_g = input_t.to(self.device, non_blocking=True)
+        label_g = label_t.to(self.device, non_blocking=True)
+
+        outputs_g = self.model_handler.model(input_g)
+        loss_func = nn.MSELoss(reduction='none')
+        loss_g = loss_func(outputs_g[0].squeeze(1), label_g)
+
+        start_ndx = batch_ndx * batch_size
+        end_ndx = start_ndx + label_t.size(0)
+        metrics_g[METRICS_LABEL_NDX, start_ndx:end_ndx] = label_g.detach()
+        metrics_g[METRICS_LOSS_NDX, start_ndx:end_ndx] = loss_g.detach()
+
+        return loss_g.mean()
+
+
+# TensorBoard Logger
+class TensorBoardLogger:
+    def __init__(self, tb_prefix, time_str, comment):
+        self.log_dir = os.path.join('runs', tb_prefix, time_str)
+        self.trn_writer = SummaryWriter(log_dir=self.log_dir + f'-trn_cls-{comment}')
+        self.val_writer = SummaryWriter(log_dir=self.log_dir + f'-val_cls-{comment}')
+
+    def log_metrics(self, mode_str, epoch, metrics, sample_count):
+        writer = getattr(self, f'{mode_str}_writer')
+        writer.add_scalar(f'loss/all', metrics[METRICS_LOSS_NDX].mean(), sample_count)
+
+    def close(self):
+        self.trn_writer.close()
+        self.val_writer.close()
+
+
+# Main Application Class
 class LoesScoringTrainingApp:
     def __init__(self, sys_argv=None):
+        self.config = Config().parse_args(sys_argv)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.cli_args = self.parse_cli_args(sys_argv)
-        self.df = pd.read_csv(self.cli_args.csv_data_file)
-        self.output_df = self.df.copy()
-        self.trn_writer = None
-        self.val_writer = None
-        self.train_subjects = []
-        self.val_subjects = []
-        self.model = self.init_model()
-        self.optimizer = self.init_optimizer()
-        self.time_str = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
-        self.total_training_samples = 0
+        self.use_cuda = torch.cuda.is_available()
 
-    def parse_cli_args(self, sys_argv):
-        parser = argparse.ArgumentParser()
-        parser.add_argument('--tb-prefix', default='loes_scoring', help="Tensorboard run prefix.")
-        parser.add_argument('--csv-data-file', help="CSV data file.")
-        parser.add_argument('--output-csv-file', help="Output CSV data file.")
-        parser.add_argument('--num-workers', type=int, default=8, help='Worker processes for data loading.')
-        parser.add_argument('--batch-size', type=int, default=32, help='Batch size for training.')
-        parser.add_argument('--epochs', type=int, default=1, help='Number of epochs to train.')
-        parser.add_argument('--file-path-column-index', type=int)
-        parser.add_argument('--loes-score-column-index', type=int)
-        parser.add_argument('--model-save-location', default=f'./model-{self.time_str}.pt', help='Model save path.')
-        parser.add_argument('--plot-location', help='Location to save plot.')
-        parser.add_argument('--optimizer', default='Adam', help="Optimizer type (Adam or SGD).")
-        parser.add_argument('--model', default='AlexNet', help="Model type (AlexNet or ResNet).")
-        parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
-        parser.add_argument('--use-train-validation-cols', action='store_true')
-        parser.add_argument('-k', type=int, default=0, help='Index for 5-fold validation.')
-        return parser.parse_args(sys_argv)
-
-    def init_model(self):
-        log.info(f"Initializing model: {self.cli_args.model}")
-        model = AlexNet3D(4608) if self.cli_args.model == 'AlexNet' else ResNet3D()
-        return model.to(self.device)
-
-    def init_optimizer(self):
-        optimizer_type = self.cli_args.optimizer.lower()
-        optimizer_cls = Adam if optimizer_type == 'adam' else SGD
-        return optimizer_cls(self.model.parameters(), lr=self.cli_args.lr)
-
-    def create_data_loader(self, subjects, is_val_set=False):
-        dataset = LoesScoreDataset(subjects, self.df, self.output_df, is_val_set_bool=is_val_set)
-        batch_size = self.cli_args.batch_size * (torch.cuda.device_count() if self.use_cuda else 1)
-        return DataLoader(dataset, batch_size=batch_size, num_workers=self.cli_args.num_workers, pin_memory=self.use_cuda)
-
-    def init_tensorboard_writers(self):
-        if not self.trn_writer or not self.val_writer:
-            log_dir = os.path.join('runs', self.cli_args.tb_prefix, self.time_str)
-            self.trn_writer = SummaryWriter(log_dir=f"{log_dir}-train")
-            self.val_writer = SummaryWriter(log_dir=f"{log_dir}-val")
-
-    def main(self):
-        log.info(f"Starting training for {self.cli_args.epochs} epochs")
-        self.output_df["training"] = np.nan
-        self.output_df["validation"] = np.nan
-
-        # Split train/validation
-        self.split_train_validation()
-
-        # Initialize data loaders
-        train_dl = self.create_data_loader(self.train_subjects)
-        val_dl = self.create_data_loader(self.val_subjects, is_val_set=True)
-
-        # Train and validate across epochs
-        for epoch in range(1, self.cli_args.epochs + 1):
-            log.info(f"Epoch {epoch}/{self.cli_args.epochs}")
-            train_metrics = self.run_epoch(epoch, train_dl, is_train=True)
-            val_metrics = self.run_epoch(epoch, val_dl, is_train=False)
-            self.log_metrics(epoch, 'train', train_metrics)
-            self.log_metrics(epoch, 'val', val_metrics)
-
-        # Save model and generate outputs
-        torch.save(self.model.state_dict(), self.cli_args.model_save_location)
-        self.generate_output()
-
-    def run_epoch(self, epoch, data_loader, is_train):
-        mode = 'train' if is_train else 'validation'
-        self.model.train() if is_train else self.model.eval()
-        metrics = torch.zeros(METRICS_SIZE, len(data_loader.dataset), device=self.device)
-        for batch_idx, batch in enumerateWithEstimate(data_loader, f"E{epoch} {mode.capitalize()}"):
-            loss = self.compute_batch_loss(batch_idx, batch, data_loader.batch_size, metrics)
-            if is_train:
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
-        return metrics.to('cpu')
-
-    def compute_batch_loss(self, batch_idx, batch, batch_size, metrics):
-        inputs, labels, *_ = batch
-        inputs, labels = inputs.to(self.device), labels.to(self.device)
-        outputs = self.model(inputs)
-        loss = nn.MSELoss(reduction='none')(outputs.squeeze(1), labels)
-
-        start, end = batch_idx * batch_size, batch_idx * batch_size + labels.size(0)
-        metrics[METRICS_LABEL_NDX, start:end] = labels.detach()
-        metrics[METRICS_LOSS_NDX, start:end] = loss.detach()
-        return loss.mean()
+        self.df = pd.read_csv
