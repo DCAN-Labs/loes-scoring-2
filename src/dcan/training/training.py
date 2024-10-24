@@ -24,13 +24,11 @@ from util.util import enumerateWithEstimate
 
 log = logging.getLogger(__name__)
 
-
 # Used for computeBatchLoss and logMetrics to index into metrics_t/metrics_a
 METRICS_LABEL_NDX = 0
 METRICS_PRED_NDX = 1
 METRICS_LOSS_NDX = 2
 METRICS_SIZE = 3
-
 
 
 # Refactored Configuration class to handle CLI arguments
@@ -176,4 +174,47 @@ class LoesScoringTrainingApp:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.use_cuda = torch.cuda.is_available()
 
-        self.df = pd.read_csv
+        self.df = pd.read_csv(self.config.csv_data_file)
+        self.output_df = self.df.copy()
+
+        self.model_handler = ModelHandler(self.config.model, self.use_cuda, self.device)
+        self.optimizer = self._init_optimizer()
+
+        self.time_str = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
+        self.tb_logger = TensorBoardLogger(self.config.tb_prefix, self.time_str, self.config.comment)
+
+        self.data_handler = DataHandler(self.df, self.output_df, self.use_cuda, self.config.batch_size, self.config.num_workers)
+
+    def _init_optimizer(self):
+        optimizer_type = self.config.optimizer.lower()
+        optimizer_cls = Adam if optimizer_type == 'adam' else SGD
+        return optimizer_cls(self.model_handler.model.parameters(), lr=self.config.lr)
+
+    def main(self):
+        log.info("Starting training...")
+        self.output_df["training"] = np.nan
+        self.output_df["validation"] = np.nan
+
+        train_subjects, val_subjects = self.split_train_validation()
+        train_dl = self.data_handler.init_dl(train_subjects)
+        val_dl = self.data_handler.init_dl(val_subjects, is_val_set=True)
+
+        loop_handler = TrainingLoop(self.model_handler, self.optimizer, self.device)
+        
+        for epoch in range(1, self.config.epochs + 1):
+            log.info(f"Epoch {epoch}/{self.config.epochs}")
+
+            trn_metrics = loop_handler.train_epoch(epoch, train_dl)
+            val_metrics = loop_handler.validate_epoch(epoch, val_dl)
+
+            self.tb_logger.log_metrics('train', epoch, trn_metrics, loop_handler.total_samples)
+            self.tb_logger.log_metrics('val', epoch, val_metrics, loop_handler.total_samples)
+
+        self.model_handler.save_model(self.config.model_save_location)
+        log.info(f"Model saved to {self.config.model_save_location}")
+        self.tb_logger.close()
+
+    def split_train_validation(self):
+        # TODO Split logic or use self.config.use_train_validation_cols
+        pass
+
