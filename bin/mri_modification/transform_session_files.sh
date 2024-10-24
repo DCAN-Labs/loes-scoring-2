@@ -10,7 +10,7 @@ mkdir -p ${OUT_DIR}
 for IN in `ls ${STUDY_DIR}/${SUBJECT}/${SESSION}/*.nii.gz`; do
     img_name=`basename $IN`
     echo Registering ${SUBJECT} ${SESSION} ${img_name}
-    cmd="./perform_transforms.sh ${IN} ${OUT_DIR}${SUBJECT}_${SESSION}_space-MNI_brain_normalized_${img_name}"
+    cmd="./perform_transforms.sh ${IN} ${OUT_DIR}${SUBJECT}_${SESSION}_space-MNI_brain_${img_name}"
     echo $cmd
     $cmd
 done
