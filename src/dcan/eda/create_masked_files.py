@@ -1,6 +1,9 @@
+import sys
 import numpy as np
 import nibabel as nib
 from pathlib import Path
+from os import listdir
+from os.path import isfile, join
 
 def load_nifti(file_path):
     """Load a NIfTI file and return the image and its data."""
@@ -24,16 +27,17 @@ def save_nifti(data, affine, output_path):
     except Exception as e:
         raise RuntimeError(f"Error saving NIfTI file: {output_path}. Error: {e}")
 
-def process_subject(subject_id, anatomical_type, in_dir, masked_img_dir):
+def process_subject(in_file, anatomical_type, in_dir, mask_dir, masked_img_dir):
     try:
         # Define paths
-        formatted_subject_id = f'{str(subject_id).zfill(2)}'
-        mask_dir = Path(f'/home/feczk001/shared/projects/S1067_Loes/code/cortical_masking_work/nonGD_masks_MNI/')
-        in_file = Path(f'sub-{formatted_subject_id}_ses-01_space-MNI_brain_normalized_mprage.nii.gz')
         in_path = in_dir / in_file
-        mask_file = f'sub-{formatted_subject_id}_ses-01_run-01_space-MNI152NLin2009aSym_res-1_dseg.nii.gz'
+        formatted_subject_id = in_file[:6]
+        formatted_session_id = in_file[7:13]
+        formatted_run_id = 'run-01'
+        id_str = f'{formatted_subject_id}_{formatted_session_id}_{formatted_run_id}'
+        mask_file = f'{id_str}_space-MNI_dseg.nii.gz'
         mask_path = mask_dir / mask_file
-        masked_img_file = f'masked-sub-{formatted_subject_id}_ses-01_space-MNI_brain_normalized_{anatomical_type}_mprage.nii.gz'
+        masked_img_file = f'{id_str}_space-MNI_{anatomical_type}_mprage.nii.gz'
 
         # Check if input files exist
         if not in_path.exists():
@@ -50,20 +54,27 @@ def process_subject(subject_id, anatomical_type, in_dir, masked_img_dir):
 
         # Save masked image
         save_nifti(masked_data, regular_img.affine, masked_img_dir / masked_img_file)
-        print(f"Successfully processed subject {subject_id}, {anatomical_type}")
+        print(f"Successfully processed subject {formatted_subject_id}, {anatomical_type}")
     
     except Exception as e:
-        print(f"Error processing subject {subject_id}, {anatomical_type}: {e}")
+        print(f"Error processing subject {formatted_subject_id}, {anatomical_type}: {e}")
 
-def main():
-    good_subjects = [1, 2, 3, 4, 6, 7, 8]  # List of good subjects
-    in_dir = Path('/home/feczk001/shared/projects/S1067_Loes/data/niftis_deID/transformed')
-
+def main(in_dir, mask_dir, masked_img_dir):
     # Loop over subjects and anatomical types
-    for subject_id in good_subjects:
+    only_files = [f for f in listdir(in_dir) if isfile(join(in_dir, f))]
+    for in_file in only_files:
+        if in_file.endswith('Gd.nii.gz'):
+            continue
         for anatomical_type in ["WM", "GM"]:
-            masked_img_dir = Path(f'/home/feczk001/shared/projects/S1067_Loes/data/niftis_deID/masked/non_gd/')
-            process_subject(subject_id, anatomical_type, in_dir, masked_img_dir)
+            process_subject(in_file, anatomical_type, in_dir, mask_dir, masked_img_dir)
 
 if __name__ == "__main__":
-    main()
+    # Sample arguments
+    # in_dir = Path('/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag_in_dn/ModelDev/June2023/Loes_score/anonymized_Loes_score/processed/')
+    # mask_dir = Path(f'/home/feczk001/shared/projects/S1067_Loes/code/cortical_masking_work/Fairview-ag_nonGD_masks_MNI/')
+    # masked_img_dir = Path('/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag_in_dn/ModelDev/June2023/Loes_score/anonymized_Loes_score/masked/')
+    
+    in_dir = Path(sys.argv[1])
+    mask_dir = Path(sys.argv[2])
+    masked_img_dir = Path(sys.argv[2])
+    main(in_dir, mask_dir, masked_img_dir)
