@@ -1,0 +1,21 @@
+---
+title: "Install_RAVEL"
+author: "Eric 'Fez' Feczko"
+date: "2024-11-12"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Install R RAVEL dependencies
+```{r install relevant packages}
+install.packages("devtools")
+source("https://neuroconductor.org/neurocLite.R")
+neuro_install("neurocInstall")
+```
+## Install Neuroconductor dependencies
+```{r install Neuroconductor packages}
+library(neurocInstall)
+neurocLite("RAVEL",release_repo = "github")
+```
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
