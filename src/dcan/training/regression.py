@@ -1,3 +1,8 @@
+# Next Steps:
+
+#     TODO You can further fine-tune the model's parameters or increase the batch size and epochs as per your needs.
+#     TODO Consider separating the dataset and model training code into separate scripts or modules if the project grows larger.
+
 import logging
 import os
 import sys
