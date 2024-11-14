@@ -17,9 +17,9 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "args": [
-                "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag_in_dn/ModelDev/June2023/Loes_score/anonymized_Loes_score/masked/",
-                "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag_in_dn/ModelDev/June2023/Loes_score/anonymized_Loes_score/histograms/"
-            ]
+                "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/anonymized/processed/",
+            ],
+            "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         }
     ]
 }
