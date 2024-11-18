@@ -13,22 +13,34 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ### 2.6. Tissue Segmentation
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+```{r}
+library(fslr)
+if (have.fsl()) {
+  print(fsl_version())
+}
+```
+
+There are different tissue segmentation algorithms available in R. My favorite is the FSL FAST segmentation via the [fslr](https://cran.r-project.org/web/packages/fslr/index.html) package. Let’s produce the tissue segmentation for the scan_reg_n4_brain scan above:
+
+```{r}
+scan_reg_n4_brain = '/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/anonymized/processed/sub-01_ses-01_space-MNI_brain_mprage.nii.gz'
+img = readNIfTI(scan_reg_n4_brain)
+print(img)
+```
+
+There are different tissue segmentation algorithms available in R. My favorite is the FSL FAST segmentation via the [fslr](https://cran.r-project.org/web/packages/fslr/index.html) package. Let’s produce the tissue segmentation for the scan_reg_n4_brain scan above.
+
+The last line of code produces via the ortho2 function from the fslr package the following visualization of the template.
 
 ```{r}
 ortho2(scan_reg_n4_brain, crosshairs=FALSE, mfrow=c(1,3), add.orient=FALSE, ylim=c(0,400))
 ```
-Get an error: Show in New Window
-Error in library(ANTsR) : there is no package called ‘ANTsR’
+We perform a 3-class tissue segmentation on the T1-w image with the FAST segmentation algorithm:
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-#plot(pressure)
+```{r}
+scan_reg_n4_brain_seg <- fast(scan_reg_n4_brain, verbose=FALSE, opts="-t 1 -n 3") 
+ortho2(scan_reg_n4_brain_seg, crosshairs=FALSE, mfrow=c(1,3), add.orient=FALSE)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+The object `scan_reg_n4_brain_seg` is an image that contains the segmentation labels `0,1,2` and `3` referring to Background, CSF, GM and WM voxels respectively.
