@@ -37,7 +37,7 @@ normalize_intensity_with_ravel <- function(scan_path, output_dir) {
   ortho2(scan_reg_n4_brain_seg, crosshairs = FALSE, mfrow = c(1, 3), add.orient = FALSE)
   
   # Construct output file path
-  output_file_path <- file.path(output_dir, paste0(base_name, "_segmentation_result"))
+  output_file_path <- file.path(output_dir, paste0(base_name, "_mask"))
   cat("Output file path:", output_file_path, "\n")
   
   # Save the segmented scan
