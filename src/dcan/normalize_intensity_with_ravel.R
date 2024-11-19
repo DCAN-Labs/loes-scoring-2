@@ -1,3 +1,11 @@
+# TODO
+# Suggestions for Further Development
+# Error Handling: Consider adding tryCatch blocks around readNIfTI and fast calls to handle issues with input files or segmentation.
+# 
+# Dynamic Visualization Control: Add a parameter to enable or disable visualization (ortho2), allowing silent execution when processing large batches.
+# 
+# Logging System: Use a dedicated logging library (log4r, futile.logger) for more structured and configurable logging, especially in production scripts.
+
 normalize_intensity_with_ravel <- function(scan_path, output_dir) {
   # Author: Paul Reiners
   # Date: 2024-11-13
