@@ -2,23 +2,41 @@
     "version": "0.2.0",
     "configurations": [
 
-    {
-        "type": "bashdb",
-        "request": "launch",
-        "name": "Bash-Debug (select script from list of sh files)",
-        "cwd": "${workspaceFolder}",
-        "program": "${command:SelectScriptName}",
-        "args": []
-    },
         {
-            "name": "Python Debugger: Current File with Arguments",
+            "type": "bashdb",
+            "request": "launch",
+            "name": "Bash-Debug (select script from list of sh files)",
+            "cwd": "${workspaceFolder}",
+            "program": "${command:SelectScriptName}",
+            "args": []
+        },
+        {
+            "name": "Python Debugger: training",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}",
+            "program": "src/dcan/training/training.py",
             "console": "integratedTerminal",
             "args": [
                 "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/anonymized/processed/",
             ],
+            "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
+        },
+        {
+            "name": "create_data_spreadsheet: Python Debugger",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "src/dcan/data_sets/create_data_spreadsheet.py",
+            "console": "integratedTerminal",
+            "args": [],
+            "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
+        },
+        {
+            "name": "create_individual_histograms_of_images: Python Debugger",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/eda/create_individual_histograms_of_images.py",
+            "console": "integratedTerminal",
+            "args": [],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         }
     ]

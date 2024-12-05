@@ -1,2 +1,0 @@
-# RAVEL
-## Use of RAVEL intensity normalization methods for Loes study structural MRIs.
