@@ -16,5 +16,4 @@ if [ ! -f $SINGULARITY_FILE ]; then
     exit 1
 fi
 
-singularity run -B ${HEAD_WITH_SKULL} \
-    $SINGULARITY_FILE -i ${HEAD_WITH_SKULL} -o ${SKULL_STRIPPED_HEAD} --no-csf
+sg faird -c "singularity run -B ${HEAD_WITH_SKULL} $SINGULARITY_FILE -i ${HEAD_WITH_SKULL} -o ${SKULL_STRIPPED_HEAD} --no-csf"
