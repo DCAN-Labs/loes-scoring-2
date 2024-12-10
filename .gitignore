@@ -183,3 +183,5 @@ data/cifar-10-batches-py/readme.html
 data/cifar-10-batches-py/test_batch
 .vscode/launch.json
 .Rproj.user
+bin/mri_modification/registered_Composite.h5
+bin/mri_modification/registered_InverseComposite.h5
