@@ -17,6 +17,18 @@ OUT_DIR="$2"
 # Create the output directory if it doesn't exist
 mkdir -p "$OUT_DIR"
 
+# Store and switch directories
+original_dir=$(pwd)
+script_dir=$(dirname "$0")
+
+# Navigate to the script's directory
+cd "$script_dir" || {
+    echo "Error: Could not change to script directory: $script_dir"
+    exit 1
+}
+
+echo "Working in script directory: $script_dir"
+
 # Function to register and transform images
 process_image() {
     local input_file="$1"
@@ -47,3 +59,12 @@ find "$IN_DIR" -type f -name "*.nii.gz" | while read -r in_file; do
     output_file="$OUT_DIR/$(basename "$in_file")"
     process_image "$in_file" "$output_file"
 done
+
+
+# Return to the original directory
+cd "$original_dir" || {
+    echo "Error: Could not return to original directory: $original_dir"
+    exit 1
+}
+
+echo "Back in original directory: $original_dir"
