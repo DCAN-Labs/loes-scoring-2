@@ -2,8 +2,7 @@
 
 ## Preprocessing Workflow Structure
 
- 1. [skull_stripping](../bin/mri_modification/skull_stripping.sh) (singularity)
- 2. [affine_registration_wrapper](../bin/mri_modification/affine_registration_wrapper.sh) (flirt)
+ 1. [process_study](../bin/process_study.sh)
 
 ## Creating WM and GM Histograms by Masking
  
