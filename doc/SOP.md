@@ -2,7 +2,7 @@
 
 ## Preprocessing Workflow Structure
 
- 1. [process_study](../bin/process_study.sh)
+ 1. [process_study](../bin/mri_modification/transform_study_dir_files.sh)
 
 ## Creating WM and GM Histograms by Masking
  
