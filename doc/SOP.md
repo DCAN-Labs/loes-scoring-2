@@ -11,5 +11,5 @@
  
 ## RAVEL
  
-See [RAVEL][./RAVEL.Rmd](https://github.com/DCAN-Labs/RAVEL/blob/master/docs/RAVEL.Rmd).
+See [RAVEL](https://github.com/DCAN-Labs/RAVEL/blob/master/docs/RAVEL.Rmd).
  
