@@ -14,7 +14,7 @@ def load_nifti(file_path):
 
 def apply_mask(image_data, mask_data, matter_type):
     """Apply the mask to the image data based on the specified matter type."""
-    matter_type_dict = {'WM': 2, 'GM': 3}  # Mapping matter type to integer
+    matter_type_dict = {'CSF': 1, 'WM': 2, 'GM': 3}  # Mapping matter type to integer
     mask_value = matter_type_dict.get(matter_type, 0)
     return np.where(mask_data == mask_value, image_data, 0)
 
