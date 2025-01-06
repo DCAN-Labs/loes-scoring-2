@@ -24,7 +24,7 @@ def plot_voxel_intensity_histogram(subject_id, session_id, img_dir, hist_dir):
     hist_data = {}
 
     for matter, label in matter_types.items():
-        img_name = f'{subject_id}_{session_id}_run-01_space-MNI_{matter}_mprage.nii.gz'
+        img_name = f'{subject_id}_{session_id}_run-01_space-MNI_{matter}_mprage_RAVEL.nii.gz'
         img_path = img_dir / img_name
 
         data = get_data(img_path)

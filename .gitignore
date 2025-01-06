@@ -185,3 +185,5 @@ data/cifar-10-batches-py/test_batch
 .Rproj.user
 bin/mri_modification/registered_Composite.h5
 bin/mri_modification/registered_InverseComposite.h5
+runs/Jan06_10-31-42_agd06/events.out.tfevents.1736181103.agd06.1668843.0
+src/dcan/util/simplify_nascene_deid_files_csv_file.py

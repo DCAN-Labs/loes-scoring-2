@@ -32,10 +32,15 @@ print_config()
 # Define constants for image size
 IMAGE_SIZE = (197, 233, 189)
 
+def get_file_name(row):
+   return f"{row['subject_id']}_{row['session_id']}_space-MNI_brain_mprage_RAVEL.nii.gz"
+
 def load_data(loes_scoring_folder):
     """Loads and processes the data from the provided folder."""
     df = pd.read_csv(os.path.join(loes_scoring_folder, 'Nascene_deID_files.csv'))
-    defaced_folder = os.path.join(loes_scoring_folder, 'nascene_deid/BIDS/defaced/')
+    defaced_folder = os.path.join(loes_scoring_folder, '7_RAVEL')
+
+    df['FILE'] = df.apply(get_file_name, axis=1)
 
     # Add the full path for each image
     df['full_path'] = df['FILE'].apply(lambda x: os.path.join(defaced_folder, x))

@@ -36,7 +36,16 @@
             "request": "launch",
             "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/eda/create_individual_histograms_of_images.py",
             "console": "integratedTerminal",
-            "args": [],
+            "args": ["/users/9/reine097/data/fairview-ag/anonymized/7_RAVEL/", "/users/9/reine097/data/fairview-ag/anonymized/8_histograms/"],
+            "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
+        },
+        {
+            "name": "regression: Python Debugger",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/training/regression.py",
+            "console": "integratedTerminal",
+            "args": ["/users/9/reine097/data/fairview-ag/anonymized/"],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         }
     ]
