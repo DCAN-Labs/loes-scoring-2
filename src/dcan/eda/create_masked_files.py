@@ -12,11 +12,11 @@ def load_nifti(file_path):
     except Exception as e:
         raise RuntimeError(f"Error loading NIfTI file: {file_path}. Error: {e}")
 
-def apply_mask(image_data, mask_data, matter_type):
+def apply_mask(image_data, mask_data):
     """Apply the mask to the image data based on the specified matter type."""
-    matter_type_dict = {'CSF': 1, 'WM': 2, 'GM': 3}  # Mapping matter type to integer
-    mask_value = matter_type_dict.get(matter_type, 0)
-    return np.where(mask_data == mask_value, image_data, 0)
+    mask_value = 1
+
+    return np.where(np.isclose(mask_data, mask_value, rtol=1e-2), image_data, 0)
 
 def save_nifti(data, affine, output_path):
     """Save the masked data as a new NIfTI file."""
@@ -35,7 +35,7 @@ def process_subject(in_file, anatomical_type, in_dir, mask_dir, masked_img_dir):
     id_str = f"{subject_id}_{session_id}_{run_id}"
     
     in_path = in_dir / in_file
-    mask_path = mask_dir / f"{id_str}_space-MNI_dseg.nii.gz"
+    mask_path = mask_dir / f"mni_icbm152_{anatomical_type.lower()}_tal_nlin_sym_09a_int_rounded.nii"
     masked_img_path = masked_img_dir / f"{id_str}_space-MNI_{anatomical_type}_mprage.nii.gz"
 
     if not in_path.exists() or not mask_path.exists():
@@ -48,7 +48,7 @@ def process_subject(in_file, anatomical_type, in_dir, mask_dir, masked_img_dir):
         _, mask_data = load_nifti(mask_path)
 
         # Apply mask and save
-        masked_data = apply_mask(img_data, mask_data, anatomical_type)
+        masked_data = apply_mask(img_data, mask_data)
         save_nifti(masked_data, img.affine, masked_img_path)
         print(f"Successfully processed {subject_id}, anatomical type: {anatomical_type}")
 
