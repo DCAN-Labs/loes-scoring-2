@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import nibabel as nib
 from pathlib import Path
 import sys
+from os import listdir
+from os.path import isfile, join
 
 def get_file_identifiers(file_name):
     """Extract subject, session, and run identifiers from the file name."""
@@ -18,18 +20,14 @@ def get_data(img_path):
         print(f"Error loading NIfTI image at {img_path}: {e}")
         return None
 
-def plot_voxel_intensity_histogram(subject_id, session_id, img_dir, hist_dir):
+def plot_voxel_intensity_histogram(subject_id, session_id, img_dir, hist_dir, gm_file, wm_file):
     """Generate and save a histogram of voxel intensities for a subject's brain images."""
-    matter_types = {'WM': "White matter", 'GM': "Gray matter"}
     hist_data = {}
 
-    for matter, label in matter_types.items():
-        img_name = f'{subject_id}_{session_id}_space-MNI_{matter}_mprage_RAVEL.nii.gz'
-        img_path = img_dir / img_name
-
-        data = get_data(img_path)
-        if data is not None:
-            hist_data[label] = data
+    gm_img_path = img_dir / gm_file
+    wm_img_path = img_dir / wm_file
+    hist_data['GM'] = get_data(gm_img_path)
+    hist_data['WM'] = get_data(wm_img_path)
 
     if hist_data:  # Proceed only if data was successfully loaded
         plt.figure()
@@ -54,9 +52,12 @@ def main(img_dir, hist_dir):
     img_dir = Path(img_dir)
     hist_dir = Path(hist_dir)
 
-    for img_file in img_dir.glob("*.nii.gz"):
-        subject_id, session_id, _ = get_file_identifiers(img_file.name)
-        plot_voxel_intensity_histogram(subject_id, session_id, img_dir, hist_dir)
+    only_files = [f for f in listdir(img_dir) if isfile(join(img_dir, f))]
+    for i in range(0, int(len(only_files) / 2), 2):
+        gm_file = only_files[i]
+        wm_file = only_files[i + 1]
+        subject_id, session_id, _ = get_file_identifiers(gm_file)
+        plot_voxel_intensity_histogram(subject_id, session_id, img_dir, hist_dir, gm_file, wm_file)
 
 if __name__ == "__main__":
     """Run the script with the image directory and histogram output directory as arguments."""
