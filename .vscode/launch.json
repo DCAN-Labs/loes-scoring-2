@@ -47,6 +47,38 @@
             "console": "integratedTerminal",
             "args": ["/users/9/reine097/data/fairview-ag/anonymized/"],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
+        },
+        {
+            "name": "training: Python Debugger",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/training/training.py",
+            "console": "integratedTerminal",
+            "args": ["--csv-data-file", "/home/miran045/reine097/projects/loes-scoring-2/data/filtered/ashish_all.csv",
+            "--batch-size", "1", "--num-workers", "1", "--epochs", "128", 
+            "--model-save-location", "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_13.pt",
+            "--plot-location", "/home/miran045/reine097/projects/loes-scoring-2/doc/img/model13.png", 
+            "--output-csv-file", "/home/miran045/reine097/projects/loes-scoring-2/data/filtered/model13_out.csv", "--gd", "1"],
+            "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
+        },
+        {
+            "name": "create_masked_files: Python Debugger",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/eda/create_masked_files.py",
+            "console": "integratedTerminal",
+            "args": ["/users/9/reine097/data/fairview-ag/anonymized/7_RAVEL/", "/home/feczk001/shared/projects/S1067_Loes/data/MNI152/mni_icbm152_nlin_sym_09a/", "/users/9/reine097/data/fairview-ag/anonymized/8_masked/"],
+            "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
+        },
+        {
+            "name": "convert_float_nifti_to_int: Python Debugger",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/image_normalization/convert_float_nifti_to_int.py",
+            "console": "integratedTerminal",
+            "args": ["/home/feczk001/shared/projects/S1067_Loes/data/MNI152/mni_icbm152_nlin_sym_09a", 
+                "mni_icbm152_csf_tal_nlin_sym_09a.nii", "mni_icbm152_csf_tal_nlin_sym_09a_int_rounded.nii"],
+            "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         }
     ]
 }

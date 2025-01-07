@@ -2,6 +2,7 @@ import argparse
 import datetime
 import os
 from pathlib import Path
+import sys
 from typing import List
 
 import numpy as np
@@ -218,3 +219,8 @@ class LoesScoringTrainingApp:
         # TODO Split logic or use self.config.use_train_validation_cols
         pass
 
+def main():
+    LoesScoringTrainingApp(sys_argv=sys.argv)
+
+if __name__ == "__main__":
+    main()
