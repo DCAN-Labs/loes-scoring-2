@@ -36,7 +36,8 @@
             "request": "launch",
             "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/eda/create_individual_histograms_of_images.py",
             "console": "integratedTerminal",
-            "args": ["/users/9/reine097/data/fairview-ag/anonymized/8_masked/", "//users/9/reine097/data/fairview-ag/anonymized/9_histograms/"],
+            "args": ["//users/9/reine097/data/fairview-ag/anonymized/4_processed/", 
+                     "//users/9/reine097/data/fairview-ag/anonymized/4_processed_histograms/"],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         },
         {

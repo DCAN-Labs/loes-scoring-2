@@ -5,21 +5,28 @@ Only one run per session.
 
 ### Subject 01
 #### Session 01
-![](./img/masked-sub-01_ses-01_space-MNI_brain_voxel_histogram.png)
-#### Session 02
-![](./img/masked-sub-01_ses-02_space-MNI_brain_voxel_histogram.png)
+##### Before RAVEL
+![](./img/pre_ravel/masked-sub-01_ses-01_space-MNI_brain_voxel_histogram.png)
+##### After RAVEL
+![](./img/post_ravel/masked-sub-01_ses-01_space-MNI_brain_voxel_histogram.png)
 #### Session 03
-![](./img/masked-sub-01_ses-03_space-MNI_brain_voxel_histogram.png) 
-#### Session 04
-![](./img/masked-sub-01_ses-04_space-MNI_brain_voxel_histogram.png) 
+##### Before RAVEL
+![](./img/pre_ravel/masked-sub-01_ses-03_space-MNI_brain_voxel_histogram.png)
+##### After RAVEL
+![](./img/post_ravel/masked-sub-01_ses-03_space-MNI_brain_voxel_histogram.png) 
 ### Subject 02
 #### Session 01
-![](./img/masked-sub-02_ses-01_space-MNI_brain_voxel_histogram.png)  
-#### Session 02
-![](./img/masked-sub-02_ses-02_space-MNI_brain_voxel_histogram.png)  
+##### Before RAVEL
+![](./img/pre_ravel/masked-sub-02_ses-01_space-MNI_brain_voxel_histogram.png)
+##### After RAVEL
+![](./img/post_ravel/masked-sub-02_ses-01_space-MNI_brain_voxel_histogram.png)  
 #### Session 03
-![](./img/masked-sub-02_ses-03_space-MNI_brain_voxel_histogram.png)  
-#### Session 04
-![](./img/masked-sub-02_ses-04_space-MNI_brain_voxel_histogram.png)  
+##### Before RAVEL
+![](./img/pre_ravel/masked-sub-02_ses-03_space-MNI_brain_voxel_histogram.png)
+##### After RAVEL
+![](./img/post_ravel/masked-sub-02_ses-03_space-MNI_brain_voxel_histogram.png)  
 #### Session 05
-![](./img/masked-sub-02_ses-05_space-MNI_brain_voxel_histogram.png)  
+##### Before RAVEL
+![](./img/pre_ravel/masked-sub-02_ses-05_space-MNI_brain_voxel_histogram.png)
+##### After RAVEL
+![](./img/post_ravel/masked-sub-02_ses-05_space-MNI_brain_voxel_histogram.png)  
