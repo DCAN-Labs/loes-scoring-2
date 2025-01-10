@@ -49,6 +49,8 @@ def plot_voxel_intensity_histogram(subject_id, session_id, img_dir, hist_dir, gm
 
     # Plot histograms
     plt.figure(figsize=(10, 6))
+    ax = plt.gca()
+    ax.set_xlim([0, 600])
     sns.histplot(gm_data, label="GM", kde=True, color="blue", alpha=0.6)
     sns.histplot(wm_data, label="WM", kde=True, color="orange", alpha=0.6)
     plt.title(f"Distribution of Voxel Intensities for {subject_id}-{session_id}")
@@ -57,7 +59,7 @@ def plot_voxel_intensity_histogram(subject_id, session_id, img_dir, hist_dir, gm
     plt.legend()
 
     # Save histogram plot
-    hist_path = hist_dir / f"masked-sub-{subject_id}_{session_id}_space-MNI_brain_voxel_histogram.png"
+    hist_path = hist_dir / f"masked-{subject_id}_{session_id}_space-MNI_brain_voxel_histogram.png"
     hist_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(hist_path, dpi=300, bbox_inches="tight")
     plt.close()
