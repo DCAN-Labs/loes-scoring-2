@@ -12,4 +12,7 @@
 ## RAVEL
  
 See [RAVEL](https://github.com/DCAN-Labs/RAVEL/blob/master/docs/RAVEL.Rmd).
+
+1. The CSF mask file is here 
+     */home/feczk001/shared/projects/S1067_Loes/data/MNI152/mni_icbm152_nlin_sym_09a/*
  

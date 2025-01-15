@@ -72,6 +72,17 @@
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         },
         {
+            "name": "mask_files: Python Debugger",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/image_normalization/mask_files.py",
+            "console": "integratedTerminal",
+            "args": ["/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/02-preproc_anonymized/",  
+                     "/home/feczk001/shared/projects/S1067_Loes/data/MNI152/mni_icbm152_nlin_sym_09a/mni_icbm152_csf_tal_nlin_sym_09a_int_rounded.nii", 
+                     "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/03-csf_masked/"],
+            "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
+        },
+        {
             "name": "convert_float_nifti_to_int: Python Debugger",
             "type": "debugpy",
             "request": "launch",
