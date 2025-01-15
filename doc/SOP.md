@@ -16,5 +16,5 @@ See [RAVEL](https://github.com/DCAN-Labs/RAVEL/blob/master/docs/RAVEL.Rmd).
 1. The CSF mask file is here 
      */home/feczk001/shared/projects/S1067_Loes/data/MNI152/mni_icbm152_nlin_sym_09a/*
 
-2. You have to create a CSF masked file for each input file.  You can do that with [this code]().
+2. You have to create a CSF masked file for each input file.  You can do that with [this code](https://github.com/DCAN-Labs/loes-scoring-2/blob/main/src/dcan/preprocessing/mask_files.py).
  
