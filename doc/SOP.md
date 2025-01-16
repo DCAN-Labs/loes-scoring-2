@@ -18,3 +18,7 @@ See [RAVEL](https://github.com/DCAN-Labs/RAVEL/blob/master/docs/RAVEL.Rmd).
 
 2. You have to create a CSF masked file for each input file.  You can do that with [this code](https://github.com/DCAN-Labs/loes-scoring-2/blob/main/src/dcan/preprocessing/mask_files.py).
  
+
+3. Create a control region for RAVEL.  [Here](https://github.com/DCAN-Labs/RAVEL/blob/master/R/dcan/create_control_region.R) is example code.
+
+4. Run RAVEL on files.  You can see an example of how to do this [here](https://github.com/DCAN-Labs/RAVEL/blob/master/R/dcan/ravel.R).
