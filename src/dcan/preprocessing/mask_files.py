@@ -3,7 +3,7 @@ import numpy as np
 import nibabel as nib
 from pathlib import Path
 import tqdm
-from dcan.eda.create_masked_files import get_file_identifiers
+from dcan.image_normalization.create_masked_files import get_file_identifiers
 
 
 def load_nifti(file_path: Path):

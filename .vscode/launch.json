@@ -72,6 +72,18 @@
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         },
         {
+            "name": "create_masked_files_from_csv: Python Debugger",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/image_normalization/create_masked_files from_csv.py",
+            "console": "integratedTerminal",
+            "args": ["/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/02-preproc_anonymized/",
+                "/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes.csv", 
+                     "/home/feczk001/shared/projects/S1067_Loes/data/MNI152/mni_icbm152_nlin_sym_09a/", 
+                     "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/03-csf_masked/"],
+            "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
+        },
+        {
             "name": "mask_files: Python Debugger",
             "type": "debugpy",
             "request": "launch",
@@ -80,6 +92,17 @@
             "args": ["/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/02-preproc_anonymized/",  
                      "/home/feczk001/shared/projects/S1067_Loes/data/MNI152/mni_icbm152_nlin_sym_09a/mni_icbm152_csf_tal_nlin_sym_09a_int_rounded_0_9.nii", 
                      "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/03-csf_masked/"],
+            "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
+        },
+        {
+            "name": "mask_rp_files: Python Debugger",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/preprocessing/mask_files.py",
+            "console": "integratedTerminal",
+            "args": ["/home/feczk001/shared/projects/S1067_Loes/data/MIDB-rp/02-preproc_anonymized/",  
+                     "/home/feczk001/shared/projects/S1067_Loes/data/MNI152/mni_icbm152_nlin_sym_09a/mni_icbm152_csf_tal_nlin_sym_09a_int_rounded_0_9.nii", 
+                     "/home/feczk001/shared/projects/S1067_Loes/data/MIDB-rp/03-csf_masked/"],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         },
         {
