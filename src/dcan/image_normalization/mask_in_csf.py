@@ -40,21 +40,22 @@ def process_subject(
     anatomical_type: str, 
     in_dir: Path, 
     mask_path: Path, 
-    masked_img_dir: Path
+    output_dir: Path
 ):
     """Process a single subject by applying a mask and saving the masked image."""
     try:
         subject_id, session_id, run_id = get_file_identifiers(in_file.name)
-        id_str = f"{subject_id}/{session_id}_{run_id}"
+        id_str = f"{subject_id}_{session_id}_{run_id}"
         in_path = in_dir / in_file
-        masked_img_path = masked_img_dir / f"{id_str}_space-MNI_{anatomical_type}_mprage.nii.gz"
+        output_file = output_dir / f"{id_str}_space-MNI_{anatomical_type}_mprage.nii.gz"
 
         if not in_path.exists():
-            print(f"Input image file missing for subject {subject_id}: Skipping.")
+            print(f"Input image file missing for subject-session {subject_id}-{session_id}: Skipping.")
             return
 
         if not mask_path.exists():
-            print(f"Mask file missing for {anatomical_type}: Skipping subject {subject_id}.")
+            print(f"Mask file missing: {mask_path}.")
+            print(f"Skipping subject {subject_id}-{session_id}.")
             return
 
         # Load the input image and the mask
@@ -63,7 +64,7 @@ def process_subject(
 
         # Apply the mask and save the resulting image
         masked_data = apply_mask(img_data, mask_data)
-        save_nifti(masked_data, img.affine, masked_img_path)
+        save_nifti(masked_data, img.affine, output_file)
         print(f"Successfully processed {subject_id}, session {session_id}, anatomical type: {anatomical_type}")
 
     except Exception as e:
