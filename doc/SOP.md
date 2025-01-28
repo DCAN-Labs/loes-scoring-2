@@ -9,7 +9,7 @@
  1.
      * [create_masked_files](../src/dcan/image_normalization/create_masked_files.py), or
      * [create_masked_files_from_csv](../src/dcan/image_normalization/create_masked_files_from_csv.py)
- 3. [create_individual_histograms_of_images.py](../src/dcan/eda/create_individual_histograms_of_images.py)
+ 3. Optional: [create_individual_histograms_of_images.py](../src/dcan/eda/create_individual_histograms_of_images.py)
  
 ## RAVEL
  
