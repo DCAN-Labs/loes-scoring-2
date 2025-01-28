@@ -63,12 +63,14 @@
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         },
         {
-            "name": "create_masked_files: Python Debugger",
+            "name": "create_brain_masked_files: Python Debugger",
             "type": "debugpy",
             "request": "launch",
-            "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/eda/create_masked_files.py",
+            "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/image_normalization/create_brain_masked_files.py",
             "console": "integratedTerminal",
-            "args": ["/users/9/reine097/data/fairview-ag/anonymized/7_RAVEL/", "/home/feczk001/shared/projects/S1067_Loes/data/MNI152/mni_icbm152_nlin_sym_09a/", "/users/9/reine097/data/fairview-ag/anonymized/8_masked/"],
+            "args": ["/home/feczk001/shared/projects/S1067_Loes/data/MIDB-rp/02-preproc_anonymized/", 
+            "/home/feczk001/shared/projects/S1067_Loes/data/MNI152/mni_icbm152_nlin_sym_09a/", 
+            "/home/feczk001/shared/projects/S1067_Loes/data/MIDB-rp/04-brain_masked/"],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         },
         {

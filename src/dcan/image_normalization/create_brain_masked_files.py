@@ -42,22 +42,22 @@ def get_file_identifiers(file_name):
         raise ValueError(f"Error extracting identifiers from file name: {file_name}. Error: {e}")
 
 
-def process_subject(in_file, anatomical_type, in_dir, mask_dir, masked_img_dir):
+def process_subject(in_file, mask_dir, masked_img_dir):
     """Process a single subject by applying the mask and saving the result."""
     try:
         subject_id, session_id, run_id = get_file_identifiers(in_file.name)
         id_str = f"{subject_id}_{session_id}_{run_id}"
 
-        in_path = in_dir / in_file
-        mask_path = mask_dir / f"mni_icbm152_{anatomical_type.lower()}_tal_nlin_sym_09a_int_rounded.nii"
-        masked_img_path = masked_img_dir / f"{id_str}_space-MNI_{anatomical_type}_mprage.nii.gz"
+        in_path = in_file
+        mask_path = mask_dir / "mni_icbm152_t1_tal_nlin_sym_09a_mask_int16.nii.gz"
+        masked_img_path = masked_img_dir / f"{id_str}_space-MNI_mprage.nii.gz"
 
         if not in_path.exists():
             print(f"Image file missing for subject {subject_id}: Skipping.")
             return
 
         if not mask_path.exists():
-            print(f"Mask file missing for {anatomical_type}: Skipping subject {subject_id}.")
+            print(f"Mask file missing: {mask_path}.")
             return
 
         # Load images and mask
@@ -67,10 +67,10 @@ def process_subject(in_file, anatomical_type, in_dir, mask_dir, masked_img_dir):
         # Apply mask and save
         masked_data = apply_mask(img_data, mask_data)
         save_nifti(masked_data, img.affine, masked_img_path)
-        print(f"Successfully processed {subject_id}, anatomical type: {anatomical_type}")
+        print(f"Successfully processed {subject_id}-{session_id}")
 
     except Exception as e:
-        print(f"Error processing subject {in_file.name} ({anatomical_type}): {e}")
+        print(f"Error processing subject {in_file.name}: ({subject_id}-{session_id}): {e}")
 
 
 def main(in_dir, mask_dir, masked_img_dir):
@@ -83,8 +83,7 @@ def main(in_dir, mask_dir, masked_img_dir):
         if 'Gd' in in_file.name:
             continue
 
-        anatomical_type = 'CSF'
-        process_subject(in_file, anatomical_type, in_dir, mask_dir, masked_img_dir)
+        process_subject(in_file, mask_dir, masked_img_dir)
 
 
 if __name__ == "__main__":

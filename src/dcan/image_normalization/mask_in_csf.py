@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import nibabel as nib
 from tqdm import tqdm
-from dcan.image_normalization.create_masked_files import get_file_identifiers
+from dcan.image_normalization.create_brain_masked_files import get_file_identifiers
 
 def load_nifti(file_path: Path):
     """Load a NIfTI file and return the image object and its data array."""
