@@ -90,7 +90,7 @@ class ModelHandler:
             model = ResNet3D().to(self.device)
             log.info("Using ResNet3D")
         else:
-            model = AlexNet3D(4608).to(self.device)
+            model = AlexNet3D(8675289).to(self.device)
             log.info("Using AlexNet3D")
 
         if self.use_cuda and torch.cuda.device_count() > 1:
