@@ -58,6 +58,7 @@ class Config:
         self.parser.add_argument('--gd', type=int, help="Use Gd-enhanced scans.")
         self.parser.add_argument('--use-train-validation-cols', action='store_true')
         self.parser.add_argument('-k', type=int, default=0, help='Index for 5-fold validation')
+        self.parser.add_argument('--folder', help='Folder where MRIs are stored')
 
     def parse_args(self, sys_argv):
         return self.parser.parse_args(sys_argv)
@@ -72,8 +73,8 @@ class DataHandler:
         self.batch_size = batch_size
         self.num_workers = num_workers
 
-    def init_dl(self, subjects, is_val_set: bool = False):
-        dataset = LoesScoreDataset(subjects, self.df, self.output_df, is_val_set_bool=is_val_set)
+    def init_dl(self, folder, subjects, is_val_set: bool = False):
+        dataset = LoesScoreDataset(folder, subjects, self.df, self.output_df, is_val_set_bool=is_val_set)
         batch_size = self.batch_size
         if self.use_cuda:
             batch_size *= torch.cuda.device_count()
@@ -189,6 +190,7 @@ class LoesScoringTrainingApp:
         self.tb_logger = TensorBoardLogger(self.config.tb_prefix, self.time_str, self.config.comment)
 
         self.data_handler = DataHandler(self.df, self.output_df, self.use_cuda, self.config.batch_size, self.config.num_workers)
+        self.directory = self.directory
 
     def _init_optimizer(self):
         optimizer_type = self.config.optimizer.lower()
@@ -204,8 +206,8 @@ class LoesScoringTrainingApp:
             self.df = self.df[~self.df['scan'].str.contains('Gd')]
 
         train_subjects, val_subjects = self.split_train_validation()
-        train_dl = self.data_handler.init_dl(train_subjects)
-        val_dl = self.data_handler.init_dl(val_subjects, is_val_set=True)
+        train_dl = self.data_handler.init_dl(self.directory, train_subjects)
+        val_dl = self.data_handler.init_dl(self.directory, val_subjects, is_val_set=True)
 
         loop_handler = TrainingLoop(self.model_handler, self.optimizer, self.device)
         

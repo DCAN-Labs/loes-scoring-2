@@ -58,21 +58,21 @@ def get_uid(p):
     return f'{get_subject(p)}_{get_session(p)}'
 
 
-def get_candidate_info_list(df, candidates: List[str]):
+def get_candidate_info_list(folder, df, candidates: List[str]):
     candidate_info_list = []
     df = df.reset_index()  # make sure indexes pair with number of rows
 
     for _, row in df.iterrows():
         candidate = row['anonymized_subject_id']
         if candidate in candidates:
-            append_candidate(candidate_info_list, row)
+            append_candidate(folder, candidate_info_list, row)
 
     candidate_info_list.sort(reverse=True)
 
     return candidate_info_list
 
 
-def append_candidate(candidate_info_list, row):
+def append_candidate(folder, candidate_info_list, row):
     file_path = row['file']
     loes_score_float = float(row['loes-score'])
     subject_str = row['subject']
@@ -144,13 +144,14 @@ def get_mri_raw_candidate(subject_session_uid, is_val_set_bool):
 
 class LoesScoreDataset(Dataset):
     def __init__(self,
+                 folder,
                  subjects: List[str], df, output_df,
                  is_val_set_bool=None,
                  subject=None,
                  sortby_str='random'
                  ):
         self.is_val_set_bool = is_val_set_bool
-        self.candidateInfo_list = copy.copy(get_candidate_info_list(df, subjects))
+        self.candidateInfo_list = copy.copy(get_candidate_info_list(folder, df, subjects))
 
         if subject:
             self.candidateInfo_list = [
