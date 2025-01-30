@@ -73,10 +73,11 @@ def get_candidate_info_list(folder, df, candidates: List[str]):
 
 
 def append_candidate(folder, candidate_info_list, row):
-    file_path = row['file']
+    subject_str = row['anonymized_subject_id']
+    session_str = row['anonymized_session_id']
+    file_name = f"{subject_str}_{session_str}_space-MNI_brain_mprage_RAVEL.nii.gz"
+    file_path = os.path.join(folder, file_name)
     loes_score_float = float(row['loes-score'])
-    subject_str = row['subject']
-    session_str = row['session']
     candidate_info_list.append(CandidateInfoTuple(
         loes_score_float,
         file_path,
@@ -172,7 +173,7 @@ class LoesScoreDataset(Dataset):
         ))
         if output_df is not None:
             for candidate_info in self.candidateInfo_list:
-                row_location = (df["subject"] == candidate_info.subject) & (df["session"] == candidate_info.session_str)
+                row_location = (df["anonymized_subject_id"] == candidate_info.subject) & (df["anonymized_session_id"] == candidate_info.session_str)
                 output_df.loc[row_location, 'training'] = 0 if is_val_set_bool else 1
                 output_df.loc[row_location, 'validation'] = 1 if is_val_set_bool else 0
 

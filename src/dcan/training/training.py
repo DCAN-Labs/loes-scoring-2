@@ -206,8 +206,8 @@ class LoesScoringTrainingApp:
             self.df = self.df[~self.df['scan'].str.contains('Gd')]
 
         train_subjects, val_subjects = self.split_train_validation()
-        train_dl = self.data_handler.init_dl(self.directory, train_subjects)
-        val_dl = self.data_handler.init_dl(self.directory, val_subjects, is_val_set=True)
+        train_dl = self.data_handler.init_dl(self.folder, train_subjects)
+        val_dl = self.data_handler.init_dl(self.folder, val_subjects, is_val_set=True)
 
         loop_handler = TrainingLoop(self.model_handler, self.optimizer, self.device)
         
