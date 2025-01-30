@@ -24,7 +24,7 @@ from util.util import enumerateWithEstimate
 
 # This script is a comprehensive deep learning pipeline for training a model to 
 # predict Loes scores from MRI scans. It includes data loading, model selection,
-#  raining/validation loops, logging, and model saving.
+# raining/validation loops, logging, and model saving.
 
 
 log = logging.getLogger(__name__)
