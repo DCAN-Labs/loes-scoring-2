@@ -190,7 +190,7 @@ class LoesScoringTrainingApp:
         self.tb_logger = TensorBoardLogger(self.config.tb_prefix, self.time_str, self.config.comment)
 
         self.data_handler = DataHandler(self.df, self.output_df, self.use_cuda, self.config.batch_size, self.config.num_workers)
-        self.directory = self.config.directory
+        self.folder = self.config.folder
 
     def _init_optimizer(self):
         optimizer_type = self.config.optimizer.lower()
