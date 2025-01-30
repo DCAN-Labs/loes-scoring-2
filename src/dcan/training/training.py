@@ -196,6 +196,9 @@ class LoesScoringTrainingApp:
         self.output_df["training"] = np.nan
         self.output_df["validation"] = np.nan
 
+        if self.config.gd == 0:
+            self.df = self.df[~self.df['scan'].str.contains('Gd')]
+
         train_subjects, val_subjects = self.split_train_validation()
         train_dl = self.data_handler.init_dl(train_subjects)
         val_dl = self.data_handler.init_dl(val_subjects, is_val_set=True)
@@ -216,11 +219,16 @@ class LoesScoringTrainingApp:
         self.tb_logger.close()
 
     def split_train_validation(self):
-        # TODO Split logic or use self.config.use_train_validation_cols
-        pass
+        self.df = self.df.sort_values('loes-score')
+        df_validation = self.df.iloc[::5]
+        sub_dfs = [self.df.iloc[i::5] for i in range(1, 5)]
+        df_training = pd.concat(sub_dfs, ignore_index=True, axis=0)
+        
+        return df_training, df_validation
 
 def main():
-    LoesScoringTrainingApp(sys_argv=sys.argv)
+    loesScoringTrainingApp = LoesScoringTrainingApp(sys_argv=sys.argv)
+    loesScoringTrainingApp.main()
 
 if __name__ == "__main__":
     main()
