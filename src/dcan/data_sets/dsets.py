@@ -59,12 +59,11 @@ def get_uid(p):
 
 
 def get_candidate_info_list(df, candidates: List[str]):
-    # TODO Add filter for Gad
     candidate_info_list = []
     df = df.reset_index()  # make sure indexes pair with number of rows
 
-    for index, row in df.iterrows():
-        candidate = row['subject']
+    for _, row in df.iterrows():
+        candidate = row['anonymized_subject_id']
         if candidate in candidates:
             append_candidate(candidate_info_list, row)
 

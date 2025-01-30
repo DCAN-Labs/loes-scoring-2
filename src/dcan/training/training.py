@@ -223,12 +223,13 @@ class LoesScoringTrainingApp:
         self.tb_logger.close()
 
     def split_train_validation(self):
+        all_users = self.df['anonymized_subject_id'].unique()
         self.df = self.df.sort_values('loes-score')
         df_validation = self.df.iloc[::5]
-        sub_dfs = [self.df.iloc[i::5] for i in range(1, 5)]
-        df_training = pd.concat(sub_dfs, ignore_index=True, axis=0)
+        validation_users = df_validation['anonymized_subject_id'].unique()
+        training_users = [user for user in all_users if user not in validation_users]
         
-        return df_training, df_validation
+        return training_users, validation_users
 
 def main():
     loesScoringTrainingApp = LoesScoringTrainingApp(sys_argv=sys.argv)
