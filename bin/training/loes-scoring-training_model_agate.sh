@@ -2,11 +2,11 @@
 
 #SBATCH --job-name=loes-scoring-alex-net # job name
 
-#SBATCH --time=16:00:00          # total run time limit (HH:MM:SS)
-#SBATCH --mem=180g        # memory per cpu-core (what is the default?)
-#SBATCH -p v100
-#SBATCH --gres=gpu:v100:2
-#SBATCH --ntasks=6               # total number of tasks across all nodes
+#SBATCH --mem=180g        
+#SBATCH --time=16:00:00          
+#SBATCH -p a100-4,a100-8
+#SBATCH --gres=gpu:a100:2
+#SBATCH --ntasks=6      
 
 #SBATCH --mail-type=begin       
 #SBATCH --mail-type=end          
@@ -18,11 +18,10 @@ cd /users/9/reine097/projects/loes-scoring-2/src/dcan/training || exit
 export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src:/users/9/reine097/projects/AlexNet_Abrol2021/src/"
 /users/9/reine097/projects/loes-scoring-2/.venv/bin/python \
   /users/9/reine097/projects/loes-scoring-2/src/dcan/training/training.py \
-  --csv-data-file /users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes.csv \
-  --batch-size 1 \
-  --num-workers 1 \
-  --epochs 128 \
-  --model-save-location /home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_13.pt \
-  --plot-location /home/miran045/reine097/projects/loes-scoring-2/doc/img/model13.png \
-  --output-csv-file /home/miran045/reine097/projects/loes-scoring-2/data/filtered/model13_out.csv \
-  --gd 0
+  --csv-data-file "/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes.csv" \
+                        --batch-size 1 --num-workers 1 --epochs 128 \
+                        --model-save-location "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_12.pt" \
+                        --plot-location "/home/miran045/reine097/projects/loes-scoring-2/doc/img/model12.png" \
+                        --output-csv-file  "/home/miran045/reine097/projects/loes-scoring-2/data/filtered/model12_out.csv" \
+                        --gd  0 \
+                        --folder "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/training_ready/"

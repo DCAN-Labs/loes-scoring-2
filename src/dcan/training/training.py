@@ -95,7 +95,7 @@ class ModelHandler:
             model = ResNet3D().to(self.device)
             log.info("Using ResNet3D")
         else:
-            model = AlexNet3D(8675289).to(self.device)
+            model = AlexNet3D(4608).to(self.device)
             log.info("Using AlexNet3D")
 
         if self.use_cuda and torch.cuda.device_count() > 1:
@@ -217,7 +217,7 @@ class LoesScoringTrainingApp:
             trn_metrics = loop_handler.train_epoch(epoch, train_dl)
             val_metrics = loop_handler.validate_epoch(epoch, val_dl)
 
-            self.tb_logger.log_metrics('train', epoch, trn_metrics, loop_handler.total_samples)
+            self.tb_logger.log_metrics('trn', epoch, trn_metrics, loop_handler.total_samples)
             self.tb_logger.log_metrics('val', epoch, val_metrics, loop_handler.total_samples)
 
         self.model_handler.save_model(self.config.model_save_location)
@@ -227,8 +227,7 @@ class LoesScoringTrainingApp:
     def split_train_validation(self):
         all_users = self.df['anonymized_subject_id'].unique()
         self.df = self.df.sort_values('loes-score')
-        df_validation = self.df.iloc[::5]
-        validation_users = df_validation['anonymized_subject_id'].unique()
+        validation_users = all_users[::5]
         training_users = [user for user in all_users if user not in validation_users]
         
         return training_users, validation_users
