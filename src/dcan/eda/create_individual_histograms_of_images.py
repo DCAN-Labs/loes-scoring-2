@@ -1,18 +1,31 @@
+import os
+import nibabel
 import seaborn as sns
 import matplotlib.pyplot as plt
 import nibabel as nib
 from pathlib import Path
 import sys
+import nilearn
+from nilearn.image import load_img
+import matplotlib
+import tqdm
+matplotlib.use('TkAgg',force=True)
+from matplotlib import pyplot as plt
+print("Switched to:",matplotlib.get_backend())
 
 
-def get_file_identifiers(file_name):
+EPSILON = 0.01
+
+
+def get_file_identifiers(file):
     """
     Extract subject, session, and run identifiers from the file name.
     Assumes a specific naming convention.
     """
     try:
-        subject_id = file_name[:6]
-        session_id = file_name[7:13]
+        file_name = file.name
+        subject_id = file_name[:10]
+        session_id = file_name[11:21]
         run_id = "run-01"  # Default run identifier
         return subject_id, session_id, run_id
     except IndexError as e:
@@ -36,14 +49,10 @@ def plot_voxel_intensity_histogram(subject_id, session_id, img_dir, hist_dir, gm
     """
     Generate and save a histogram of voxel intensities for a subject's brain images.
     """
-    gm_img_path = img_dir / gm_file
-    wm_img_path = img_dir / wm_file
+    gm_brain_data_masked_img = mask_in_matter_data(img_dir, subject_id, session_id, gm_file)
+    wm_brain_data_masked_img = mask_in_matter_data(img_dir, subject_id, session_id, wm_file)
 
-    # Load data for GM and WM images
-    gm_data = get_data(gm_img_path)
-    wm_data = get_data(wm_img_path)
-
-    if gm_data is None or wm_data is None:
+    if gm_brain_data_masked_img is None or wm_brain_data_masked_img is None:
         print(f"Data missing for subject {subject_id}-{session_id}. Skipping histogram generation.")
         return
 
@@ -51,8 +60,8 @@ def plot_voxel_intensity_histogram(subject_id, session_id, img_dir, hist_dir, gm
     plt.figure(figsize=(10, 6))
     ax = plt.gca()
     ax.set_xlim([0, 600])
-    sns.histplot(gm_data, label="GM", kde=True, color="blue", alpha=0.6)
-    sns.histplot(wm_data, label="WM", kde=True, color="orange", alpha=0.6)
+    sns.histplot(gm_brain_data_masked_img.flatten(), label="GM", kde=True, color="blue", alpha=0.6)
+    sns.histplot(wm_brain_data_masked_img.flatten(), label="WM", kde=True, color="orange", alpha=0.6)
     plt.title(f"Distribution of Voxel Intensities for {subject_id}-{session_id}")
     plt.xlabel("Voxel Intensity")
     plt.ylabel("Frequency")
@@ -63,10 +72,24 @@ def plot_voxel_intensity_histogram(subject_id, session_id, img_dir, hist_dir, gm
     hist_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(hist_path, dpi=300, bbox_inches="tight")
     plt.close()
-    print(f"Histogram saved for subject {subject_id}-{session_id} at {hist_path}")
+
+def mask_in_matter_data(img_dir, subject_id, session_id, m_file):
+    path_to_brain = os.path.join(img_dir, f'{subject_id}_{session_id}_run-00_space-MNI_mprage_RAVEL.nii.gz')
+    brain = nilearn.image.load_img(path_to_brain)
+    brain_data = brain.get_fdata()
+
+    m_mask = nilearn.image.load_img(m_file)
+    m_mask_data = m_mask.get_fdata()
+    m_mask_indexes=(m_mask_data==1)
+
+    m_brain_data_masked=brain_data * m_mask_indexes
+    # Filter out zero values
+    filtered_data = m_brain_data_masked[m_brain_data_masked > EPSILON]
+    
+    return filtered_data
 
 
-def main(img_dir, hist_dir):
+def main(img_dir, hist_dir, wm_mask, gm_mask):
     """
     Main function to process all files and generate histograms for each subject.
     """
@@ -74,36 +97,29 @@ def main(img_dir, hist_dir):
     hist_dir = Path(hist_dir)
 
     # List all NIfTI files in the image directory
-    files = sorted(f for f in img_dir.glob("*.nii.gz"))
+    files = sorted(f for f in img_dir.glob("*_RAVEL.nii.gz"))
 
-    if len(files) % 2 != 0:
-        print("Warning: Unpaired GM and WM files found. Ensure files are correctly paired.")
-
-    # Process files in pairs (GM and WM)
-    for i in range(0, len(files), 2):
+    for file in tqdm.tqdm(files):
         try:
-            gm_file = files[i].name
-            wm_file = files[i + 1].name
-            subject_id, session_id, _ = get_file_identifiers(gm_file)
-            plot_voxel_intensity_histogram(subject_id, session_id, img_dir, hist_dir, gm_file, wm_file)
-        except IndexError:
-            print(f"Error: Unpaired file at index {i}. Skipping.")
-            continue
+            subject_id, session_id, _ = get_file_identifiers(file)
+            plot_voxel_intensity_histogram(subject_id, session_id, img_dir, hist_dir, wm_mask, gm_mask)
         except ValueError as e:
             print(f"Error processing file: {e}")
             continue
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python script.py <image_directory> <histogram_output_directory>")
+    if len(sys.argv) != 5:
+        print("Usage: python script.py <image_directory> <histogram_output_directory> <wm_mask> <gm_mask>")
         sys.exit(1)
 
     img_dir_in = sys.argv[1]
     hist_dir_out = sys.argv[2]
+    wm_mask = sys.argv[3]
+    gm_mask = sys.argv[4]
 
     try:
-        main(img_dir_in, hist_dir_out)
+        main(img_dir_in, hist_dir_out, wm_mask, gm_mask)
     except Exception as e:
         print(f"Critical error: {e}")
         sys.exit(1)

@@ -36,8 +36,10 @@
             "request": "launch",
             "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/eda/create_individual_histograms_of_images.py",
             "console": "integratedTerminal",
-            "args": ["//users/9/reine097/data/fairview-ag/anonymized/4_processed/", 
-                     "//users/9/reine097/data/fairview-ag/anonymized/4_processed_histograms/"],
+            "args": ["/home/feczk001/shared/projects/S1067_Loes/data/MIDB-rp/04-brain_masked/", 
+                     "/home/feczk001/shared/projects/S1067_Loes/data/MIDB-rp/04-brain_histograms/",
+                    "/home/feczk001/shared/projects/S1067_Loes/data/MNI152/mni_icbm152_nlin_sym_09a/mni_icbm152_wm_tal_nlin_sym_09a_int_rounded.nii",
+                    "/home/feczk001/shared/projects/S1067_Loes/data/MNI152/mni_icbm152_nlin_sym_09a/mni_icbm152_gm_tal_nlin_sym_09a_int_rounded.nii"],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         },
         {
