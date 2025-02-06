@@ -23,8 +23,8 @@ def get_file_identifiers(file: Path) -> tuple[str, str, str]:
     """
     try:
         parts = file.stem.split("_")
-        subject_id = next(part for part in parts if part.startswith("sub-"))
-        session_id = next(part for part in parts if part.startswith("ses-"))
+        subject_id = next(part for part in parts if part.startswith("subject-"))
+        session_id = next(part for part in parts if part.startswith("session-"))
         run_id = next((part for part in parts if part.startswith("run-")), "run-01")  # Default run identifier
         return subject_id, session_id, run_id
     except StopIteration as e:
