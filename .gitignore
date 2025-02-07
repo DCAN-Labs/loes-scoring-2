@@ -190,3 +190,5 @@ src/dcan/util/simplify_nascene_deid_files_csv_file.py
 runs/Jan06_13-37-36_agd06/events.out.tfevents.1736192256.agd06.1828355.0
 bin/training/loes-scoring-alex-net-31175666.err
 bin/training/loes-scoring-alex-net-31175666.out
+bin/training/loes-scoring-alex-net-31324105.err
+bin/training/loes-scoring-alex-net-31324105.out

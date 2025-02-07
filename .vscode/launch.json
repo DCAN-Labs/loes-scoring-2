@@ -36,8 +36,8 @@
             "request": "launch",
             "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/eda/create_individual_histograms_of_images.py",
             "console": "integratedTerminal",
-            "args": ["/home/feczk001/shared/projects/S1067_Loes/data/MIDB-rp/04-brain_masked/", 
-                     "/home/feczk001/shared/projects/S1067_Loes/data/MIDB-rp/04-brain_histograms/",
+            "args": ["/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/", 
+                     "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready_histograms/",
                     "/home/feczk001/shared/projects/S1067_Loes/data/MNI152/mni_icbm152_nlin_sym_09a/mni_icbm152_wm_tal_nlin_sym_09a_int_rounded.nii",
                     "/home/feczk001/shared/projects/S1067_Loes/data/MNI152/mni_icbm152_nlin_sym_09a/mni_icbm152_gm_tal_nlin_sym_09a_int_rounded.nii"],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
@@ -123,12 +123,12 @@
             "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/training/training.py",
             "console": "integratedTerminal",
             "args": ["--csv-data-file", "/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes.csv",
-                        "--batch-size", "1", "--num-workers", "1", "--epochs", "128",
+                        "--batch-size", "1", "--num-workers", "1", "--epochs", "1",
                         "--model-save-location", "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_12.pt",
                         "--plot-location", "/home/miran045/reine097/projects/loes-scoring-2/doc/img/model12.png",
                         "--output-csv-file", "/home/miran045/reine097/projects/loes-scoring-2/data/filtered/model12_out.csv", 
                         "--gd",  "0",
-                        "--folder", "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/training_ready/"],
+                        "--folder", "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/"],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         }
     ]

@@ -47,7 +47,7 @@ def mask_in_matter_data(img_dir: Path, subject_id: str, session_id: str, mask_pa
     """
     Apply a mask to the subject's brain image and return the filtered voxel intensities.
     """
-    brain_path = img_dir / f"{subject_id}_{session_id}_run-00_space-MNI_mprage_RAVEL.nii.gz"
+    brain_path = img_dir / f"{subject_id}_{session_id}_space-MNI_brain_mprage_RAVEL.nii.gz"
 
     if not brain_path.exists():
         print(f"Missing brain image: {brain_path}. Skipping subject {subject_id}-{session_id}.")

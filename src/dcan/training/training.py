@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import glob
 import os
 import sys
 
@@ -13,6 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.inference.models import AlexNet3D
+from dcan.metrics import get_standardized_rmse
 from faimed3d.models.resnet import ResNet3D
 from util.logconf import logging
 from util.util import enumerateWithEstimate
@@ -191,6 +193,22 @@ class LoesScoringTrainingApp:
         optimizer_type = self.config.optimizer.lower()
         optimizer_cls = Adam if optimizer_type == 'adam' else SGD
         return optimizer_cls(self.model_handler.model.parameters(), lr=self.config.lr)
+
+    def get_files_with_wildcard(self, directory, pattern):
+        """
+        Gets a list of files in a directory that match a wildcard pattern.
+
+        Args:
+            directory: The directory to search in.
+            pattern: The wildcard pattern to match (e.g., "*.txt", "image*").
+
+        Returns:
+            A list of file paths that match the pattern.
+        """
+        search_path = os.path.join(directory, pattern)
+        files = glob.glob(search_path)
+        return files
+
 
     def main(self):
         log.info("Starting training...")
