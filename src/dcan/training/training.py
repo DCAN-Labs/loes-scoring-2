@@ -57,7 +57,7 @@ class Config:
         self.parser.add_argument('-k', type=int, default=0, help='Index for 5-fold validation')
         self.parser.add_argument('--folder', help='Folder where MRIs are stored')
 
-    def parse_args(self, sys_argv):
+    def parse_args(self, sys_argv: list[str]) -> argparse.Namespace:
         return self.parser.parse_args(sys_argv)
 
 
