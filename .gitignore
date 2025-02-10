@@ -192,3 +192,5 @@ bin/training/loes-scoring-alex-net-31175666.err
 bin/training/loes-scoring-alex-net-31175666.out
 bin/training/loes-scoring-alex-net-31324105.err
 bin/training/loes-scoring-alex-net-31324105.out
+bin/training/loes-scoring-training_model_agate_test.sh~
+bin/training/pkg_resources

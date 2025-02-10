@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from dcan.data_sets.dsets import LoesScoreDataset
+from dcan.inference.make_predictions import compute_standardized_rmse
 from dcan.inference.models import AlexNet3D
 from dcan.metrics import get_standardized_rmse
 from faimed3d.models.resnet import ResNet3D
@@ -236,6 +237,17 @@ class LoesScoringTrainingApp:
         self.model_handler.save_model(self.config.model_save_location)
         log.info(f"Model saved to {self.config.model_save_location}")
         self.tb_logger.close()
+        self.tb_logger.close()
+
+        subjects = []
+        sessions = []
+        
+        for val in iter(val_dl):
+            subjects.extend(val[2])
+            sessions.extend(val[3])
+
+        standardized_rmse = compute_standardized_rmse(self.output_df, self.config.model_save_location, self.folder, subjects, sessions)
+        print(f'standardized_rmse: {standardized_rmse}')
 
     def split_train_validation(self):
         all_users = self.df['anonymized_subject_id'].unique()
