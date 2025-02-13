@@ -31,6 +31,7 @@ def compute_standardized_rmse(input_df, model_save_location, base_dir, subjects,
     with torch.no_grad():
         squares_list = []
         prediction_list = []
+        actual_scores = []
         for i in range(len(subjects)):
             subject = subjects[i]
             session = sessions[i]
@@ -43,6 +44,7 @@ def compute_standardized_rmse(input_df, model_save_location, base_dir, subjects,
                 print(f'df_multiple_and: {df_multiple_and}')
                 row = df_multiple_and.iloc[0]
                 actual_loes_score = row['loes-score']
+                actual_scores.append(actual_loes_score)
                 if math.isnan(actual_loes_score):
                     continue
             except ValueError:
@@ -56,13 +58,14 @@ def compute_standardized_rmse(input_df, model_save_location, base_dir, subjects,
             image_tensor = torch.unsqueeze(image_tensor, dim=0)
             output = model(image_tensor)
             prediction = output[0].item()
+            ratings_dict[(subject, session,)] = prediction
             difference = actual_loes_score - prediction
             square = difference * difference
             squares_list.append(square)
             prediction_list.append(prediction)
-        log.info(ratings_dict)
+        print(ratings_dict)
         rmse = math.sqrt(sum(squares_list) / len(squares_list))
-        sigma = statistics.stdev(prediction_list)
+        sigma = statistics.stdev(actual_scores)
         standardized_rmse = rmse / sigma
         log.info(f'standardized_rmse: {standardized_rmse}')
         

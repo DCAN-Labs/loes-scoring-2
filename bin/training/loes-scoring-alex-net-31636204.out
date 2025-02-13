@@ -1,0 +1,179 @@
+subjects: ['subject-00', 'subject-35', 'subject-00', 'subject-42', 'subject-42', 'subject-44', 'subject-66', 'subject-24', 'subject-24', 'subject-24', 'subject-35', 'subject-65', 'subject-52', 'subject-35', 'subject-24', 'subject-24', 'subject-52', 'subject-24', 'subject-00', 'subject-64', 'subject-03', 'subject-44', 'subject-49', 'subject-14', 'subject-00', 'subject-32', 'subject-14', 'subject-35', 'subject-24', 'subject-35', 'subject-32', 'subject-14', 'subject-35', 'subject-49', 'subject-03']
+sessions: ['session-00', 'session-00', 'session-01', 'session-00', 'session-01', 'session-01', 'session-00', 'session-00', 'session-06', 'session-02', 'session-05', 'session-00', 'session-01', 'session-01', 'session-05', 'session-03', 'session-00', 'session-01', 'session-02', 'session-01', 'session-00', 'session-00', 'session-01', 'session-02', 'session-03', 'session-00', 'session-01', 'session-03', 'session-04', 'session-02', 'session-01', 'session-00', 'session-04', 'session-00', 'session-01']
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-00_session-00_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:    Unnamed: 0 anonymized_subject_id  ... validation prediction
+0           0            subject-00  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-35_session-00_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:      Unnamed: 0 anonymized_subject_id  ... validation prediction
+130         208            subject-35  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-00_session-01_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:    Unnamed: 0 anonymized_subject_id  ... validation prediction
+1           1            subject-00  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-42_session-00_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:      Unnamed: 0 anonymized_subject_id  ... validation prediction
+161         257            subject-42  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-42_session-01_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:      Unnamed: 0 anonymized_subject_id  ... validation prediction
+162         259            subject-42  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-44_session-01_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:      Unnamed: 0 anonymized_subject_id  ... validation prediction
+168         270            subject-44  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-66_session-00_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:      Unnamed: 0 anonymized_subject_id  ... validation prediction
+250         416            subject-66  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-24_session-00_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:     Unnamed: 0 anonymized_subject_id  ... validation prediction
+93         147            subject-24  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-24_session-06_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:     Unnamed: 0 anonymized_subject_id  ... validation prediction
+99         154            subject-24  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-24_session-02_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:     Unnamed: 0 anonymized_subject_id  ... validation prediction
+95         149            subject-24  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-35_session-05_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:      Unnamed: 0 anonymized_subject_id  ... validation prediction
+135         214            subject-35  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-65_session-00_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:      Unnamed: 0 anonymized_subject_id  ... validation prediction
+249         414            subject-65  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-52_session-01_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:      Unnamed: 0 anonymized_subject_id  ... validation prediction
+209         346            subject-52  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-35_session-01_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:      Unnamed: 0 anonymized_subject_id  ... validation prediction
+131         209            subject-35  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-24_session-05_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:     Unnamed: 0 anonymized_subject_id  ... validation prediction
+98         152            subject-24  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-24_session-03_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:     Unnamed: 0 anonymized_subject_id  ... validation prediction
+96         150            subject-24  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-52_session-00_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:      Unnamed: 0 anonymized_subject_id  ... validation prediction
+208         344            subject-52  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-24_session-01_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:     Unnamed: 0 anonymized_subject_id  ... validation prediction
+94         148            subject-24  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-00_session-02_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:    Unnamed: 0 anonymized_subject_id  ... validation prediction
+2           2            subject-00  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-64_session-01_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:      Unnamed: 0 anonymized_subject_id  ... validation prediction
+248         412            subject-64  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-03_session-00_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:     Unnamed: 0 anonymized_subject_id  ... validation prediction
+20          35            subject-03  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-44_session-00_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:      Unnamed: 0 anonymized_subject_id  ... validation prediction
+167         268            subject-44  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-49_session-01_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:      Unnamed: 0 anonymized_subject_id  ... validation prediction
+192         313            subject-49  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-14_session-02_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:     Unnamed: 0 anonymized_subject_id  ... validation prediction
+67         102            subject-14  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-00_session-03_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:    Unnamed: 0 anonymized_subject_id  ... validation prediction
+3           3            subject-00  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-32_session-00_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:      Unnamed: 0 anonymized_subject_id  ... validation prediction
+119         189            subject-32  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-14_session-01_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:     Unnamed: 0 anonymized_subject_id  ... validation prediction
+66         101            subject-14  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-35_session-03_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:      Unnamed: 0 anonymized_subject_id  ... validation prediction
+133         211            subject-35  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-24_session-04_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:     Unnamed: 0 anonymized_subject_id  ... validation prediction
+97         151            subject-24  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-35_session-02_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:      Unnamed: 0 anonymized_subject_id  ... validation prediction
+132         210            subject-35  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-32_session-01_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:      Unnamed: 0 anonymized_subject_id  ... validation prediction
+120         191            subject-32  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-14_session-00_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:     Unnamed: 0 anonymized_subject_id  ... validation prediction
+65          99            subject-14  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-35_session-04_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:      Unnamed: 0 anonymized_subject_id  ... validation prediction
+134         212            subject-35  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-49_session-00_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:      Unnamed: 0 anonymized_subject_id  ... validation prediction
+191         311            subject-49  ...          1        NaN
+
+[1 rows x 9 columns]
+/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready//subject-03_session-01_space-MNI_brain_mprage_RAVEL.nii.gz
+df_multiple_and:     Unnamed: 0 anonymized_subject_id  ... validation prediction
+21          37            subject-03  ...          1        NaN
+
+[1 rows x 9 columns]
+{('subject-00', 'session-00'): 744.4085083007812, ('subject-35', 'session-00'): 649.3427734375, ('subject-00', 'session-01'): 720.1447143554688, ('subject-42', 'session-00'): 764.3052978515625, ('subject-42', 'session-01'): 937.8373413085938, ('subject-44', 'session-01'): 910.249755859375, ('subject-66', 'session-00'): 687.1520385742188, ('subject-24', 'session-00'): 749.3355102539062, ('subject-24', 'session-06'): 913.6832275390625, ('subject-24', 'session-02'): 975.4495239257812, ('subject-35', 'session-05'): 837.96142578125, ('subject-65', 'session-00'): 700.436279296875, ('subject-52', 'session-01'): 957.01318359375, ('subject-35', 'session-01'): 821.9498901367188, ('subject-24', 'session-05'): 693.1248168945312, ('subject-24', 'session-03'): 714.4025268554688, ('subject-52', 'session-00'): 572.73828125, ('subject-24', 'session-01'): 648.9710083007812, ('subject-00', 'session-02'): 733.119384765625, ('subject-64', 'session-01'): 748.1996459960938, ('subject-03', 'session-00'): 959.6484375, ('subject-44', 'session-00'): 695.9721069335938, ('subject-49', 'session-01'): 859.6094360351562, ('subject-14', 'session-02'): 1028.909912109375, ('subject-00', 'session-03'): 818.5596923828125, ('subject-32', 'session-00'): 847.2122802734375, ('subject-14', 'session-01'): 855.8441772460938, ('subject-35', 'session-03'): 965.4893188476562, ('subject-24', 'session-04'): 679.688720703125, ('subject-35', 'session-02'): 930.396240234375, ('subject-32', 'session-01'): 920.370849609375, ('subject-14', 'session-00'): 605.03515625, ('subject-35', 'session-04'): 868.480224609375, ('subject-49', 'session-00'): 780.43505859375, ('subject-03', 'session-01'): 973.0838623046875}
+standardized_rmse: 158.44615171586625
