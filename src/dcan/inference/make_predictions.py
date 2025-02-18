@@ -4,6 +4,9 @@ import pandas as pd
 import statistics
 import torch
 import torchio as tio
+import matplotlib.pyplot as plt
+import numpy as np
+import scipy.stats as stats
 
 from dcan.inference.models import AlexNet3D
 
@@ -71,6 +74,39 @@ def compute_standardized_rmse(actual_scores, predict_vals):
     return standardized_rmse
 
 
+def create_correlation_coefficient(actual_vals, predicted_vals):
+    x = np.array(actual_vals)
+    y = np.array(predicted_vals)
+
+    correlation_matrix = np.corrcoef(x, y)
+    correlation_coefficient = correlation_matrix[0, 1]
+
+    return correlation_coefficient
+
+
+def create_scatter_plot(actual_vals, predicted_vals):
+    fig, ax = plt.subplots()
+    ax.scatter(actual_vals, predicted_vals, s=25, cmap=plt.cm.coolwarm, zorder=10)
+
+    lims = [
+        np.min([ax.get_xlim(), ax.get_ylim()]),  # min of both axes
+        np.max([ax.get_xlim(), ax.get_ylim()]),  # max of both axes
+    ]
+
+    ax.plot(lims, lims, 'k-', alpha=0.75, zorder=0)
+    ax.set_aspect('equal')
+    ax.set_xlim(lims)
+    ax.set_ylim(lims)
+
+    # Add labels and title
+    plt.xlabel("Actual Loes score")
+    plt.ylabel("Predicted Loes score")
+    plt.title("Loes score prediction")
+
+    # Save the plot to a file
+    plt.savefig("loes_score.png", dpi=300)  
+
+
 if __name__ == "__main__":
     model_save_location = "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_12.pt"
     input_csv_location = "/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes_training_test_non_gd.csv"
@@ -78,3 +114,12 @@ if __name__ == "__main__":
     standardized_rmse = \
         compute_standardized_rmse(actual_scores, predict_vals)
     print(f'standardized_rmse: {standardized_rmse}')
+    create_scatter_plot(actual_scores, predict_vals)
+    correlation_coefficient = create_correlation_coefficient(actual_scores, predict_vals)
+    print(f'correlation_coefficient: {correlation_coefficient}')
+
+    correlation, p_value = stats.pearsonr(actual_scores, predict_vals)
+    print("Pearson correlation p-value:", p_value)
+
+    correlation, p_value = stats.spearmanr(actual_scores, predict_vals)
+    print("Spearman correlation p-value:", p_value)
