@@ -43,6 +43,14 @@ def predict(row):
     return value
 
 
+import torch.nn.functional as F
+
+def compute_rmse(predictions, actuals):
+    predictions_tensor = torch.tensor(predictions, dtype=torch.float32)
+    actuals_tensor = torch.tensor(actuals, dtype=torch.float32)
+    mse = F.mse_loss(predictions_tensor, actuals_tensor)
+    return torch.sqrt(mse).item()
+
 
 def compute_standardized_rmse(model_save_location, input_csv_location):
     model = load_model(model_save_location, device='cpu')
@@ -59,7 +67,7 @@ def compute_standardized_rmse(model_save_location, input_csv_location):
 
         predictions = [model(input) for input in inputs]
         predict_vals = [p[0].item() for p in predictions]
-        rmse = statistics.mean([(actual_scores[i] - predict_vals[i]) ** 2 for i in range(len(actual_scores))])
+        rmse = compute_rmse(predict_vals, actual_scores)
         sigma = statistics.stdev(actual_scores)
         standardized_rmse = rmse / sigma
         
