@@ -54,7 +54,8 @@ def get_validation_info(model_save_location, input_csv_location):
     df = pd.read_csv(input_csv_location)
     validation_rows = df.loc[df['validation'] == 1]
     output_df = validation_rows.copy()
-    predictions = []
+    subjects = list(output_df['anonymized_subject_id'])
+    sessions = list(output_df['anonymized_session_id'])
     actual_scores = list(output_df['loes-score'])
     with torch.no_grad():
         inputs = list(output_df.apply(predict, axis=1))
@@ -62,7 +63,7 @@ def get_validation_info(model_save_location, input_csv_location):
         predictions = [model(input) for input in inputs]
         predict_vals = [p[0].item() for p in predictions]
 
-        return actual_scores, predict_vals
+        return subjects, sessions, actual_scores, predict_vals
 
 
 
@@ -104,13 +105,31 @@ def create_scatter_plot(actual_vals, predicted_vals):
     plt.title("Loes score prediction")
 
     # Save the plot to a file
-    plt.savefig("loes_score.png", dpi=300)  
+    plt.savefig("loes_score.png", dpi=300) 
+
+def get_predicted_value(row, subjects, sessions, predict_vals):
+    zipped_data = zip(subjects, sessions, predict_vals)
+
+    for subject, session, predict_val in zipped_data:
+        if row['anonymized_subject_id'] == subject and row['anonymized_session_id'] == session:
+            return predict_val
+    return np.nan
+
+def add_predicted_values(subjects, sessions, predict_vals, input_csv_location):
+    input_df = pd.read_csv(input_csv_location) 
+    output_df = input_df.copy() 
+    output_df['predicted_loes_score'] = output_df.apply(get_predicted_value, axis=1, args=(subjects, sessions, predict_vals))
+
+    return output_df
 
 
 if __name__ == "__main__":
     model_save_location = "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_12.pt"
     input_csv_location = "/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes_training_test_non_gd.csv"
-    actual_scores, predict_vals = get_validation_info(model_save_location, input_csv_location)
+    subjects, sessions, actual_scores, predict_vals = get_validation_info(model_save_location, input_csv_location)
+    output_csv_location = '/users/9/reine097/projects/loes-scoring-2/doc/models/model12/model12.csv'
+    output_df = add_predicted_values(subjects, sessions, predict_vals, input_csv_location)
+    output_df.to_csv(output_csv_location, index=False)
     standardized_rmse = \
         compute_standardized_rmse(actual_scores, predict_vals)
     print(f'standardized_rmse: {standardized_rmse}')
