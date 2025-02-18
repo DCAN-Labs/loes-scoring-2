@@ -1,17 +1,10 @@
 import logging
-import math
-import os.path
-import matplotlib.pyplot as plt
-from torch.utils.data import DataLoader
 
 import pandas as pd
 import statistics
-import sys
 import torch
 import torchio as tio
-from math import sqrt
 
-from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.inference.models import AlexNet3D
 
 log = logging.getLogger(__name__)
@@ -75,4 +68,4 @@ def compute_standardized_rmse(model_save_location, input_csv_location):
 if __name__ == "__main__":
     standardized_rmse = compute_standardized_rmse("/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_12.pt", 
                  "/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes_training_test_non_gd.csv")
-    log.info(f'standardized_rmse: {standardized_rmse}')
+    print(f'standardized_rmse: {standardized_rmse}')
