@@ -20,14 +20,15 @@ log.setLevel(logging.INFO)
 # log.setLevel(logging.DEBUG)
 
 
-
+def load_model(model_save_location, device='cpu'):
+    model = AlexNet3D(4608).to(device)
+    model.load_state_dict(torch.load(model_save_location, map_location=device))
+    model.eval()
+    return model
 
 
 def compute_standardized_rmse(input_df, model_save_location, base_dir, subjects, sessions):
-    model = AlexNet3D(4608)
-    model.load_state_dict(torch.load(model_save_location,
-                                     map_location='cpu'))
-    model.eval()
+    model = load_model(model_save_location, device='cpu')
 
     ratings_dict = dict()
     with torch.no_grad():
@@ -91,13 +92,10 @@ def predict(row):
 
 
 
-def process_data(model_save_location, val_csv_location):
-    model = AlexNet3D(4608)
-    model.load_state_dict(torch.load(model_save_location, weights_only=True,
-                                     map_location='cpu'))
-    model.eval()
+def process_data(model_save_location, input_csv_location):
+    model = load_model(model_save_location, device='cpu')
 
-    df = pd.read_csv(val_csv_location)
+    df = pd.read_csv(input_csv_location)
     df['prediction'] = ''
     df = df.reset_index()
     validation_rows = df.loc[df['validation'] == 1]
@@ -113,7 +111,6 @@ def process_data(model_save_location, val_csv_location):
         sigma = statistics.stdev(actual_scores)
         standardized_rmse = rmse / sigma
         log.info(f'standardized_rmse: {standardized_rmse}')
-
 
 
 if __name__ == "__main__":
