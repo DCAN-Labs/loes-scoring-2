@@ -85,7 +85,7 @@ def create_correlation_coefficient(actual_vals, predicted_vals):
     return correlation_coefficient
 
 
-def create_scatter_plot(actual_vals, predicted_vals):
+def create_scatter_plot(actual_vals, predicted_vals, output_file):
     fig, ax = plt.subplots()
     ax.scatter(actual_vals, predicted_vals, s=25, cmap=plt.cm.coolwarm, zorder=10)
 
@@ -105,7 +105,7 @@ def create_scatter_plot(actual_vals, predicted_vals):
     plt.title("Loes score prediction")
 
     # Save the plot to a file
-    plt.savefig("loes_score.png", dpi=300) 
+    plt.savefig(output_file, dpi=300) 
 
 def get_predicted_value(row, subjects, sessions, predict_vals):
     zipped_data = zip(subjects, sessions, predict_vals)
@@ -133,7 +133,7 @@ if __name__ == "__main__":
     standardized_rmse = \
         compute_standardized_rmse(actual_scores, predict_vals)
     print(f'standardized_rmse: {standardized_rmse}')
-    create_scatter_plot(actual_scores, predict_vals)
+    create_scatter_plot(actual_scores, predict_vals, '/users/9/reine097/projects/loes-scoring-2/doc/models/model12/model12.png')
     correlation_coefficient = create_correlation_coefficient(actual_scores, predict_vals)
     print(f'correlation_coefficient: {correlation_coefficient}')
 
