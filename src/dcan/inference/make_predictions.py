@@ -56,7 +56,6 @@ def compute_standardized_rmse(model_save_location, input_csv_location):
     model = load_model(model_save_location, device='cpu')
 
     df = pd.read_csv(input_csv_location)
-    df = df.reset_index()
     validation_rows = df.loc[df['validation'] == 1]
     output_df = validation_rows.copy()
     predictions = []
