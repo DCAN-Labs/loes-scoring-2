@@ -45,6 +45,26 @@ def compute_rmse(predictions, actuals):
     return torch.sqrt(mse).item()
 
 
+
+
+def get_validation_info(model_save_location, input_csv_location):
+    model = load_model(model_save_location, device='cpu')
+
+    df = pd.read_csv(input_csv_location)
+    validation_rows = df.loc[df['validation'] == 1]
+    output_df = validation_rows.copy()
+    predictions = []
+    actual_scores = list(output_df['loes-score'])
+    with torch.no_grad():
+        inputs = list(output_df.apply(predict, axis=1))
+
+        predictions = [model(input) for input in inputs]
+        predict_vals = [p[0].item() for p in predictions]
+
+        return actual_scores, predict_vals
+
+
+
 def compute_standardized_rmse(model_save_location, input_csv_location):
     model = load_model(model_save_location, device='cpu')
 
@@ -66,6 +86,9 @@ def compute_standardized_rmse(model_save_location, input_csv_location):
 
 
 if __name__ == "__main__":
-    standardized_rmse = compute_standardized_rmse("/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_12.pt", 
-                 "/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes_training_test_non_gd.csv")
+    model_save_location = "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_12.pt"
+    input_csv_location = "/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes_training_test_non_gd.csv"
+    actual_scores, predict_vals = get_validation_info(model_save_location, input_csv_location)
+    standardized_rmse = \
+        compute_standardized_rmse(model_save_location, input_csv_location)
     print(f'standardized_rmse: {standardized_rmse}')
