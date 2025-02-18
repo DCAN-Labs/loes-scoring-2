@@ -2,6 +2,7 @@ import logging
 import math
 import os.path
 import matplotlib.pyplot as plt
+from torch.utils.data import DataLoader
 
 import pandas as pd
 import statistics
@@ -10,6 +11,7 @@ import torch
 import torchio as tio
 from math import sqrt
 
+from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.inference.models import AlexNet3D
 
 log = logging.getLogger(__name__)
@@ -70,54 +72,50 @@ def compute_standardized_rmse(input_df, model_save_location, base_dir, subjects,
         log.info(f'standardized_rmse: {standardized_rmse}')
         
         return standardized_rmse
+    
+
+def predict(row):
+    subject = row['anonymized_subject_id']
+    session = row['anonymized_session_id']
+    mprage_path = f'/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/{subject}_{session}_space-MNI_brain_mprage_RAVEL.nii.gz'
+    mprage_image = tio.ScalarImage(mprage_path)
+    transform = tio.Compose([
+        tio.ToCanonical(),
+        tio.ZNormalization(masking_method=tio.ZNormalization.mean),
+    ])
+    transformed_mprage_image = transform(mprage_image)
+    mprage_image_tensor = transformed_mprage_image.data
+    value = mprage_image_tensor.unsqueeze(0)
+
+    return value
 
 
 
-def process_data(model_save_location, val_csv_location, val_csv_save_location):
+def process_data(model_save_location, val_csv_location):
     model = AlexNet3D(4608)
-    model.load_state_dict(torch.load(model_save_location,
+    model.load_state_dict(torch.load(model_save_location, weights_only=True,
                                      map_location='cpu'))
     model.eval()
 
     df = pd.read_csv(val_csv_location)
     df['prediction'] = ''
     df = df.reset_index()
-    ratings_dict = dict()
+    validation_rows = df.loc[df['validation'] == 1]
+    output_df = validation_rows.copy()
+    predictions = []
+    actual_scores = []
     with torch.no_grad():
-        squares_list = []
-        prediction_list = []
-        for index, row in df.iterrows():
-            image_path = row['file']
-            try:
-                actual_loes_score = row['loes-score']
-                if math.isnan(actual_loes_score):
-                    continue
-            except ValueError:
-                log.error(f"Loes score error on line {index + 2}")
+        inputs = list(output_df.apply(predict, axis=1))
 
-                continue
-            image_path = row['file']
-            image = tio.ScalarImage(image_path)
-
-            image_tensor = image.data
-
-            image_tensor = torch.unsqueeze(image_tensor, dim=0)
-            output = model(image_tensor)
-            prediction = output[0].item()
-            df.at[index, 'prediction'] = prediction
-            difference = actual_loes_score - prediction
-            square = difference * difference
-            squares_list.append(square)
-            prediction_list.append(prediction)
-        log.info(ratings_dict)
-        rmse = sqrt(sum(squares_list) / len(squares_list))
-        sigma = statistics.stdev(prediction_list)
+        predictions = [model(input) for input in inputs]
+        predict_vals = [p[0].item() for p in predictions]
+        rmse = statistics.mean([(actual_scores[i] - predict_vals[i]) ** 2 for i in range(len(actual_scores))])
+        sigma = statistics.stdev(actual_scores)
         standardized_rmse = rmse / sigma
         log.info(f'standardized_rmse: {standardized_rmse}')
-        df.to_csv(val_csv_save_location, index=False)
-        ax1 = df.plot.scatter(x='loes_score', y = 'prediction', c = 'DarkBlue')
-        plt.show()
+
 
 
 if __name__ == "__main__":
-    process_data(sys.argv[1], sys.argv[2], sys.argv[3])
+    process_data("/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_12.pt", 
+                 "/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes_training_test_non_gd.csv")

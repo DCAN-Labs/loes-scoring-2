@@ -194,3 +194,11 @@ bin/training/loes-scoring-alex-net-31324105.err
 bin/training/loes-scoring-alex-net-31324105.out
 bin/training/loes-scoring-training_model_agate_test.sh~
 bin/training/pkg_resources
+data-unversioned
+doc/models/model12/model12.md
+.vscode/launch.json
+bin/training/loes-scoring-alex-net-31774889.err
+bin/training/loes-scoring-alex-net-31774889.out
+data/anon_train_scans_and_loes_2.csv
+data/anon_train_scans_and_loes_training_test_non_gd.csv
+src/dcan/training/training-to-do.txt

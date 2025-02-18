@@ -18,10 +18,11 @@ cd /users/9/reine097/projects/loes-scoring-2/src/dcan/training || exit
 export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src:/users/9/reine097/projects/AlexNet_Abrol2021/src/"
 /users/9/reine097/projects/loes-scoring-2/.venv/bin/python \
   /users/9/reine097/projects/loes-scoring-2/src/dcan/training/training.py \
-  --csv-data-file "/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes.csv" \
+  --csv-data-file "/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes_training_test_non_gd.csv" \
                         --batch-size 1 --num-workers 1 --epochs 256 \
                         --model-save-location "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_12.pt" \
                         --plot-location "/users/9/reine097/projects/loes-scoring-2/doc/img/model12.png" \
                         --output-csv-file  "/users/9/reine097/projects/loes-scoring-2/data/filtered/model12_out.csv" \
                         --gd  0 \
-                        --folder "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/"
+                        --folder "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/" \
+                        --use-train-validation-cols

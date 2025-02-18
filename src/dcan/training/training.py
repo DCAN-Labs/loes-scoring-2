@@ -11,11 +11,13 @@ import torch.nn as nn
 from torch.optim import Adam, SGD
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+import matplotlib.pyplot as plt
 
 from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.inference.make_predictions import compute_standardized_rmse
 from dcan.inference.models import AlexNet3D
 from dcan.metrics import get_standardized_rmse
+from dcan.plot import create_scatterplot
 from faimed3d.models.resnet import ResNet3D
 from util.logconf import logging
 from util.util import enumerateWithEstimate
@@ -109,6 +111,70 @@ class ModelHandler:
 
     def load_model(self, model_path):
         self.model.load_state_dict(torch.load(model_path))
+
+import torch
+
+def debug_training(training_app):
+    # Step 1: Print Initial Model Parameters
+    model = training_app.model_handler.model
+    optimizer = training_app.optimizer
+    device = training_app.device
+    
+    print("\nDEBUG: Checking Initial Model Parameters...\n")
+    for name, param in model.named_parameters():
+        print(f"{name}: mean={param.data.mean():.5f}, std={param.data.std():.5f}")
+
+    # Step 2: Print Initial Predictions (Before Training)
+    sample_input, sample_label, _, _ = next(iter(training_app.data_handler.init_dl(
+        training_app.folder, training_app.df['anonymized_subject_id'].tolist(), is_val_set=True)))
+    
+    sample_input = sample_input.to(device)
+    model.eval()
+    with torch.no_grad():
+        initial_preds = model(sample_input)
+
+    print("\n=Ñ BEFORE TRAINING: Sample Predictions\n", initial_preds[:5].squeeze().cpu().numpy())
+
+    # Step 3: Run One Training Epoch & Check Loss
+    training_loop = TrainingLoop(training_app.model_handler, optimizer, device)
+    train_dl = training_app.data_handler.init_dl(training_app.folder, training_app.df['anonymized_subject_id'].tolist())
+    
+    print("\n¡ TRAINING ONE EPOCH...\n")
+    trn_metrics = training_loop.train_epoch(1, train_dl)
+    
+    print(f"LOSS AFTER FIRST EPOCH: {trn_metrics[METRICS_LOSS_NDX].mean().item():.6f}")
+
+    # Step 4: Print Model Parameters After Training
+    print("DEBUG: Checking Updated Model Parameters...\n")
+    for name, param in model.named_parameters():
+        print(f"{name}: mean={param.data.mean():.5f}, std={param.data.std():.5f}")
+
+    # Step 5: Check Predictions After Training
+    model.eval()
+    with torch.no_grad():
+        updated_preds = model(sample_input)
+
+    print("\n= AFTER TRAINING: Sample Predictions\n", updated_preds[:5].squeeze().cpu().numpy())
+
+    # Step 6: Check Gradients (Ensuring They Are Not Zero)
+    print("\n=Ê Checking Gradients...\n")
+    model.train()
+    optimizer.zero_grad()
+    outputs = model(sample_input)
+    loss_func = torch.nn.MSELoss()
+    loss = loss_func(outputs.squeeze(), sample_label.to(device))
+    loss.backward()
+
+    for name, param in model.named_parameters():
+        if param.grad is not None:
+            print(f"{name}: grad mean={param.grad.mean().item():.5f}, grad std={param.grad.std().item():.5f}")
+
+    # Step 7: Check Data Normalization
+    print("\n=É Checking Data Normalization...\n")
+    print(f"Input mean: {sample_input.mean().item():.5f}, std: {sample_input.std().item():.5f}")
+
+
+
 
 
 # Training/Validation Loop Handler
@@ -213,13 +279,18 @@ class LoesScoringTrainingApp:
 
     def main(self):
         log.info("Starting training...")
-        self.output_df["training"] = np.nan
-        self.output_df["validation"] = np.nan
+        self.output_df["prediction"] = np.nan
 
         if self.config.gd == 0:
             self.df = self.df[~self.df['scan'].str.contains('Gd')]
 
-        train_subjects, val_subjects = self.split_train_validation()
+        if self.config.use_train_validation_cols:
+            training_rows = self.df.loc[self.df['training'] == 1]
+            train_subjects = list(training_rows['anonymized_subject_id'])
+            validation_rows = self.df.loc[self.df['validation'] == 1]
+            val_subjects = list(validation_rows['anonymized_subject_id'])
+        else:
+            train_subjects, val_subjects = self.split_train_validation()
         train_dl = self.data_handler.init_dl(self.folder, train_subjects)
         val_dl = self.data_handler.init_dl(self.folder, val_subjects, is_val_set=True)
 
@@ -239,27 +310,35 @@ class LoesScoringTrainingApp:
         self.tb_logger.close()
         self.tb_logger.close()
 
+        val_dl = self.data_handler.init_dl(self.folder, val_subjects, is_val_set=True)
+
+
         subjects = []
         sessions = []
         
         for val in iter(val_dl):
             subjects.extend(val[2])
             sessions.extend(val[3])
+        print(f'subjects: {subjects}')
+        print(f'sessions: {sessions}')
 
         standardized_rmse = compute_standardized_rmse(self.output_df, self.config.model_save_location, self.folder, subjects, sessions)
         print(f'standardized_rmse: {standardized_rmse}')
 
     def split_train_validation(self):
-        all_users = self.df['anonymized_subject_id'].unique()
-        self.df = self.df.sort_values('loes-score')
-        validation_users = all_users[::5]
-        training_users = [user for user in all_users if user not in validation_users]
+        training_rows = self.df.loc[self.df['training'] == 1]
+        validation_rows = self.df.loc[self.df['validation'] == 1]
+        validation_users = list(set(validation_rows['anonymized_subject_id'].to_list()))
+        training_users = list(set(training_rows['anonymized_subject_id'].to_list()))
         
         return training_users, validation_users
 
 def main():
     loesScoringTrainingApp = LoesScoringTrainingApp(sys_argv=sys.argv)
     loesScoringTrainingApp.main()
+
+    # debug_training(LoesScoringTrainingApp(sys.argv))
+
 
 if __name__ == "__main__":
     main()
