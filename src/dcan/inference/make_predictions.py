@@ -103,7 +103,7 @@ def process_data(model_save_location, val_csv_location):
     validation_rows = df.loc[df['validation'] == 1]
     output_df = validation_rows.copy()
     predictions = []
-    actual_scores = []
+    actual_scores = list(output_df['loes-score'])
     with torch.no_grad():
         inputs = list(output_df.apply(predict, axis=1))
 
