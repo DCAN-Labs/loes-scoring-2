@@ -6,18 +6,16 @@ import sys
 
 import numpy as np
 import pandas as pd
+from scipy import stats
 import torch
 import torch.nn as nn
 from torch.optim import Adam, SGD
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-import matplotlib.pyplot as plt
 
 from dcan.data_sets.dsets import LoesScoreDataset
-from dcan.inference.make_predictions import compute_standardized_rmse
+from dcan.inference.make_predictions import add_predicted_values, compute_standardized_rmse, create_correlation_coefficient, create_scatter_plot, get_validation_info
 from dcan.inference.models import AlexNet3D
-from dcan.metrics import get_standardized_rmse
-from dcan.plot import create_scatterplot
 from faimed3d.models.resnet import ResNet3D
 from util.logconf import logging
 from util.util import enumerateWithEstimate
@@ -59,6 +57,7 @@ class Config:
         self.parser.add_argument('--use-train-validation-cols', action='store_true')
         self.parser.add_argument('-k', type=int, default=0, help='Index for 5-fold validation')
         self.parser.add_argument('--folder', help='Folder where MRIs are stored')
+        self.parser.add_argument('--csv-output-file', help="CSV output file.")
 
     def parse_args(self, sys_argv: list[str]) -> argparse.Namespace:
         return self.parser.parse_args(sys_argv)
@@ -113,68 +112,6 @@ class ModelHandler:
         self.model.load_state_dict(torch.load(model_path))
 
 import torch
-
-def debug_training(training_app):
-    # Step 1: Print Initial Model Parameters
-    model = training_app.model_handler.model
-    optimizer = training_app.optimizer
-    device = training_app.device
-    
-    print("\nDEBUG: Checking Initial Model Parameters...\n")
-    for name, param in model.named_parameters():
-        print(f"{name}: mean={param.data.mean():.5f}, std={param.data.std():.5f}")
-
-    # Step 2: Print Initial Predictions (Before Training)
-    sample_input, sample_label, _, _ = next(iter(training_app.data_handler.init_dl(
-        training_app.folder, training_app.df['anonymized_subject_id'].tolist(), is_val_set=True)))
-    
-    sample_input = sample_input.to(device)
-    model.eval()
-    with torch.no_grad():
-        initial_preds = model(sample_input)
-
-    print("\n=Ñ BEFORE TRAINING: Sample Predictions\n", initial_preds[:5].squeeze().cpu().numpy())
-
-    # Step 3: Run One Training Epoch & Check Loss
-    training_loop = TrainingLoop(training_app.model_handler, optimizer, device)
-    train_dl = training_app.data_handler.init_dl(training_app.folder, training_app.df['anonymized_subject_id'].tolist())
-    
-    print("\n¡ TRAINING ONE EPOCH...\n")
-    trn_metrics = training_loop.train_epoch(1, train_dl)
-    
-    print(f"LOSS AFTER FIRST EPOCH: {trn_metrics[METRICS_LOSS_NDX].mean().item():.6f}")
-
-    # Step 4: Print Model Parameters After Training
-    print("DEBUG: Checking Updated Model Parameters...\n")
-    for name, param in model.named_parameters():
-        print(f"{name}: mean={param.data.mean():.5f}, std={param.data.std():.5f}")
-
-    # Step 5: Check Predictions After Training
-    model.eval()
-    with torch.no_grad():
-        updated_preds = model(sample_input)
-
-    print("\n= AFTER TRAINING: Sample Predictions\n", updated_preds[:5].squeeze().cpu().numpy())
-
-    # Step 6: Check Gradients (Ensuring They Are Not Zero)
-    print("\n=Ê Checking Gradients...\n")
-    model.train()
-    optimizer.zero_grad()
-    outputs = model(sample_input)
-    loss_func = torch.nn.MSELoss()
-    loss = loss_func(outputs.squeeze(), sample_label.to(device))
-    loss.backward()
-
-    for name, param in model.named_parameters():
-        if param.grad is not None:
-            print(f"{name}: grad mean={param.grad.mean().item():.5f}, grad std={param.grad.std().item():.5f}")
-
-    # Step 7: Check Data Normalization
-    print("\n=É Checking Data Normalization...\n")
-    print(f"Input mean: {sample_input.mean().item():.5f}, std: {sample_input.std().item():.5f}")
-
-
-
 
 
 # Training/Validation Loop Handler
@@ -310,20 +247,24 @@ class LoesScoringTrainingApp:
         self.tb_logger.close()
         self.tb_logger.close()
 
-        val_dl = self.data_handler.init_dl(self.folder, val_subjects, is_val_set=True)
+        input_csv_location = self.config.csv_data_file
+        subjects, sessions, actual_scores, predict_vals = get_validation_info(self.config.model_save_location, input_csv_location)
+        output_csv_location = self.config.csv_output_file
+        output_df = add_predicted_values(subjects, sessions, predict_vals, input_csv_location)
+        output_df.to_csv(output_csv_location, index=False)
+        standardized_rmse = \
+            compute_standardized_rmse(actual_scores, predict_vals)
+        log.info(f'standardized_rmse: {standardized_rmse}')
+        create_scatter_plot(actual_scores, predict_vals, self.config.plot_location)
+        correlation_coefficient = create_correlation_coefficient(actual_scores, predict_vals)
+        log.info(f'correlation_coefficient: {correlation_coefficient}')
 
+        _, p_value = stats.pearsonr(actual_scores, predict_vals)
+        log.info(f"Pearson correlation p-value: {p_value}")
 
-        subjects = []
-        sessions = []
-        
-        for val in iter(val_dl):
-            subjects.extend(val[2])
-            sessions.extend(val[3])
-        print(f'subjects: {subjects}')
-        print(f'sessions: {sessions}')
+        _, p_value = stats.spearmanr(actual_scores, predict_vals)
+        log.info(f"Spearman correlation p-value: {p_value}")
 
-        standardized_rmse = compute_standardized_rmse(self.output_df, self.config.model_save_location, self.folder, subjects, sessions)
-        print(f'standardized_rmse: {standardized_rmse}')
 
     def split_train_validation(self):
         training_rows = self.df.loc[self.df['training'] == 1]
@@ -336,8 +277,6 @@ class LoesScoringTrainingApp:
 def main():
     loesScoringTrainingApp = LoesScoringTrainingApp(sys_argv=sys.argv)
     loesScoringTrainingApp.main()
-
-    # debug_training(LoesScoringTrainingApp(sys.argv))
 
 
 if __name__ == "__main__":
