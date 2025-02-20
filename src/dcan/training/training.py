@@ -12,6 +12,7 @@ import torch.nn as nn
 from torch.optim import Adam, SGD
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+import torch.nn.functional as F
 
 from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.inference.make_predictions import add_predicted_values, compute_standardized_rmse, create_correlation_coefficient, create_scatter_plot, get_validation_info
@@ -147,13 +148,30 @@ class TrainingLoop:
         label_g = label_t.to(self.device, non_blocking=True)
 
         outputs_g = self.model_handler.model(input_g)
+
+        # If outputs_g is a list or tuple, take the first element
+        if isinstance(outputs_g, (list, tuple)):
+            outputs_g = outputs_g[0]  
+
+        outputs_g = outputs_g.squeeze(dim=-1)  # Remove extra dimension if needed
+
+        label_g = label_g.view(-1)  # Ensures shape is [batch_size]
+
+        log.debug(f"outputs_g shape: {outputs_g.shape}")  # Should be [batch_size]
+        log.debug(f"label_g shape: {label_g.shape}")  # Should be [batch_size]
+
         loss_func = nn.MSELoss(reduction='none')
-        loss_g = loss_func(outputs_g[0].squeeze(1), label_g)
+        loss_g = loss_func(outputs_g, label_g)
 
         start_ndx = batch_ndx * batch_size
         end_ndx = start_ndx + label_t.size(0)
-        metrics_g[METRICS_LABEL_NDX, start_ndx:end_ndx] = label_g.detach()
-        metrics_g[METRICS_LOSS_NDX, start_ndx:end_ndx] = loss_g.detach()
+        
+        metrics_g[METRICS_LABEL_NDX, start_ndx:end_ndx] = \
+            label_g.detach()
+        metrics_g[METRICS_PRED_NDX, start_ndx:end_ndx] = \
+            outputs_g.detach()
+        metrics_g[METRICS_LOSS_NDX, start_ndx:end_ndx] = \
+            loss_g.detach()
 
         return loss_g.mean()
 
