@@ -12,18 +12,18 @@ import torch.nn as nn
 from torch.optim import Adam, SGD
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-import torch.nn.functional as F
+from monai.networks.nets import Regressor
 
 from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.inference.make_predictions import add_predicted_values, compute_standardized_rmse, create_correlation_coefficient, create_scatter_plot, get_validation_info
 from dcan.inference.models import AlexNet3D
-from faimed3d.models.resnet import ResNet3D
 from util.logconf import logging
 from util.util import enumerateWithEstimate
 
+
 # This script is a comprehensive deep learning pipeline for training a model to 
 # predict Loes scores from MRI scans. It includes data loading, model selection,
-# raining/validation loops, logging, and model saving.
+# training/validation loops, logging, and model saving.
 
 
 log = logging.getLogger(__name__)
@@ -92,8 +92,10 @@ class ModelHandler:
 
     def _init_model(self):
         if self.model_name == 'ResNet':
-            model = ResNet3D().to(self.device)
-            log.info("Using ResNet3D")
+            model = model = Regressor(in_shape=[1, 197, 233, 189], out_shape=1, channels=(16, 32, 64, 128, 256), strides=(2, 2, 2, 2))
+            if torch.cuda.is_available():
+                model.cuda()
+            log.info("Using ResNet")
         else:
             model = AlexNet3D(4608).to(self.device)
             log.info("Using AlexNet3D")
@@ -127,7 +129,7 @@ class TrainingLoop:
         self.model_handler.model.train()
         trn_metrics_g = torch.zeros(METRICS_SIZE, len(train_dl.dataset), device=self.device)
         for batch_ndx, batch_tup in enumerateWithEstimate(train_dl, f"E{epoch} Training", start_ndx=train_dl.num_workers):
-            self.optimizer.zero_grad()
+            self.optimizer.zero_grad()http://localhost:8088/
             loss_var = self._compute_batch_loss(batch_ndx, batch_tup, train_dl.batch_size, trn_metrics_g)
             loss_var.backward()
             self.optimizer.step()
@@ -161,6 +163,7 @@ class TrainingLoop:
         log.debug(f"label_g shape: {label_g.shape}")  # Should be [batch_size]
 
         loss_func = nn.MSELoss(reduction='none')
+        # When using Regressor for the model, it is important that we use nn.MSELoss for regression.
         loss_g = loss_func(outputs_g, label_g)
 
         start_ndx = batch_ndx * batch_size
@@ -266,7 +269,8 @@ class LoesScoringTrainingApp:
         self.tb_logger.close()
 
         input_csv_location = self.config.csv_data_file
-        subjects, sessions, actual_scores, predict_vals = get_validation_info(self.config.model_save_location, input_csv_location)
+        subjects, sessions, actual_scores, predict_vals = \
+            get_validation_info(self.config.model, self.config.model_save_location, input_csv_location)
         output_csv_location = self.config.csv_output_file
         output_df = add_predicted_values(subjects, sessions, predict_vals, input_csv_location)
         output_df.to_csv(output_csv_location, index=False)

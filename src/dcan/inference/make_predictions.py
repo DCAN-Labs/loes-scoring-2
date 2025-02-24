@@ -9,6 +9,7 @@ import numpy as np
 import scipy.stats as stats
 
 from dcan.inference.models import AlexNet3D
+from monai.networks.nets import Regressor
 
 log = logging.getLogger(__name__)
 # log.setLevel(logging.WARN)
@@ -16,10 +17,18 @@ log.setLevel(logging.INFO)
 # log.setLevel(logging.DEBUG)
 
 
-def load_model(model_save_location, device='cpu'):
-    model = AlexNet3D(4608).to(device)
+def load_model(model_name, model_save_location, device='cpu'):
+    if model_name == 'ResNet':
+        model = Regressor(in_shape=[1, 197, 233, 189], out_shape=1, channels=(16, 32, 64, 128, 256), strides=(2, 2, 2, 2))
+        log.info("Using ResNet")
+    else:
+        model = AlexNet3D(4608)
+        log.info("Using AlexNet3D")
+    model.to(device)
+
     model.load_state_dict(torch.load(model_save_location, map_location=device))
     model.eval()
+
     return model
     
 
@@ -48,8 +57,8 @@ def compute_rmse(predictions, actuals):
     return torch.sqrt(mse).item()
 
 
-def get_validation_info(model_save_location, input_csv_location):
-    model = load_model(model_save_location, device='cpu')
+def get_validation_info(model_type, model_save_location, input_csv_location):
+    model = load_model(model_type, model_save_location, device='cpu')
 
     df = pd.read_csv(input_csv_location)
     validation_rows = df.loc[df['validation'] == 1]
@@ -87,7 +96,7 @@ def create_correlation_coefficient(actual_vals, predicted_vals):
 
 def create_scatter_plot(actual_vals, predicted_vals, output_file):
     fig, ax = plt.subplots()
-    ax.scatter(actual_vals, predicted_vals, s=25, cmap=plt.cm.coolwarm, zorder=10)
+    ax.scatter(actual_vals, predicted_vals, s=25, c='blue', cmap=plt.cm.coolwarm, zorder=10)
 
     lims = [
         np.min([ax.get_xlim(), ax.get_ylim()]),  # min of both axes
@@ -121,24 +130,3 @@ def add_predicted_values(subjects, sessions, predict_vals, input_csv_location):
     output_df['predicted_loes_score'] = output_df.apply(get_predicted_value, axis=1, args=(subjects, sessions, predict_vals))
 
     return output_df
-
-
-if __name__ == "__main__":
-    model_save_location = "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_12.pt"
-    input_csv_location = "/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes_training_test_non_gd.csv"
-    subjects, sessions, actual_scores, predict_vals = get_validation_info(model_save_location, input_csv_location)
-    output_csv_location = '/users/9/reine097/projects/loes-scoring-2/doc/models/model12/model12.csv'
-    output_df = add_predicted_values(subjects, sessions, predict_vals, input_csv_location)
-    output_df.to_csv(output_csv_location, index=False)
-    standardized_rmse = \
-        compute_standardized_rmse(actual_scores, predict_vals)
-    print(f'standardized_rmse: {standardized_rmse}')
-    create_scatter_plot(actual_scores, predict_vals, '/users/9/reine097/projects/loes-scoring-2/doc/models/model12/model12.png')
-    correlation_coefficient = create_correlation_coefficient(actual_scores, predict_vals)
-    print(f'correlation_coefficient: {correlation_coefficient}')
-
-    correlation, p_value = stats.pearsonr(actual_scores, predict_vals)
-    print("Pearson correlation p-value:", p_value)
-
-    correlation, p_value = stats.spearmanr(actual_scores, predict_vals)
-    print("Spearman correlation p-value:", p_value)
