@@ -6,7 +6,7 @@ ResNet (instead of AlexNet) with a learning rate of 0.0001.
 * data: */users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes.csv*
 * Gd: Unenhanced scans.
 * Standardized RMSE: 0.6572768934698772
-![Model 13 (513 epochs)](model12_13.png "Model 1")
+![Model 13 (512 epochs)](model13_512.png "Model 13")
 * correlation:    0.8379666294613598
 * SLURM script: [*loes-scoring-training_model_agate_13.sh*](../../../../bin/training/loes-scoring-training_model_agate_13_512.sh)
 * Epochs: 512
