@@ -51,7 +51,7 @@ class Config:
         self.parser.add_argument('--model-save-location', default=f'./model-{datetime.datetime.now().strftime("%Y-%m-%d_%H.%M.%S")}.pt')
         self.parser.add_argument('--plot-location', help='Location to save plot')
         self.parser.add_argument('--optimizer', default='Adam', help="Optimizer type.")
-        self.parser.add_argument('--model', default='AlexNet', help="Model type.")
+        self.parser.add_argument('--model', default='ResNet', help="Model type", choices={'AlexNet', 'ResNet'})
         self.parser.add_argument('comment', nargs='?', default='dcan', help="Comment for Tensorboard run")
         self.parser.add_argument('--lr', default=0.001, type=float, help='Learning rate')
         self.parser.add_argument('--gd', type=int, help="Use Gd-enhanced scans.")
@@ -141,7 +141,8 @@ class TrainingLoop:
         self.device = device
         self.total_samples = 0
         self.df = df
-        loes_scores = list(df['loes-score'])
+        training_df = df[df['training'] == 1]
+        loes_scores = list(training_df['loes-score'])
         item_counts = count_items(loes_scores)
         loes_scores_size = len(loes_scores)
         weights = [1.0 / (item_counts[loes_score] / loes_scores_size) for loes_score in loes_scores]
