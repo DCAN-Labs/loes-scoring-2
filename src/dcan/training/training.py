@@ -129,7 +129,7 @@ class TrainingLoop:
         self.model_handler.model.train()
         trn_metrics_g = torch.zeros(METRICS_SIZE, len(train_dl.dataset), device=self.device)
         for batch_ndx, batch_tup in enumerateWithEstimate(train_dl, f"E{epoch} Training", start_ndx=train_dl.num_workers):
-            self.optimizer.zero_grad()http://localhost:8088/
+            self.optimizer.zero_grad()
             loss_var = self._compute_batch_loss(batch_ndx, batch_tup, train_dl.batch_size, trn_metrics_g)
             loss_var.backward()
             self.optimizer.step()

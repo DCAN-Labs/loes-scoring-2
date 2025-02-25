@@ -3,7 +3,7 @@
 #SBATCH --job-name=loes-scoring-alex-net # job name
 
 #SBATCH --mem=180g        
-#SBATCH --time=8:00:00          
+#SBATCH --time=2:00:00          
 #SBATCH -p a100-4,a100-8
 #SBATCH --gres=gpu:a100:2
 #SBATCH --ntasks=6      
@@ -25,4 +25,5 @@ export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src:/use
                         --use-train-validation-cols \
                         --csv-output-file "/users/9/reine097/projects/loes-scoring-2/doc/models/model13/model13_512.csv" \
                         --plot-location "/users/9/reine097/projects/loes-scoring-2/doc/models/model13/model13_512.png" \
-                        --model "ResNet"
+                        --model "ResNet" \
+                        --lr 0.0001
