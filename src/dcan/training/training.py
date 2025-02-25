@@ -59,6 +59,7 @@ class Config:
         self.parser.add_argument('-k', type=int, default=0, help='Index for 5-fold validation')
         self.parser.add_argument('--folder', help='Folder where MRIs are stored')
         self.parser.add_argument('--csv-output-file', help="CSV output file.")
+        self.parser.add_argument('--use-weighted-loss', action='store_true')
 
     def parse_args(self, sys_argv: list[str]) -> argparse.Namespace:
         return self.parser.parse_args(sys_argv)
@@ -116,14 +117,37 @@ class ModelHandler:
 
 import torch
 
+def count_items(input_list):
+    counts = {}
+    for item in input_list:
+        if item in counts:
+            counts[item] += 1
+        else:
+            counts[item] = 1
+    return counts
+
+def normalize_list(data):
+    min_val = min(data)
+    max_val = max(data)
+    normalized_data = [(x - min_val) / (max_val - min_val) for x in data]
+    return normalized_data
+
 
 # Training/Validation Loop Handler
 class TrainingLoop:
-    def __init__(self, model_handler, optimizer, device):
+    def __init__(self, model_handler, optimizer, device, df, config):
         self.model_handler = model_handler
         self.optimizer = optimizer
         self.device = device
         self.total_samples = 0
+        self.df = df
+        loes_scores = list(df['loes-score'])
+        item_counts = count_items(loes_scores)
+        loes_scores_size = len(loes_scores)
+        weights = [1.0 / (item_counts[loes_score] / loes_scores_size) for loes_score in loes_scores]
+        normalized_weights = normalize_list(weights)
+        self.df['weight'] = normalized_weights
+        self.config = config
 
     def train_epoch(self, epoch, train_dl):
         self.model_handler.model.train()
@@ -143,11 +167,23 @@ class TrainingLoop:
             for batch_ndx, batch_tup in enumerateWithEstimate(val_dl, f"E{epoch} Validation", start_ndx=val_dl.num_workers):
                 self._compute_batch_loss(batch_ndx, batch_tup, val_dl.batch_size, val_metrics_g)
         return val_metrics_g.to('cpu')
+    
+    def weighted_mse_loss(self, input, target, weight):
+        return (weight * (input - target) ** 2)
 
     def _compute_batch_loss(self, batch_ndx, batch_tup, batch_size, metrics_g):
-        input_t, label_t, _, _ = batch_tup
+        input_t, label_t, subjects, sessions = batch_tup
         input_g = input_t.to(self.device, non_blocking=True)
         label_g = label_t.to(self.device, non_blocking=True)
+
+        n = len(subjects)
+        weights = []
+        for i in range(n):
+            subject = subjects[i]
+            session = sessions[i]
+            weight = \
+                self.df.loc[((self.df['anonymized_subject_id'] == subject) & (self.df['anonymized_session_id'] == session)), 'weight'].iloc[0]
+            weights.append(weight)
 
         outputs_g = self.model_handler.model(input_g)
 
@@ -162,9 +198,12 @@ class TrainingLoop:
         log.debug(f"outputs_g shape: {outputs_g.shape}")  # Should be [batch_size]
         log.debug(f"label_g shape: {label_g.shape}")  # Should be [batch_size]
 
-        loss_func = nn.MSELoss(reduction='none')
         # When using Regressor for the model, it is important that we use nn.MSELoss for regression.
-        loss_g = loss_func(outputs_g, label_g)
+        if self.config.use_weighted_loss:
+            loss_g = self.weighted_mse_loss(outputs_g, label_g, weight)
+        else:
+            loss_func = nn.MSELoss(reduction='none')
+            loss_g = loss_func(outputs_g, label_g)
 
         start_ndx = batch_ndx * batch_size
         end_ndx = start_ndx + label_t.size(0)
@@ -252,7 +291,7 @@ class LoesScoringTrainingApp:
         train_dl = self.data_handler.init_dl(self.folder, train_subjects)
         val_dl = self.data_handler.init_dl(self.folder, val_subjects, is_val_set=True)
 
-        loop_handler = TrainingLoop(self.model_handler, self.optimizer, self.device)
+        loop_handler = TrainingLoop(self.model_handler, self.optimizer, self.device, self.df, self.config)
         
         for epoch in range(1, self.config.epochs + 1):
             log.info(f"Epoch {epoch}/{self.config.epochs}")
