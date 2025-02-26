@@ -3,6 +3,7 @@
 
 Use a weighted loss function.
 
+* Model type: ResNet
 * data: */users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes.csv*
 * Gd: Unenhanced scans.
 * Standardized RMSE: 0.5493011060356481
