@@ -131,7 +131,27 @@ def normalize_list(data):
     max_val = max(data)
     normalized_data = [(x - min_val) / (max_val - min_val) for x in data]
     return normalized_data
+def normalize_dictionary(data):
+    """
+    Normalizes the values in a dictionary to a range between 0 and 1.
 
+    Args:
+        data (dict): A dictionary with numerical values.
+
+    Returns:
+        dict: A new dictionary with normalized values.
+    """
+    min_val = min(data.values())
+    max_val = max(data.values())
+    
+    if max_val - min_val == 0:
+      return {key: 0.0 for key in data}
+    
+    normalized_data = {
+        key: (value - min_val) / (max_val - min_val)
+        for key, value in data.items()
+    }
+    return normalized_data
 
 # Training/Validation Loop Handler
 class TrainingLoop:
@@ -144,10 +164,11 @@ class TrainingLoop:
         training_df = df[df['training'] == 1]
         loes_scores = list(training_df['loes-score'])
         item_counts = count_items(loes_scores)
-        loes_scores_size = len(loes_scores)
-        weights = [1.0 / (item_counts[loes_score] / loes_scores_size) for loes_score in loes_scores]
-        normalized_weights = normalize_list(weights)
-        self.df['weight'] = normalized_weights
+        weighted_counts = {
+            key: 1.0 / value
+            for key, value in item_counts.items()
+        }
+        self.weights = weighted_counts
         self.config = config
 
     def train_epoch(self, epoch, train_dl):
@@ -169,22 +190,14 @@ class TrainingLoop:
                 self._compute_batch_loss(batch_ndx, batch_tup, val_dl.batch_size, val_metrics_g)
         return val_metrics_g.to('cpu')
     
-    def weighted_mse_loss(self, input, target, weight):
+    def weighted_mse_loss(self, input, target):
+        weight = self.weights[target]
         return (weight * (input - target) ** 2)
 
     def _compute_batch_loss(self, batch_ndx, batch_tup, batch_size, metrics_g):
-        input_t, label_t, subjects, sessions = batch_tup
+        input_t, label_t, _, _ = batch_tup
         input_g = input_t.to(self.device, non_blocking=True)
         label_g = label_t.to(self.device, non_blocking=True)
-
-        n = len(subjects)
-        weights = []
-        for i in range(n):
-            subject = subjects[i]
-            session = sessions[i]
-            weight = \
-                self.df.loc[((self.df['anonymized_subject_id'] == subject) & (self.df['anonymized_session_id'] == session)), 'weight'].iloc[0]
-            weights.append(weight)
 
         outputs_g = self.model_handler.model(input_g)
 
@@ -201,7 +214,7 @@ class TrainingLoop:
 
         # When using Regressor for the model, it is important that we use nn.MSELoss for regression.
         if self.config.use_weighted_loss:
-            loss_g = self.weighted_mse_loss(outputs_g, label_g, weight)
+            loss_g = self.weighted_mse_loss(outputs_g, label_g)
         else:
             loss_func = nn.MSELoss(reduction='none')
             loss_g = loss_func(outputs_g, label_g)
