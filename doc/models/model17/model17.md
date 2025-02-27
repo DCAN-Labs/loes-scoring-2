@@ -9,7 +9,7 @@ Added another layer to ResNet
 * Standardized RMSE: 0.5491358693925369
 ![Model 17](model17.png "Model 17")
 * correlation:    0.8486751816313611
-* SLURM script: [*loes-scoring-training_model_agate_14.sh*](../../../bin/training/loes-scoring-training_model_agate_17.sh)
+* SLURM script: [*loes-scoring-training_model_agate_17.sh*](../../../bin/training/loes-scoring-training_model_agate_17.sh)
 * Epochs: 256
 * lr: 0.0001
 * output_csv: [*model15.csv*](model15.csv)
