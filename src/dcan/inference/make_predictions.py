@@ -12,7 +12,7 @@ import glob
 import os
 
 from dcan.inference.models import AlexNet3D
-from monai.networks.nets import Regressor
+from dcan.models.ResNet import get_resnet_model
 
 log = logging.getLogger(__name__)
 # log.setLevel(logging.WARN)
@@ -22,7 +22,7 @@ log.setLevel(logging.INFO)
 
 def load_model(model_name, model_save_location, device='cpu'):
     if model_name == 'ResNet':
-        model = Regressor(in_shape=[1, 197, 233, 189], out_shape=1, channels=(16, 32, 64, 128, 256), strides=(2, 2, 2, 2))
+        model = get_resnet_model()
         log.info("Using ResNet")
     else:
         model = AlexNet3D(4608)
@@ -39,6 +39,12 @@ def predict(row):
     subject = row['anonymized_subject_id']
     session = row['anonymized_session_id']
     mprage_path = f'/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/{subject}_{session}_space-MNI_brain_mprage_RAVEL.nii.gz'
+    mprage_image_tensor = get_image_tensor(mprage_path)
+    value = mprage_image_tensor.unsqueeze(0)
+
+    return value
+
+def get_image_tensor(mprage_path):
     mprage_image = tio.ScalarImage(mprage_path)
     transform = tio.Compose([
         tio.ToCanonical(),
@@ -46,9 +52,10 @@ def predict(row):
     ])
     transformed_mprage_image = transform(mprage_image)
     mprage_image_tensor = transformed_mprage_image.data
-    value = mprage_image_tensor.unsqueeze(0)
-
-    return value
+    input_g = mprage_image_tensor.to('cpu', non_blocking=True)
+    batch_tensor = input_g.unsqueeze(0)
+    
+    return batch_tensor
 
 
 import torch.nn.functional as F
@@ -150,18 +157,50 @@ def get_files_by_pattern(directory, pattern):
     files = glob.glob(search_pattern)
     return files
 
+def get_filename_from_path(file_path):
+  """
+  Extracts the filename from a given file path.
 
-def make_predictions_on_folder(directory_path, file_pattern):
+  Args:
+    file_path: The path to the file.
+
+  Returns:
+    The filename, or None if the path is invalid.
+  """
+  return os.path.basename(file_path)
+
+
+def make_predictions_on_folder(directory_path, file_pattern, model):
     matching_files = get_files_by_pattern(directory_path, file_pattern)
 
+    df = pd.DataFrame({'subject': [], 'session': [], 'predicted_score': []})
     if matching_files:
         print("Files matching the pattern:")
         for file_path in matching_files:
             print(file_path)
+            image_tensor = get_image_tensor(file_path)
+            file_name = get_filename_from_path(file_path)
+            parts = file_name.split('_')
+            subject = parts[0]
+            session = parts[1]
+            with torch.no_grad():
+                prediction = model(image_tensor)
+                prediction_p = prediction.item()
+                print(prediction_p)
+                new_row = pd.DataFrame({'subject': [subject], 'session': [session], 'predicted_score': [prediction_p]})
+                df = pd.concat([df, new_row], ignore_index=True)
+                print(df)
     else:
         print("No files found matching the pattern.")
 
+    return df
+
 if __name__ == "__main__":
-    directory_path = '/home/feczk001/shared/projects/S1067_Loes/data/MIDB-rp/04-brain_masked/'
+    dir = "/home/feczk001/shared/projects/S1067_Loes/data/MIDB-rp"
+    directory_path = os.path.join(dir, '04-brain_masked')
     file_pattern = '*_RAVEL.nii.gz'
-    make_predictions_on_folder(directory_path, file_pattern)
+    model_save_location = "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_17.pt"
+    model = load_model('ResNet', model_save_location, device='cpu')
+    df = make_predictions_on_folder(directory_path, file_pattern, model)
+    csv_path = os.path.join(dir, 'MIDB-rp_predictions.csv')
+    df.to_csv(csv_path, index=False)

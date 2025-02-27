@@ -12,11 +12,11 @@ import torch.nn as nn
 from torch.optim import Adam, SGD
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from monai.networks.nets import Regressor
 
 from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.inference.make_predictions import add_predicted_values, compute_standardized_rmse, create_correlation_coefficient, create_scatter_plot, get_validation_info
 from dcan.inference.models import AlexNet3D
+from dcan.models.ResNet import get_resnet_model
 from util.logconf import logging
 from util.util import enumerateWithEstimate
 
@@ -82,7 +82,6 @@ class DataHandler:
 
         return DataLoader(dataset, batch_size=batch_size, num_workers=self.num_workers, pin_memory=self.use_cuda)
 
-
 # Model Handler Class to manage model operations
 class ModelHandler:
     def __init__(self, model_name, use_cuda, device):
@@ -93,12 +92,7 @@ class ModelHandler:
 
     def _init_model(self):
         if self.model_name == 'ResNet':
-            model = \
-                Regressor(
-                    in_shape=[1, 197, 233, 189], 
-                    out_shape=1, 
-                    channels=(16, 32, 64, 128, 256, 512, 1024), 
-                    strides=(2, 2, 2, 2))
+            model = get_resnet_model()
             if torch.cuda.is_available():
                 model.cuda()
             log.info("Using ResNet")
