@@ -7,7 +7,7 @@ Added another layer to ResNet
 * data: */users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes.csv*
 * Gd: Unenhanced scans.
 * Standardized RMSE: 0.5491358693925369
-![Model 14](model14.png "Model 17")
+![Model 17](model17.png "Model 17")
 * correlation:    0.8486751816313611
 * SLURM script: [*loes-scoring-training_model_agate_14.sh*](../../../bin/training/loes-scoring-training_model_agate_17.sh)
 * Epochs: 256
