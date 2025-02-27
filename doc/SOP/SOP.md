@@ -20,3 +20,11 @@ See [RAVEL](https://github.com/DCAN-Labs/RAVEL/blob/master/docs/RAVEL.Rmd).
 2. You have to create a CSF masked file for each input file.  You can do that with [this code](https://github.com/DCAN-Labs/loes-scoring-2/blob/main/src/dcan/image_normalization/mask_in_csf.py).
 3. Create a control region for RAVEL.  [Here](https://github.com/DCAN-Labs/RAVEL/blob/master/R/dcan/create_control_region.R) is example code.
 4. Run RAVEL on files.  You can see an example of how to do this [here](https://github.com/DCAN-Labs/RAVEL/blob/master/R/dcan/ravel.R).
+
+## Training a model
+
+1. To train a model use the Python module [dcan.training.training.py](https://github.com/DCAN-Labs/loes-scoring-2/blob/main/src/dcan/training/training.py).
+2. training.py takes mainly two inputs: the directory where the files are located and the path to a CSV file that has information on the test files.
+  * Here is an [example CSV input file](./models/model14/model14_512.csv).
+  * You can get more help by running the --help option on training.py. 
+  * The output will be stored in the spreadsheet under a new column named "predicted_loes_score".

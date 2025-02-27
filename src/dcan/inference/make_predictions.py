@@ -199,7 +199,7 @@ if __name__ == "__main__":
     dir = "/home/feczk001/shared/projects/S1067_Loes/data/MIDB-rp"
     directory_path = os.path.join(dir, '04-brain_masked')
     file_pattern = '*_RAVEL.nii.gz'
-    model_save_location = "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_17.pt"
+    model_save_location = "/home/feczk001/shared/data/LoesScoring/loes_scoring_17.pt"
     model = load_model('ResNet', model_save_location, device='cpu')
     df = make_predictions_on_folder(directory_path, file_pattern, model)
     csv_path = os.path.join(dir, 'MIDB-rp_predictions.csv')
