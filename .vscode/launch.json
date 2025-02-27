@@ -131,7 +131,7 @@
                         "--use-train-validation-cols",
                         "--csv-output-file", "/users/9/reine097/projects/loes-scoring-2/doc/models/model12/model.csv",
                         "--plot-location", "/users/9/reine097/projects/loes-scoring-2/doc/models/model12/model.png",
-                    "--model", "AlexNet"],
+                    "--model", "ResNet"],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         },
         {

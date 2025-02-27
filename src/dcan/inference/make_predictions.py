@@ -8,6 +8,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
 
+import glob
+import os
+
 from dcan.inference.models import AlexNet3D
 from monai.networks.nets import Regressor
 
@@ -130,3 +133,35 @@ def add_predicted_values(subjects, sessions, predict_vals, input_csv_location):
     output_df['predicted_loes_score'] = output_df.apply(get_predicted_value, axis=1, args=(subjects, sessions, predict_vals))
 
     return output_df
+
+
+def get_files_by_pattern(directory, pattern):
+    """
+    Retrieves all files in a directory matching a specified filename pattern.
+
+    Args:
+        directory (str): The path to the directory to search.
+        pattern (str): The filename pattern to match (e.g., "*.txt", "image_*.png").
+
+    Returns:
+        list: A list of file paths that match the pattern.
+    """
+    search_pattern = os.path.join(directory, pattern)
+    files = glob.glob(search_pattern)
+    return files
+
+
+def make_predictions_on_folder(directory_path, file_pattern):
+    matching_files = get_files_by_pattern(directory_path, file_pattern)
+
+    if matching_files:
+        print("Files matching the pattern:")
+        for file_path in matching_files:
+            print(file_path)
+    else:
+        print("No files found matching the pattern.")
+
+if __name__ == "__main__":
+    directory_path = '/home/feczk001/shared/projects/S1067_Loes/data/MIDB-rp/04-brain_masked/'
+    file_pattern = '*_RAVEL.nii.gz'
+    make_predictions_on_folder(directory_path, file_pattern)
