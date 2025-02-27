@@ -93,7 +93,12 @@ class ModelHandler:
 
     def _init_model(self):
         if self.model_name == 'ResNet':
-            model = model = Regressor(in_shape=[1, 197, 233, 189], out_shape=1, channels=(16, 32, 64, 128, 256, 512, 1024), strides=(2, 2, 2, 2))
+            model = \
+                Regressor(
+                    in_shape=[1, 197, 233, 189], 
+                    out_shape=1, 
+                    channels=(16, 32, 64, 128, 256, 512, 1024), 
+                    strides=(2, 2, 2, 2))
             if torch.cuda.is_available():
                 model.cuda()
             log.info("Using ResNet")
@@ -131,6 +136,7 @@ def normalize_list(data):
     max_val = max(data)
     normalized_data = [(x - min_val) / (max_val - min_val) for x in data]
     return normalized_data
+
 def normalize_dictionary(data):
     """
     Normalizes the values in a dictionary to a range between 0 and 1.
@@ -190,10 +196,44 @@ class TrainingLoop:
                 self._compute_batch_loss(batch_ndx, batch_tup, val_dl.batch_size, val_metrics_g)
         return val_metrics_g.to('cpu')
     
-    def weighted_mse_loss(self, input, target):
-        weight = self.weights[target]
-        return (weight * (input - target) ** 2)
-
+    def weighted_mse_loss(self, predictions, targets):
+        """
+        Calculate weighted MSE loss for regression where weights are determined by
+        the frequency of each target value in the training set.
+        
+        Args:
+            predictions (torch.Tensor): Model predictions, shape [batch_size]
+            targets (torch.Tensor): Ground truth values, shape [batch_size]
+            
+        Returns:
+            torch.Tensor: Weighted MSE loss for each sample in the batch
+        """
+        # Convert targets to CPU for dictionary lookup if they're on GPU
+        targets_cpu = targets.detach().cpu().numpy()
+        
+        # Create a tensor to store weights for each sample in the batch
+        weights = torch.ones_like(predictions)
+        
+        # Assign weights based on target values
+        for i, target in enumerate(targets_cpu):
+            # Handle potential floating point issues by rounding
+            target_key = round(float(target), 1)  # Adjust rounding precision as needed
+            
+            # Get weight from dictionary, default to 1.0 if not found
+            if target_key in self.weights:
+                weights[i] = torch.tensor(self.weights[target_key], 
+                                        device=predictions.device)
+            else:
+                # For unseen values, use the mean weight or a default
+                mean_weight = sum(self.weights.values()) / len(self.weights)
+                weights[i] = torch.tensor(mean_weight, device=predictions.device)
+        
+        # Calculate weighted squared error for each sample
+        squared_errors = (predictions - targets) ** 2
+        weighted_squared_errors = weights * squared_errors
+        
+        return weighted_squared_errors
+    
     def _compute_batch_loss(self, batch_ndx, batch_tup, batch_size, metrics_g):
         input_t, label_t, _, _ = batch_tup
         input_g = input_t.to(self.device, non_blocking=True)
@@ -215,9 +255,11 @@ class TrainingLoop:
         # When using Regressor for the model, it is important that we use nn.MSELoss for regression.
         if self.config.use_weighted_loss:
             loss_g = self.weighted_mse_loss(outputs_g, label_g)
+            loss_mean = loss_g.mean()  # Get mean for backpropagation
         else:
             loss_func = nn.MSELoss(reduction='none')
             loss_g = loss_func(outputs_g, label_g)
+            loss_mean = loss_g.mean()
 
         start_ndx = batch_ndx * batch_size
         end_ndx = start_ndx + label_t.size(0)
@@ -227,9 +269,9 @@ class TrainingLoop:
         metrics_g[METRICS_PRED_NDX, start_ndx:end_ndx] = \
             outputs_g.detach()
         metrics_g[METRICS_LOSS_NDX, start_ndx:end_ndx] = \
-            loss_g.detach()
+            loss_mean.detach()
 
-        return loss_g.mean()
+        return loss_mean
 
 
 # TensorBoard Logger

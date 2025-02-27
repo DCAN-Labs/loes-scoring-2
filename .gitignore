@@ -201,3 +201,5 @@ bin/training/loes-scoring-alex-net-*.out
 data/anon_train_scans_and_loes_2.csv
 data/anon_train_scans_and_loes_training_test_non_gd.csv
 src/dcan/training/training-to-do.txt
+doc/models/model_test/model_test.csv
+doc/models/model_test/model_test.png
