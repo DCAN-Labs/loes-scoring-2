@@ -12,7 +12,7 @@ Added another layer to ResNet
 * SLURM script: [*loes-scoring-training_model_agate_17.sh*](../../../bin/training/loes-scoring-training_model_agate_17.sh)
 * Epochs: 256
 * lr: 0.0001
-* output_csv: [*model15.csv*](model15.csv)
+* output_csv: [*model17.csv*](model17.csv)
 * model: */home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_17.pt*
 * Pearson correlation p-value: 1.1958302729934778e-10
 * Spearman correlation p-value: 1.7842772622414715e-05
