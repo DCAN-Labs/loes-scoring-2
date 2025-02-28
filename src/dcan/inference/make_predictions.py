@@ -35,7 +35,7 @@ def load_model(model_name, model_save_location, device='cpu'):
     return model
     
 
-def predict(row):
+def predict(row, is_batched=True):
     subject = row['anonymized_subject_id']
     session = row['anonymized_session_id']
     mprage_path = f'/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/{subject}_{session}_space-MNI_brain_mprage_RAVEL.nii.gz'
@@ -53,9 +53,10 @@ def get_image_tensor(mprage_path):
     transformed_mprage_image = transform(mprage_image)
     mprage_image_tensor = transformed_mprage_image.data
     input_g = mprage_image_tensor.to('cpu', non_blocking=True)
-    batch_tensor = input_g.unsqueeze(0)
+    # TODO Fix.  Should not do unsqueeze here. 
+    # batch_tensor = input_g.unsqueeze(0)
     
-    return batch_tensor
+    return input_g
 
 
 import torch.nn.functional as F
