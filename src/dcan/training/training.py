@@ -12,7 +12,7 @@ import torch.nn as nn
 from torch.optim import Adam, SGD
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingLR, OneCycleLR
 
 from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.inference.make_predictions import add_predicted_values, compute_standardized_rmse, create_correlation_coefficient, create_scatter_plot, get_validation_info
@@ -331,7 +331,22 @@ class LoesScoringTrainingApp:
     def _init_scheduler(self):
         # TODO add a command-line argument to choose scheduler type
         # For now, I'll implement ReduceLROnPlateau as a default
-        scheduler = StepLR(self.optimizer, step_size=30, gamma=0.1)
+        # '--scheduler', default='plateau', 
+        #    choices=['plateau', 'step', 'cosine', 'onecycle']
+        if self.config.scheduler == 'step':
+            scheduler = StepLR(self.optimizer, step_size=30, gamma=0.1)
+        elif self.config.scheduler == 'cosine':
+            scheduler = CosineAnnealingLR(self.optimizer, T_max=100, eta_min=0)
+        elif self.conf.scheduler == 'onecycle':
+            scheduler = OneCycleLR(
+                self.optimizer, 
+                max_lr=0.01,
+                total_steps=len(self.train_dl) * self.num_epochs,
+                pct_start=0.3
+            )
+        else:
+            scheduler = ReduceLROnPlateau(self.optimizer, mode='min', factor=0.1, patience=10)
+        
         return scheduler
 
     def main(self):
