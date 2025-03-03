@@ -12,6 +12,7 @@ import torch.nn as nn
 from torch.optim import Adam, SGD
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingLR
 
 from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.inference.make_predictions import add_predicted_values, compute_standardized_rmse, create_correlation_coefficient, create_scatter_plot, get_validation_info
@@ -41,8 +42,7 @@ class Config:
         self.parser = argparse.ArgumentParser()
 
         self.parser.add_argument('--tb-prefix', default='loes_scoring', help="Tensorboard data prefix.")
-        self.parser.add_argument('--csv-data-file', help="CSV data file.")
-        self.parser.add_argument('--output-csv-file', help="Output CSV data file.")
+        self.parser.add_argument('--csv-input-file', help="CSV data file.")
         self.parser.add_argument('--num-workers', default=8, type=int, help='Number of worker processes')
         self.parser.add_argument('--batch-size', default=32, type=int, help='Batch size for training')
         self.parser.add_argument('--epochs', default=1, type=int, help='Number of epochs to train')
@@ -60,6 +60,9 @@ class Config:
         self.parser.add_argument('--folder', help='Folder where MRIs are stored')
         self.parser.add_argument('--csv-output-file', help="CSV output file.")
         self.parser.add_argument('--use-weighted-loss', action='store_true')
+        self.parser.add_argument(
+            '--scheduler', default='plateau', 
+            choices=['plateau', 'step', 'cosine', 'onecycle'], help='Learning rate scheduler')
 
     def parse_args(self, sys_argv: list[str]) -> argparse.Namespace:
         return self.parser.parse_args(sys_argv)
@@ -113,8 +116,6 @@ class ModelHandler:
 
     def load_model(self, model_path):
         self.model.load_state_dict(torch.load(model_path))
-
-import torch
 
 def count_items(input_list):
     counts = {}
@@ -283,30 +284,124 @@ class TensorBoardLogger:
         self.trn_writer.close()
         self.val_writer.close()
 
+def get_folder_name(file_path):
+  """
+  Extracts the folder name from a given file path.
+
+  Args:
+    file_path: The path to the file.
+
+  Returns:
+    The name of the folder containing the file, or None if an error occurs.
+  """
+  try:
+    folder_path = os.path.dirname(file_path)
+    folder_name = os.path.basename(folder_path)
+    return folder_name
+  except Exception as e:
+    print(f"An error occurred: {e}")
+    return None
 
 # Main Application Class
-class LoesScoringTrainingApp:
+class LoesScoringTrainingApp:        
     def __init__(self, sys_argv=None):
         self.config = Config().parse_args(sys_argv)
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.use_cuda = torch.cuda.is_available()
-
-        self.df = pd.read_csv(self.config.csv_data_file)
-        self.output_df = self.df.copy()
-
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model_handler = ModelHandler(self.config.model, self.use_cuda, self.device)
         self.optimizer = self._init_optimizer()
+        
+        # Add scheduler initialization
+        self.scheduler = self._init_scheduler()
+
+        self.input_df = pd.read_csv(self.config.csv_input_file)
+        self.output_df = self.input_df.copy()
 
         self.time_str = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
         self.tb_logger = TensorBoardLogger(self.config.tb_prefix, self.time_str, self.config.comment)
 
-        self.data_handler = DataHandler(self.df, self.output_df, self.use_cuda, self.config.batch_size, self.config.num_workers)
+        self.data_handler = DataHandler(self.input_df, self.output_df, self.use_cuda, self.config.batch_size, self.config.num_workers)
         self.folder = self.config.folder
 
     def _init_optimizer(self):
         optimizer_type = self.config.optimizer.lower()
         optimizer_cls = Adam if optimizer_type == 'adam' else SGD
         return optimizer_cls(self.model_handler.model.parameters(), lr=self.config.lr)
+        
+    def _init_scheduler(self):
+        # TODO add a command-line argument to choose scheduler type
+        # For now, I'll implement ReduceLROnPlateau as a default
+        scheduler = StepLR(self.optimizer, step_size=30, gamma=0.1)
+        return scheduler
+
+    def main(self):
+        log.info("Starting training...")
+        self.output_df["prediction"] = np.nan
+
+        if self.config.gd == 0:
+            self.input_df = self.input_df[~self.input_df['scan'].str.contains('Gd')]
+
+        if self.config.use_train_validation_cols:
+            training_rows = self.input_df.loc[self.input_df['training'] == 1]
+            train_subjects = list(training_rows['anonymized_subject_id'])
+            validation_rows = self.input_df.loc[self.input_df['validation'] == 1]
+            val_subjects = list(validation_rows['anonymized_subject_id'])
+        else:
+            train_subjects, val_subjects = self.split_train_validation()
+        train_dl = self.data_handler.init_dl(self.folder, train_subjects)
+        val_dl = self.data_handler.init_dl(self.folder, val_subjects, is_val_set=True)
+        
+        loop_handler = TrainingLoop(self.model_handler, self.optimizer, self.device, self.input_df, self.config)
+        
+        best_val_loss = float('inf')
+        
+        for epoch in range(1, self.config.epochs + 1):
+            log.info(f"Epoch {epoch}/{self.config.epochs}")
+
+            trn_metrics = loop_handler.train_epoch(epoch, train_dl)
+            val_metrics = loop_handler.validate_epoch(epoch, val_dl)
+
+            self.tb_logger.log_metrics('trn', epoch, trn_metrics, loop_handler.total_samples)
+            self.tb_logger.log_metrics('val', epoch, val_metrics, loop_handler.total_samples)
+            
+            # Calculate validation loss
+            val_loss = val_metrics[METRICS_LOSS_NDX].mean().item()
+            
+            # Step the scheduler based on validation loss
+            self.scheduler.step(val_loss)
+            
+            # Track best model (optional)
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                log.info(f"New best validation loss: {best_val_loss}")
+                # Save the best model here
+                self.model_handler.save_model(self.config.model_save_location)
+            
+            # Log current learning rate
+            current_lr = self.optimizer.param_groups[0]['lr']
+            log.info(f"Current learning rate: {current_lr}")
+
+        input_csv_location = self.config.csv_input_file
+        subjects, sessions, actual_scores, predict_vals = \
+            get_validation_info(self.config.model, self.config.model_save_location, input_csv_location)
+        output_csv_location = self.config.csv_output_file
+        output_df = add_predicted_values(subjects, sessions, predict_vals, input_csv_location)
+        output_csv_folder_name = get_folder_name(output_csv_location)
+        if not os.path.exists(output_csv_folder_name):
+            os.makedirs(output_csv_folder_name)
+        output_df.to_csv(output_csv_location, index=False)
+        standardized_rmse = \
+            compute_standardized_rmse(actual_scores, predict_vals)
+        log.info(f'standardized_rmse: {standardized_rmse}')
+        create_scatter_plot(actual_scores, predict_vals, self.config.plot_location)
+        correlation_coefficient = create_correlation_coefficient(actual_scores, predict_vals)
+        log.info(f'correlation_coefficient: {correlation_coefficient}')
+
+        _, p_value = stats.pearsonr(actual_scores, predict_vals)
+        log.info(f"Pearson correlation p-value: {p_value}")
+
+        _, p_value = stats.spearmanr(actual_scores, predict_vals)
+        log.info(f"Spearman correlation p-value: {p_value}")
 
     def get_files_with_wildcard(self, directory, pattern):
         """
@@ -323,63 +418,9 @@ class LoesScoringTrainingApp:
         files = glob.glob(search_path)
         return files
 
-
-    def main(self):
-        log.info("Starting training...")
-        self.output_df["prediction"] = np.nan
-
-        if self.config.gd == 0:
-            self.df = self.df[~self.df['scan'].str.contains('Gd')]
-
-        if self.config.use_train_validation_cols:
-            training_rows = self.df.loc[self.df['training'] == 1]
-            train_subjects = list(training_rows['anonymized_subject_id'])
-            validation_rows = self.df.loc[self.df['validation'] == 1]
-            val_subjects = list(validation_rows['anonymized_subject_id'])
-        else:
-            train_subjects, val_subjects = self.split_train_validation()
-        train_dl = self.data_handler.init_dl(self.folder, train_subjects)
-        val_dl = self.data_handler.init_dl(self.folder, val_subjects, is_val_set=True)
-
-        loop_handler = TrainingLoop(self.model_handler, self.optimizer, self.device, self.df, self.config)
-        
-        for epoch in range(1, self.config.epochs + 1):
-            log.info(f"Epoch {epoch}/{self.config.epochs}")
-
-            trn_metrics = loop_handler.train_epoch(epoch, train_dl)
-            val_metrics = loop_handler.validate_epoch(epoch, val_dl)
-
-            self.tb_logger.log_metrics('trn', epoch, trn_metrics, loop_handler.total_samples)
-            self.tb_logger.log_metrics('val', epoch, val_metrics, loop_handler.total_samples)
-
-        self.model_handler.save_model(self.config.model_save_location)
-        log.info(f"Model saved to {self.config.model_save_location}")
-        self.tb_logger.close()
-        self.tb_logger.close()
-
-        input_csv_location = self.config.csv_data_file
-        subjects, sessions, actual_scores, predict_vals = \
-            get_validation_info(self.config.model, self.config.model_save_location, input_csv_location)
-        output_csv_location = self.config.csv_output_file
-        output_df = add_predicted_values(subjects, sessions, predict_vals, input_csv_location)
-        output_df.to_csv(output_csv_location, index=False)
-        standardized_rmse = \
-            compute_standardized_rmse(actual_scores, predict_vals)
-        log.info(f'standardized_rmse: {standardized_rmse}')
-        create_scatter_plot(actual_scores, predict_vals, self.config.plot_location)
-        correlation_coefficient = create_correlation_coefficient(actual_scores, predict_vals)
-        log.info(f'correlation_coefficient: {correlation_coefficient}')
-
-        _, p_value = stats.pearsonr(actual_scores, predict_vals)
-        log.info(f"Pearson correlation p-value: {p_value}")
-
-        _, p_value = stats.spearmanr(actual_scores, predict_vals)
-        log.info(f"Spearman correlation p-value: {p_value}")
-
-
     def split_train_validation(self):
-        training_rows = self.df.loc[self.df['training'] == 1]
-        validation_rows = self.df.loc[self.df['validation'] == 1]
+        training_rows = self.input_df.loc[self.input_df['training'] == 1]
+        validation_rows = self.input_df.loc[self.input_df['validation'] == 1]
         validation_users = list(set(validation_rows['anonymized_subject_id'].to_list()))
         training_users = list(set(training_rows['anonymized_subject_id'].to_list()))
         

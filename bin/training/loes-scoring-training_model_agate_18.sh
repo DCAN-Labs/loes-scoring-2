@@ -17,12 +17,12 @@ export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src:/use
 /users/9/reine097/projects/loes-scoring-2/.venv/bin/python \
   /users/9/reine097/projects/loes-scoring-2/src/dcan/training/training.py \
   --csv-input-file "/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes_training_test_non_gd.csv" \
-                        --batch-size 1 --num-workers 1 --epochs 256 \
-                        --model-save-location "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_17.pt" \
+                        --batch-size 1 --num-workers 1 --epochs 1 \
+                        --model-save-location "/home/feczk001/shared/data/LoesScoring/loes_scoring_18.pt" \
                         --gd  0 \
                         --folder "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/" \
                         --use-train-validation-cols \
-                        --csv-output-file "/users/9/reine097/projects/loes-scoring-2/doc/models/model17/model17.csv" \
-                        --plot-location "/users/9/reine097/projects/loes-scoring-2/doc/models/model17/model17.png"  \
+                        --csv-output-file "/users/9/reine097/projects/loes-scoring-2/doc/models/model18/model18.csv" \
+                        --plot-location "/users/9/reine097/projects/loes-scoring-2/doc/models/model18/model18.png"  \
                         --model "ResNet" \
                         --lr 0.0001

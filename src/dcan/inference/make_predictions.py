@@ -6,7 +6,6 @@ import torch
 import torchio as tio
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.stats as stats
 
 import glob
 import os
@@ -35,7 +34,7 @@ def load_model(model_name, model_save_location, device='cpu'):
     return model
     
 
-def predict(row, is_batched=True):
+def predict(row):
     subject = row['anonymized_subject_id']
     session = row['anonymized_session_id']
     mprage_path = f'/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/{subject}_{session}_space-MNI_brain_mprage_RAVEL.nii.gz'
@@ -106,7 +105,7 @@ def create_correlation_coefficient(actual_vals, predicted_vals):
 
 
 def create_scatter_plot(actual_vals, predicted_vals, output_file):
-    fig, ax = plt.subplots()
+    _, ax = plt.subplots()
     ax.scatter(actual_vals, predicted_vals, s=25, c='blue', cmap=plt.cm.coolwarm, zorder=10)
 
     lims = [
