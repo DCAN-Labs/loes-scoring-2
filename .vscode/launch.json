@@ -147,7 +147,8 @@
                         "--csv-output-file", "/home/miran045/reine097/projects/loes-scoring-2/data/filtered/model00_out.csv", 
                         "--gd",  "0",
                         "--folder", "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/",
-                        "--use-train-validation-cols"],
+                        "--use-train-validation-cols",
+                        "--scheduler", "onecycle"],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         },
         {

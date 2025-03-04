@@ -310,9 +310,6 @@ class LoesScoringTrainingApp:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model_handler = ModelHandler(self.config.model, self.use_cuda, self.device)
         self.optimizer = self._init_optimizer()
-        
-        # Add scheduler initialization
-        self.scheduler = self._init_scheduler()
 
         self.input_df = pd.read_csv(self.config.csv_input_file)
         self.output_df = self.input_df.copy()
@@ -328,7 +325,7 @@ class LoesScoringTrainingApp:
         optimizer_cls = Adam if optimizer_type == 'adam' else SGD
         return optimizer_cls(self.model_handler.model.parameters(), lr=self.config.lr)
         
-    def _init_scheduler(self):
+    def _init_scheduler(self, train_dl):
         # TODO add a command-line argument to choose scheduler type
         # For now, I'll implement ReduceLROnPlateau as a default
         # '--scheduler', default='plateau', 
@@ -337,11 +334,11 @@ class LoesScoringTrainingApp:
             scheduler = StepLR(self.optimizer, step_size=30, gamma=0.1)
         elif self.config.scheduler == 'cosine':
             scheduler = CosineAnnealingLR(self.optimizer, T_max=100, eta_min=0)
-        elif self.conf.scheduler == 'onecycle':
+        elif self.config.scheduler == 'onecycle':
             scheduler = OneCycleLR(
                 self.optimizer, 
                 max_lr=0.01,
-                total_steps=len(self.train_dl) * self.num_epochs,
+                total_steps=len(train_dl) * self.config.epochs,
                 pct_start=0.3
             )
         else:
@@ -363,8 +360,12 @@ class LoesScoringTrainingApp:
             val_subjects = list(validation_rows['anonymized_subject_id'])
         else:
             train_subjects, val_subjects = self.split_train_validation()
-        train_dl = self.data_handler.init_dl(self.folder, train_subjects)
+
+        self.train_dl = self.data_handler.init_dl(self.folder, train_subjects)
         val_dl = self.data_handler.init_dl(self.folder, val_subjects, is_val_set=True)
+        
+        # Add scheduler initialization
+        self.scheduler = self._init_scheduler(self.train_dl)
         
         loop_handler = TrainingLoop(self.model_handler, self.optimizer, self.device, self.input_df, self.config)
         
@@ -373,7 +374,7 @@ class LoesScoringTrainingApp:
         for epoch in range(1, self.config.epochs + 1):
             log.info(f"Epoch {epoch}/{self.config.epochs}")
 
-            trn_metrics = loop_handler.train_epoch(epoch, train_dl)
+            trn_metrics = loop_handler.train_epoch(epoch, self.train_dl)
             val_metrics = loop_handler.validate_epoch(epoch, val_dl)
 
             self.tb_logger.log_metrics('trn', epoch, trn_metrics, loop_handler.total_samples)
