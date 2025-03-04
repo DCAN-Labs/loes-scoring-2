@@ -16,7 +16,6 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingL
 
 from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.inference.make_predictions import add_predicted_values, compute_standardized_rmse, create_correlation_coefficient, create_scatter_plot, get_validation_info
-from dcan.inference.models import AlexNet3D
 from dcan.models.ResNet import get_resnet_model
 from util.logconf import logging
 from util.util import enumerateWithEstimate
@@ -51,7 +50,6 @@ class Config:
         self.parser.add_argument('--model-save-location', default=f'./model-{datetime.datetime.now().strftime("%Y-%m-%d_%H.%M.%S")}.pt')
         self.parser.add_argument('--plot-location', help='Location to save plot')
         self.parser.add_argument('--optimizer', default='Adam', help="Optimizer type.")
-        self.parser.add_argument('--model', default='ResNet', help="Model type", choices={'AlexNet', 'ResNet'})
         self.parser.add_argument('comment', nargs='?', default='dcan', help="Comment for Tensorboard run")
         self.parser.add_argument('--lr', default=0.001, type=float, help='Learning rate')
         self.parser.add_argument('--gd', type=int, help="Use Gd-enhanced scans.")
@@ -94,14 +92,10 @@ class ModelHandler:
         self.model = self._init_model()
 
     def _init_model(self):
-        if self.model_name == 'ResNet':
-            model = get_resnet_model()
-            if torch.cuda.is_available():
-                model.cuda()
-            log.info("Using ResNet")
-        else:
-            model = AlexNet3D(4608).to(self.device)
-            log.info("Using AlexNet3D")
+        model = get_resnet_model()
+        if torch.cuda.is_available():
+            model.cuda()
+        log.info("Using ResNet")
 
         if self.use_cuda and torch.cuda.device_count() > 1:
             log.info("Using CUDA with {} devices.".format(torch.cuda.device_count()))
