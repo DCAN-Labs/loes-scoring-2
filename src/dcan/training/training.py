@@ -326,8 +326,6 @@ class LoesScoringTrainingApp:
         return optimizer_cls(self.model_handler.model.parameters(), lr=self.config.lr)
         
     def _init_scheduler(self, train_dl):
-        # TODO add a command-line argument to choose scheduler type
-        # For now, I'll implement ReduceLROnPlateau as a default
         # '--scheduler', default='plateau', 
         #    choices=['plateau', 'step', 'cosine', 'onecycle']
         if self.config.scheduler == 'step':

@@ -9,7 +9,6 @@ Used cosine scheduler.
 * data: */users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes.csv*
 * Gd: Unenhanced scans.
 * Standardized RMSE: 0.509832374933453
-![Model 19](model19.png "Model 19")
 * correlation:    0.8736231057896536
 * SLURM script: [*loes-scoring-training_model_agate_19.sh*](../../../bin/training/loes-scoring-training_model_agate_19.sh)
 * Epochs: 256

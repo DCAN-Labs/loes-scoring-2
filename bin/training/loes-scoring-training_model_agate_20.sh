@@ -17,13 +17,13 @@ export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src:/use
 /users/9/reine097/projects/loes-scoring-2/.venv/bin/python \
   /users/9/reine097/projects/loes-scoring-2/src/dcan/training/training.py \
   --csv-input-file "/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes_training_test_non_gd.csv" \
-                        --batch-size 1 --num-workers 1 --epochs 1 \
-                        --model-save-location "/home/feczk001/shared/data/LoesScoring/loes_scoring_19.pt" \
+                        --batch-size 1 --num-workers 1 --epochs 256 \
+                        --model-save-location "/home/feczk001/shared/data/LoesScoring/loes_scoring_20.pt" \
                         --gd  0 \
                         --folder "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/" \
                         --use-train-validation-cols \
-                        --csv-output-file "/users/9/reine097/projects/loes-scoring-2/doc/models/model19/model19.csv" \
-                        --plot-location "/users/9/reine097/projects/loes-scoring-2/doc/models/model19/model19.png"  \
+                        --csv-output-file "/users/9/reine097/projects/loes-scoring-2/doc/models/model20/model20.csv" \
+                        --plot-location "/users/9/reine097/projects/loes-scoring-2/doc/models/model20/model20.png"  \
                         --model "ResNet" \
                         --lr 0.0001 \
                         --scheduler 'onecycle'
