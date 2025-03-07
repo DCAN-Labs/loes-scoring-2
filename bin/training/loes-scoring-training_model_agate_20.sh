@@ -24,6 +24,6 @@ export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src:/use
                         --use-train-validation-cols \
                         --csv-output-file "/users/9/reine097/projects/loes-scoring-2/doc/models/model20/model20.csv" \
                         --plot-location "/users/9/reine097/projects/loes-scoring-2/doc/models/model20/model20.png"  \
-                        --model "ResNet" \
+                        --model "resnet" \
                         --lr 0.0001 \
                         --scheduler 'onecycle'

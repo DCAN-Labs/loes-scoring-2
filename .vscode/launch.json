@@ -165,6 +165,21 @@
                         "--gd",  "0",
                         "--folder", "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/"],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
+        },
+        {
+            "name": "Model 20 Predictions",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/training/training.py",
+            "console": "integratedTerminal",
+            "args": ["--csv-data-file", "/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes.csv",
+                        "--batch-size", "1", "--num-workers", "1", "--epochs", "256",
+                        "--model-save-location", "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring_00.pt",
+                        "--plot-location", "/home/miran045/reine097/projects/loes-scoring-2/doc/img/model00.png",
+                        "--output-csv-file", "/home/miran045/reine097/projects/loes-scoring-2/data/filtered/model00_out.csv", 
+                        "--gd",  "0",
+                        "--folder", "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/"],
+            "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         }
     ]
 }

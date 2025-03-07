@@ -1,4 +1,5 @@
 import logging
+import sys
 
 import pandas as pd
 import statistics
@@ -20,7 +21,7 @@ log.setLevel(logging.INFO)
 
 
 def load_model(model_name, model_save_location, device='cpu'):
-    if model_name == 'ResNet':
+    if model_name == 'resnet':
         model = get_resnet_model()
         log.info("Using ResNet")
     else:
@@ -196,6 +197,7 @@ def make_predictions_on_folder(directory_path, file_pattern, model):
     return df
 
 if __name__ == "__main__":
+    model_save_location = sys.argv[1]
     dir = "/home/feczk001/shared/projects/S1067_Loes/data/MIDB-rp"
     directory_path = os.path.join(dir, '04-brain_masked')
     file_pattern = '*_RAVEL.nii.gz'

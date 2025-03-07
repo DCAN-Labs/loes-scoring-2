@@ -61,6 +61,9 @@ class Config:
         self.parser.add_argument(
             '--scheduler', default='plateau', 
             choices=['plateau', 'step', 'cosine', 'onecycle'], help='Learning rate scheduler')
+        self.parser.add_argument(
+            '--model', default='resnet', 
+            choices=['resnet', 'alexnet'], help='Model architecture')
 
     def parse_args(self, sys_argv: list[str]) -> argparse.Namespace:
         return self.parser.parse_args(sys_argv)
