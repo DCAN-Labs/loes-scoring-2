@@ -178,19 +178,17 @@ def make_predictions_on_folder(directory_path, file_pattern, model):
     if matching_files:
         print("Files matching the pattern:")
         for file_path in matching_files:
-            print(file_path)
             image_tensor = get_image_tensor(file_path)
             file_name = get_filename_from_path(file_path)
             parts = file_name.split('_')
             subject = parts[0]
             session = parts[1]
             with torch.no_grad():
-                prediction = model(image_tensor)
+                unsqueezed_image_tensor = image_tensor.unsqueeze(0)
+                prediction = model(unsqueezed_image_tensor)
                 prediction_p = prediction.item()
-                print(prediction_p)
                 new_row = pd.DataFrame({'subject': [subject], 'session': [session], 'predicted_score': [prediction_p]})
                 df = pd.concat([df, new_row], ignore_index=True)
-                print(df)
     else:
         print("No files found matching the pattern.")
 
@@ -201,8 +199,7 @@ if __name__ == "__main__":
     dir = "/home/feczk001/shared/projects/S1067_Loes/data/MIDB-rp"
     directory_path = os.path.join(dir, '04-brain_masked')
     file_pattern = '*_RAVEL.nii.gz'
-    model_save_location = "/home/feczk001/shared/data/LoesScoring/loes_scoring_17.pt"
-    model = load_model('ResNet', model_save_location, device='cpu')
+    model = load_model('resnet', model_save_location, device='cpu')
     df = make_predictions_on_folder(directory_path, file_pattern, model)
-    csv_path = os.path.join(dir, 'MIDB-rp_predictions.csv')
+    csv_path = os.path.join(dir, 'MIDB-rp_Model20_predictions.csv')
     df.to_csv(csv_path, index=False)
