@@ -176,7 +176,6 @@ def make_predictions_on_folder(directory_path, file_pattern, model):
 
     df = pd.DataFrame({'subject': [], 'session': [], 'predicted_score': []})
     if matching_files:
-        print("Files matching the pattern:")
         for file_path in matching_files:
             image_tensor = get_image_tensor(file_path)
             file_name = get_filename_from_path(file_path)
@@ -196,10 +195,11 @@ def make_predictions_on_folder(directory_path, file_pattern, model):
 
 if __name__ == "__main__":
     model_save_location = sys.argv[1]
+    csv_file_name = sys.argv[2]
     dir = "/home/feczk001/shared/projects/S1067_Loes/data/MIDB-rp"
     directory_path = os.path.join(dir, '04-brain_masked')
     file_pattern = '*_RAVEL.nii.gz'
     model = load_model('resnet', model_save_location, device='cpu')
     df = make_predictions_on_folder(directory_path, file_pattern, model)
-    csv_path = os.path.join(dir, 'MIDB-rp_Model20_predictions.csv')
+    csv_path = os.path.join(dir, csv_file_name)
     df.to_csv(csv_path, index=False)

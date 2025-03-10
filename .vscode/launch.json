@@ -167,12 +167,13 @@
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         },
         {
-            "name": "Model 20 Predictions",
+            "name": "Model 18 Predictions",
             "type": "debugpy",
             "request": "launch",
             "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/inference/make_predictions.py",
             "console": "integratedTerminal",
-            "args": ["/home/feczk001/shared/data/LoesScoring/loes_scoring_20.pt"],
+            "args": ["/home/feczk001/shared/data/LoesScoring/loes_scoring_18.pt",
+            "MIDB-rp_Model18_predictions.csv"],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         }
     ]
