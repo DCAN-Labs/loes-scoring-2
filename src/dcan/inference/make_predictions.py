@@ -174,19 +174,19 @@ def get_filename_from_path(file_path):
 def make_predictions_on_folder(directory_path, file_pattern, model):
     matching_files = get_files_by_pattern(directory_path, file_pattern)
 
-    df = pd.DataFrame({'subject': [], 'session': [], 'predicted_score': []})
+    df = pd.DataFrame({'anonymized_subject_id': [], 'anonymized_session_id': [], 'predicted_score': []})
     if matching_files:
         for file_path in matching_files:
             image_tensor = get_image_tensor(file_path)
             file_name = get_filename_from_path(file_path)
             parts = file_name.split('_')
-            subject = parts[0]
-            session = parts[1]
+            anonymized_subject_id = parts[0]
+            anonymized_session_id = parts[1]
             with torch.no_grad():
                 unsqueezed_image_tensor = image_tensor.unsqueeze(0)
                 prediction = model(unsqueezed_image_tensor)
                 prediction_p = prediction.item()
-                new_row = pd.DataFrame({'subject': [subject], 'session': [session], 'predicted_score': [prediction_p]})
+                new_row = pd.DataFrame({'anonymized_subject_id': [anonymized_subject_id], 'anonymized_session_id': [anonymized_session_id], 'predicted_score': [prediction_p]})
                 df = pd.concat([df, new_row], ignore_index=True)
     else:
         print("No files found matching the pattern.")
@@ -196,10 +196,18 @@ def make_predictions_on_folder(directory_path, file_pattern, model):
 if __name__ == "__main__":
     model_save_location = sys.argv[1]
     csv_file_name = sys.argv[2]
-    dir = "/home/feczk001/shared/projects/S1067_Loes/data/MIDB-rp"
-    directory_path = os.path.join(dir, '04-brain_masked')
+    dir = "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/"
+    directory_path = os.path.join(dir, '05-training_ready')
     file_pattern = '*_RAVEL.nii.gz'
     model = load_model('resnet', model_save_location, device='cpu')
     df = make_predictions_on_folder(directory_path, file_pattern, model)
     csv_path = os.path.join(dir, csv_file_name)
     df.to_csv(csv_path, index=False)
+    expected_df = pd.read_csv('/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes_training_test_non_gd.csv')
+    expected_validation_df = expected_df[expected_df['validation'] == 1]
+    merged_df = pd.merge(df, expected_validation_df, on=['anonymized_subject_id', 'anonymized_session_id'], how='inner')
+    actual_scores = list(merged_df['loes-score'])
+    predict_vals = list(merged_df['predicted_score'])
+    standardized_rmse = compute_standardized_rmse(actual_scores, predict_vals)
+    print(f'standardized_rmse: {standardized_rmse}')
+    create_scatter_plot(actual_scores, predict_vals, '/users/9/reine097/projects/loes-scoring-2/doc/models/model21/model21.png')

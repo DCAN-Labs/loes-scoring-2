@@ -1,0 +1,23 @@
+import numpy as np # Import the numpy library
+import pandas as pd
+
+results_df = pd.read_csv("results/hyperopt_32888487/trial_0_20250313_095236/output.csv")
+results_df.dropna(subset=['predicted_loes_score'], inplace=True)
+
+# Create numpy arrays for the actual and predicted values
+actual = np.array(results_df["loes-score"])
+predicted = np.array(results_df.predicted_loes_score)
+
+# Calculate the mean squared error (MSE) by taking the mean of the squared differences
+meanSquaredError = ((predicted - actual) ** 2).mean()
+
+# Calculate the RMSE by taking the square root of the MSE
+rmse = np.sqrt(meanSquaredError)
+# Print the RMSE
+print("The calculated Root Mean Square Error (RMSE) is: " + str(rmse))
+
+sample_std_dev = np.std(actual, ddof=1)
+print(f"Sample standard deviation: {sample_std_dev}")
+
+standardized_standard_deviation = np.sqrt(meanSquaredError) / sample_std_dev
+print(f"standardized_standard_deviation: {standardized_standard_deviation}")

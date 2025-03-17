@@ -175,6 +175,56 @@
             "args": ["/home/feczk001/shared/data/LoesScoring/loes_scoring_18.pt",
             "MIDB-rp_Model18_predictions.csv"],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
+        },
+        {
+            "name": "Model Predictions",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/inference/make_predictions.py",
+            "console": "integratedTerminal",
+            "args": ["/users/9/reine097/projects/loes-scoring-2/results/hyperopt_33089099/trial_0_20250317_085911/model.pt",
+                        "/users/9/reine097/projects/loes-scoring-2/doc/models/model21/model21.csv"],
+            "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
+        },
+        {
+            "name": "RayTune",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/hyperparameters/single_process_hyperopt.py",
+            "console": "integratedTerminal",
+            "args": ["--csv-input-file", "/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes_training_test_non_gd.csv",
+                    "--batch-size", "2",
+                    "--num-workers", "2", 
+                    "--epochs", "50",
+                    "--model-save-location", "${RESULTS_DIR}/best_model.pt",
+                    "--plot-location", "best_plot.png",
+                    "--csv-output-file", "final_predictions.csv",
+                    "--gd", "0",
+                    "--folder", "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/",
+                    "--search-type", "grid",
+                    "--results-dir", "./results",
+                    "--early-stopping", 
+                    "--patience", "5",
+                "--use-train-validation-cols"],
+            "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
+        },
+        {
+            "name": "no_copy_hyperopt",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/hyperparameters/no_copy_hyperopt.py",
+            "console": "integratedTerminal",
+            "args": ["--csv-input-file", "/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes_training_test_non_gd.csv",
+                    "--num-workers", "2", 
+                    "--epochs", "50",
+                    "--model-save-location", "./results/best_model.pt",
+                    "--plot-location", "best_plot.png",
+                    "--csv-output-file", "final_predictions.csv",
+                    "--gd", "0",
+                    "--folder", "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/",
+                    "--results-dir", "./results",
+                "--use-train-validation-cols"],
+            "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         }
     ]
 }
