@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 # log.setLevel(logging.INFO)
 log.setLevel(logging.DEBUG)
 
-raw_cache = getCache('loes_score-3')
+raw_cache = getCache('loes_score-4')
 
 
 @dataclass(order=True)

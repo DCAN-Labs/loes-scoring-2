@@ -208,3 +208,10 @@ doc/models/model_test/model_test.png
 .Rhistory
 loes-scoring-2.Rproj
 loes-scoring-2.Rproj
+runs/logistic_regression/2025-04-03_14.25.23-trn_cls-/events.out.tfevents.1743708340.agc10.626462.0
+runs/logistic_regression/2025-04-03_14.25.23-val_cls-/events.out.tfevents.1743708353.agc10.626462.1
+runs/logistic_regression/2025-04-07_10.04.24-trn_cls-/events.out.tfevents.1744038268.agc10.2529193.0
+runs/logistic_regression/2025-04-07_10.04.24-val_cls-/events.out.tfevents.1744038268.agc10.2529193.1
+scripts/training/loes-scoring-logistic-regression-33941797.err
+scripts/training/loes-scoring-logistic-regression-33941797.out
+scripts/training/loes-scoring-training_model-logistic-regression_agate.sh

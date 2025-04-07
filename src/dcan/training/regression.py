@@ -37,7 +37,7 @@ def get_file_name(row):
 
 def load_data(loes_scoring_folder):
     """Loads and processes the data from the provided folder."""
-    df = pd.read_csv(os.path.join(loes_scoring_folder, 'Nascene_deID_files.csv'))
+    df = pd.read_csv('/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/Nascene_deID_files.csv')
     defaced_folder = os.path.join(loes_scoring_folder, '7_RAVEL')
 
     df['FILE'] = df.apply(get_file_name, axis=1)

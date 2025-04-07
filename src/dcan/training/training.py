@@ -17,6 +17,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingL
 from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.inference.make_predictions import add_predicted_values, compute_standardized_rmse, create_correlation_coefficient, create_scatter_plot, get_validation_info
 from dcan.models.ResNet import get_resnet_model
+from dcan.training.data_handler import DataHandler
 from util.logconf import logging
 from util.util import enumerateWithEstimate
 
@@ -68,23 +69,6 @@ class Config:
     def parse_args(self, sys_argv: list[str]) -> argparse.Namespace:
         return self.parser.parse_args(sys_argv)
 
-
-# Data Handler Class to manage dataset operations
-class DataHandler:
-    def __init__(self, df, output_df, use_cuda, batch_size, num_workers):
-        self.df = df
-        self.output_df = output_df
-        self.use_cuda = use_cuda
-        self.batch_size = batch_size
-        self.num_workers = num_workers
-
-    def init_dl(self, folder, subjects, is_val_set: bool = False):
-        dataset = LoesScoreDataset(folder, subjects, self.df, self.output_df, is_val_set_bool=is_val_set)
-        batch_size = self.batch_size
-        if self.use_cuda:
-            batch_size *= torch.cuda.device_count()
-
-        return DataLoader(dataset, batch_size=batch_size, num_workers=self.num_workers, pin_memory=self.use_cuda)
 
 # Model Handler Class to manage model operations
 class ModelHandler:
