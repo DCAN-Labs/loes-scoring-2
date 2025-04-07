@@ -43,7 +43,7 @@ class Config:
     def __init__(self):
         self.parser = argparse.ArgumentParser()
 
-        self.parser.add_argument('--DEBUG', action='store_false')
+        self.parser.add_argument('--DEBUG', action='store_true')
         # Data parameters
         self.parser.add_argument('--csv-input-file', required=True, help="CSV data file")
         self.parser.add_argument('--csv-output-file', help="CSV output file for predictions")
@@ -62,7 +62,7 @@ class Config:
                                 choices=['plateau', 'step', 'cosine', 'onecycle'], help='Learning rate scheduler')
         self.parser.add_argument('--weight-decay', default=0.0001, type=float, help='L2 regularization')
         self.parser.add_argument('--class-weights', action='store_true', help='Use class weights for imbalanced data')
-        self.parser.add_argument('--gd', action='store_false', help='Use gadolinium-enhanced MRIs.')
+        self.parser.add_argument('--gd', action='store_true', help='Use gadolinium-enhanced MRIs.')
         
         # Output and tracking
         self.parser.add_argument('--tb-prefix', default='logistic_regression', help="Tensorboard data prefix")
