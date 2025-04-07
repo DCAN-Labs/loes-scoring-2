@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 from dcan.data_sets.dsets import get_candidate_info_list
+from dcan.training.data_handler import DataHandler
 
 # Configure logging
 logging.basicConfig(
@@ -294,6 +295,8 @@ class LogisticRegressionApp:
             log.warning(f"Found {missing_values} missing values in the dataset")
         
         # Setup model and training components
+        self.folder = self.config.folder
+        self.data_handler = DataHandler(self.input_df, self.output_df, self.use_cuda, self.config.batch_size, self.config.num_workers)
         self._setup_model()
         self._setup_datasets()
         self._setup_dataloaders()
