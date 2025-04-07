@@ -37,7 +37,8 @@
                 "--normalize-features", 
                 "--class-weights",
                 "--DEBUG",
-                "--folder", "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/anonymized/processed/"
+                "--folder", "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/anonymized/processed/",
+                "--use_train_validation_cols"
             ],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         },

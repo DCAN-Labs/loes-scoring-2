@@ -50,6 +50,7 @@ class Config:
         self.parser.add_argument('--features', required=True, nargs='+', help="Feature column names")
         self.parser.add_argument('--target', required=True, help="Target column name")
         self.parser.add_argument('--folder', help='Folder where MRIs are stored')
+        self.parser.add_argument('--use_train_validation_cols', action='store_true')
         
         # Training parameters
         self.parser.add_argument('--batch-size', default=32, type=int, help='Batch size for training')
