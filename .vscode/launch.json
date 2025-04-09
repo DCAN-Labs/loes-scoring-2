@@ -28,10 +28,10 @@
             "program": "src/dcan/training/logistic_regression.py",
             "console": "integratedTerminal",
             "args": [
-                "--csv-input-file", "data/anon_train_scans_and_loes_training_test_non_gd.csv",
+                "--csv-input-file", "data/logistic_regression_data.csv",
                 "--csv-output-file", "predictions.csv",
                 "--batch-size", "64", 
-                "--epochs", "100", 
+                "--epochs", "3", 
                 "--features", "scan",
                 "--target", "loes-score",
                 "--normalize-features", 
@@ -39,7 +39,7 @@
                 "--DEBUG",
                 "--folder", "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/",
                 "--use_train_validation_cols",
-                "--model-type", "simple"
+                "--model-type", "conv"
             ],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         },

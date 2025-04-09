@@ -1,6 +1,19 @@
+import logging
+import sys
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+log = logging.getLogger(__name__)
 
 
 class MRILogisticRegressionModel(nn.Module):
@@ -35,34 +48,29 @@ class MRILogisticRegressionModel(nn.Module):
         
     def forward(self, x):
         # Input shape debugging
-        if self.debug:
-            print(f"Input shape: {x.shape}")
+        log.debug(f"Input shape: {x.shape}")
         
         # Ensure input has 5 dimensions: [batch_size, channels, depth, height, width]
         if len(x.shape) == 4:
             # If input is [batch_size, depth, height, width], add channel dimension
             x = x.unsqueeze(1)
         
-        if self.debug:
-            print(f"Adjusted input shape: {x.shape}")
+        log.debug(f"Adjusted input shape: {x.shape}")
         
         # Apply convolutional feature extraction
         x = self.conv_layers(x)
         
-        if self.debug:
-            print(f"After conv layers: {x.shape}")
+        log.debug(f"After conv layers: {x.shape}")
         
         # Flatten the output
         x = x.view(x.size(0), -1)
         
-        if self.debug:
-            print(f"After flattening: {x.shape}")
+        log.debug(f"After flattening: {x.shape}")
         
         # Apply logistic regression
         logits = self.classifier(x)
         
-        if self.debug:
-            print(f"Logits shape: {logits.shape}")
+        log.debug(f"Logits shape: {logits.shape}")
         
         # Apply sigmoid to get probabilities
         return torch.sigmoid(logits)
@@ -79,13 +87,25 @@ class SimpleMRILogisticRegression(nn.Module):
     def __init__(self, reduction_factor=10, debug=False):
         super(SimpleMRILogisticRegression, self).__init__()
         self.debug = debug
-        self.reduction_factor = reduction_factor
         
-        # We'll determine the input size dynamically in the forward pass
-        self.feature_reducer = None
-        self.classifier = None
+        # Add a fixed spatial reduction first (like adaptive pooling)
+        self.spatial_reducer = nn.AdaptiveAvgPool3d((16, 16, 16))
+        # Fixed input size after spatial reduction and flattening: 16*16*16 = 4096
+        
+        # Now we can pre-initialize with known size
+        self.feature_reducer = nn.Sequential(
+            nn.Linear(4096, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 256),
+            nn.ReLU(),
+            nn.Linear(256, 64),
+            nn.ReLU()
+        )
+        self.classifier = nn.Linear(64, 1)
         self.initialized = False
-        
+        self.reduction_factor = reduction_factor
+
+
     def _initialize(self, input_size):
         # Create a dimensionality reduction layer
         reduced_size = max(1, input_size // self.reduction_factor)
@@ -107,8 +127,7 @@ class SimpleMRILogisticRegression(nn.Module):
         
     def forward(self, x):
         # Log the input shape
-        if self.debug:
-            print(f"Input shape: {x.shape}")
+        log.debug(f"Input shape: {x.shape}")
         
         # Flatten the input
         x_flat = x.view(x.size(0), -1)
@@ -129,8 +148,7 @@ class SimpleMRILogisticRegression(nn.Module):
         # Apply logistic regression
         logits = self.classifier(x_reduced)
         
-        if self.debug:
-            print(f"Logits shape: {logits.shape}")
+        log.debug(f"Logits shape: {logits.shape}")
         
         # Apply sigmoid to get probabilities
         return torch.sigmoid(logits)

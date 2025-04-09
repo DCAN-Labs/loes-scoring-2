@@ -27,7 +27,7 @@ from mri_logistic_regression import get_mri_logistic_regression_model
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout)
@@ -251,15 +251,15 @@ class LogisticRegressionTrainer:
         return val_metrics_g.to('cpu')
     
     def _compute_batch_loss(self, batch_ndx, batch_tup, batch_size, metrics_g):
-        log.info(f'batch_tup: {batch_tup}')
-        log.info(f'type(batch_tup): {type(batch_tup)}')
+        log.debug(f'batch_tup: {batch_tup}')
+        log.debug(f'type(batch_tup): {type(batch_tup)}')
         input_t, label_t, _, _ = batch_tup
-        label = [1.0 if l_t.value > 0 + self.threshold else 0.0 for l_t in label_t]
+        label = [1.0 if l_t.item() > 0 + self.threshold else 0.0 for l_t in label_t]
         label_t = torch.tensor(label, dtype=torch.float32)
         input_g = input_t.to(self.device, non_blocking=True)
         label_g = label_t.to(self.device, non_blocking=True)
-        log.info(f'input_g: {input_g}')
-        log.info(f'label_g: {label_g}')
+        log.debug(f'input_g: {input_g}')
+        log.debug(f'label_g: {label_g}')
         
         prob_g = self.model(input_g)
         prob_g = prob_g.squeeze(dim=-1)  # [batch_size]
@@ -382,33 +382,36 @@ class LogisticRegressionApp:
         model_type = self.config.model_type if hasattr(self.config, 'model_type') else 'conv'
         debug_mode = self.config.DEBUG if hasattr(self.config, 'DEBUG') else False
         
-        # Import the MRI model directly here if you haven't added it to your imports
+        # Create the model
         try:
-            from mri_logistic_regression import get_mri_logistic_regression_model
             self.model = get_mri_logistic_regression_model(
                 model_type=model_type,
                 debug=debug_mode
             )
-        except ImportError:
-            # Fallback to a simple model that can handle the data shape
-            log.warning("mri_logistic_regression module not found. Using a simple model instead.")
-            self.model = SimpleMRIModel(debug_mode)
             
-        # Make sure the model is moved to the correct device
-        if self.use_cuda:
-            self.model = self.model.to(self.device)
-            log.info(f"Using CUDA: {torch.cuda.get_device_name(0)}")
-        else:
-            log.info("Using CPU")
-        
+            # If using the simple model, initialize it with a dummy input
+            if model_type.lower() == 'simple':
+                log.info("Initializing simple model with dummy input")
+                # Create a dummy input tensor - adjust the size as needed
+                dummy_input = torch.zeros((1, 1, 16, 16, 16))
+                with torch.no_grad():
+                    _ = self.model(dummy_input)  # This triggers parameter initialization
+                
+        except ImportError:
+            log.warning("mri_logistic_regression module not found. Using fallback model.")
+            self.model = SimpleMRIModel(debug_mode)
+            # Also initialize this model if needed
+            dummy_input = torch.zeros((1, 1, 16, 16, 16))
+            with torch.no_grad():
+                _ = self.model(dummy_input)
+                
         # Verify the model has parameters
         param_count = sum(p.numel() for p in self.model.parameters())
         log.info(f"Model created with {param_count} parameters")
         
-        # If no parameters, this will cause optimizer to fail
         if param_count == 0:
             raise ValueError("Model has no parameters! Check model implementation.")
-    
+        
     def _setup_optimizer(self):
         # Verify that the model has parameters before creating optimizer
         if not any(p.requires_grad for p in self.model.parameters()):
@@ -532,6 +535,125 @@ class LogisticRegressionApp:
         
         log.info(f"Scheduler initialized: {type(self.scheduler).__name__}")
 
+    def generate_summary_statistics(self):
+        """
+        Generate and display comprehensive summary statistics after training.
+        This includes model performance, training history, dataset information,
+        and other relevant metrics.
+        """
+        log.info("\n" + "="*80)
+        log.info("TRAINING SUMMARY STATISTICS")
+        log.info("="*80)
+        
+        # 1. Model architecture information
+        log.info("\nMODEL INFORMATION:")
+        log.info(f"Model type: {self.config.model_type}")
+        total_params = sum(p.numel() for p in self.model.parameters())
+        trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        log.info(f"Total parameters: {total_params:,}")
+        log.info(f"Trainable parameters: {trainable_params:,}")
+        
+        # 2. Training configuration
+        log.info("\nTRAINING CONFIGURATION:")
+        log.info(f"Epochs: {self.config.epochs}")
+        log.info(f"Batch size: {self.config.batch_size}")
+        log.info(f"Optimizer: {self.config.optimizer} (LR: {self.config.lr})")
+        log.info(f"Scheduler: {self.config.scheduler}")
+        log.info(f"Weight decay: {self.config.weight_decay}")
+        log.info(f"Classification threshold: {self.config.threshold}")
+    
+        # 3. Dataset information
+        log.info("\nDATASET INFORMATION:")
+        train_subjects_count = len(self.train_subjects)
+        val_subjects_count = len(self.val_subjects)
+        total_subjects = train_subjects_count + val_subjects_count
+        
+        train_rows = self.input_df[self.input_df['anonymized_subject_id'].isin(self.train_subjects)]
+        val_rows = self.input_df[self.input_df['anonymized_subject_id'].isin(self.val_subjects)]
+        
+        train_scans = len(train_rows)
+        val_scans = len(val_rows)
+        total_scans = train_scans + val_scans
+        
+        log.info(f"Subjects: {total_subjects} total ({train_subjects_count} training, {val_subjects_count} validation)")
+        log.info(f"Scans: {total_scans} total ({train_scans} training, {val_scans} validation)")
+    
+        # 4. Class distribution
+        try:
+            train_positive = (train_rows['loes-score'] > self.config.threshold).sum()
+            train_negative = len(train_rows) - train_positive
+            val_positive = (val_rows['loes-score'] > self.config.threshold).sum()
+            val_negative = len(val_rows) - val_positive
+            
+            log.info("\nCLASS DISTRIBUTION:")
+            log.info(f"Training: {train_positive} positive ({train_positive/train_scans*100:.1f}%), " +
+                    f"{train_negative} negative ({train_negative/train_scans*100:.1f}%)")
+            log.info(f"Validation: {val_positive} positive ({val_positive/val_scans*100:.1f}%), " +
+                    f"{val_negative} negative ({val_negative/val_scans*100:.1f}%)")
+        except:
+            log.warning("Could not compute class distribution")
+    
+        # 5. Final model performance metrics
+        # Use the model to predict on validation data
+        log.info("\nFINAL MODEL PERFORMANCE (Validation Set):")
+        
+        try:
+            # Make predictions on validation set
+            self.model.eval()
+            val_preds = []
+            val_labels = []
+            val_probs = []
+            
+            with torch.no_grad():
+                for batch_tup in self.val_dl:
+                    input_t, label_t, _, _ = batch_tup
+                    label = [1.0 if l_t.item() > 0 + self.config.threshold else 0.0 for l_t in label_t]
+                    val_labels.extend(label)
+                    
+                    input_g = input_t.to(self.device)
+                    probs = self.model(input_g).squeeze().cpu().numpy()
+                    preds = (probs >= self.config.threshold).astype(float)
+                    
+                    val_probs.extend(probs)
+                    val_preds.extend(preds)
+            
+            # Calculate metrics
+            acc = accuracy_score(val_labels, val_preds)
+            prec = precision_score(val_labels, val_preds, zero_division=0)
+            rec = recall_score(val_labels, val_preds, zero_division=0)
+            f1 = f1_score(val_labels, val_preds, zero_division=0)
+            
+            log.info(f"Accuracy: {acc:.4f}")
+            log.info(f"Precision: {prec:.4f}")
+            log.info(f"Recall: {rec:.4f}")
+            log.info(f"F1 Score: {f1:.4f}")
+        
+            # Compute AUC if we have both classes
+            if len(np.unique(val_labels)) > 1:
+                auc = roc_auc_score(val_labels, val_probs)
+                log.info(f"AUC: {auc:.4f}")
+            
+            # Confusion matrix
+            cm = confusion_matrix(val_labels, val_preds)
+            log.info("\nConfusion Matrix:")
+            log.info("                  Predicted Negative    Predicted Positive")
+            log.info(f"Actual Negative       {cm[0][0]:8d}              {cm[0][1]:8d}")
+            log.info(f"Actual Positive       {cm[1][0]:8d}              {cm[1][1]:8d}")
+            
+            # Calculate specificity and sensitivity
+            sensitivity = rec  # Same as recall
+            if cm[0][0] + cm[0][1] > 0:
+                specificity = cm[0][0] / (cm[0][0] + cm[0][1])
+            else:
+                specificity = 0
+            log.info(f"\nSensitivity: {sensitivity:.4f}")
+            log.info(f"Specificity: {specificity:.4f}")
+            
+        except Exception as e:
+            log.error(f"Error computing final model performance: {e}")
+        
+        log.info("="*80)
+
     def train(self):
         """
         Execute the training loop over multiple epochs.
@@ -610,10 +732,9 @@ class LogisticRegressionApp:
             final_model_path = f'./logistic_model_final-{self.time_str}.pt'
             self.save_model(final_model_path)
             log.info(f"Final model saved to {final_model_path}")
-        
-        # Generate predictions and plots if output file is specified
-        if self.config.csv_output_file:
-            self.generate_predictions()
+            
+        # Generate comprehensive summary statistics
+        self.generate_summary_statistics()
         
         # Close tensorboard logger
         self.tb_logger.close()
@@ -645,27 +766,23 @@ class LogisticRegressionApp:
             self.initialized = True
             
         def forward(self, x):
-            if self.debug:
-                print(f"Input shape: {x.shape}")
+            log.debug(f"Input shape: {x.shape}")
             
             # Reshape input to 2D (batch_size, features)
             batch_size = x.size(0)
             x_flat = x.view(batch_size, -1)
             
-            if self.debug:
-                print(f"Flattened shape: {x_flat.shape}")
+            log.debug(f"Flattened shape: {x_flat.shape}")
             
             # Initialize on first forward pass
             if not self.initialized:
                 self._initialize(x_flat.size(1))
-                if self.debug:
-                    print(f"Model initialized with input size: {x_flat.size(1)}")
+                log.debug(f"Model initialized with input size: {x_flat.size(1)}")
             
             # Apply feature extraction
             features = self.feature_extractor(x_flat)
             
-            if self.debug:
-                print(f"Features shape: {features.shape}")
+            log.debug(f"Features shape: {features.shape}")
             
             # Apply final classification
             logits = self.classifier(features)
