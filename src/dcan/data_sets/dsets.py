@@ -17,9 +17,8 @@ log = logging.getLogger(__name__)
 # log.setLevel(logging.INFO)
 log.setLevel(logging.DEBUG)
 
-raw_cache = getCache('loes_score-4')
+raw_cache = getCache('loes_score-3')
 
-THRESHOLD = 0.1
 
 @dataclass(order=True)
 class CandidateInfoTuple:
@@ -28,7 +27,6 @@ class CandidateInfoTuple:
     file_path: str
     subject_str: str
     session_str: str
-    has_ald: int  
     augmentation_index: int = None
     sort_index: float = field(init=False, repr=False)
 
@@ -46,6 +44,7 @@ class CandidateInfoTuple:
     @property
     def path_to_file(self) -> str:
         return self.file_path
+
 
 def get_subject(p):
     return os.path.split(os.path.split(os.path.split(p)[0])[0])[1][4:]
@@ -79,13 +78,11 @@ def append_candidate(folder, candidate_info_list, row):
     file_name = f"{subject_str}_{session_str}_space-MNI_brain_mprage_RAVEL.nii.gz"
     file_path = os.path.join(folder, file_name)
     loes_score_float = float(row['loes-score'])
-    has_ald = int(row['has_ald'])
     candidate_info_list.append(CandidateInfoTuple(
         loes_score_float,
         file_path,
         subject_str,
-        session_str,
-        has_ald
+        session_str
     ))
 
 
@@ -190,7 +187,6 @@ class LoesScoreDataset(Dataset):
         candidate_t = candidate_a.to(torch.float32)
 
         loes_score = candidate_info.loes_score_float
-        has_ald = candidate_info.has_ald
-        has_ald_t = torch.tensor(has_ald, dtype=torch.float32)
+        loes_score_t = torch.tensor(loes_score, dtype=torch.float32)
 
-        return candidate_t, has_ald_t, candidate_info.subject_str, candidate_info.session_str
+        return candidate_t, loes_score_t, candidate_info.subject_str, candidate_info.session_str
