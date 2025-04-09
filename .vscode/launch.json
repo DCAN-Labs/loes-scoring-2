@@ -25,7 +25,7 @@
             "name": "logistic_regression",
             "type": "debugpy",
             "request": "launch",
-            "program": "src/dcan/models/logistic_regression.py",
+            "program": "src/dcan/training/logistic_regression.py",
             "console": "integratedTerminal",
             "args": [
                 "--csv-input-file", "data/anon_train_scans_and_loes_training_test_non_gd.csv",
@@ -37,8 +37,9 @@
                 "--normalize-features", 
                 "--class-weights",
                 "--DEBUG",
-                "--folder", "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/anonymized/processed/",
-                "--use_train_validation_cols"
+                "--folder", "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/",
+                "--use_train_validation_cols",
+                "--model-type", "simple"
             ],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         },

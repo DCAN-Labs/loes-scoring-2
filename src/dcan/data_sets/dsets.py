@@ -19,6 +19,8 @@ log.setLevel(logging.DEBUG)
 
 raw_cache = getCache('loes_score-4')
 
+THRESHOLD = 0.1
+
 
 @dataclass(order=True)
 class CandidateInfoTuple:
@@ -187,6 +189,7 @@ class LoesScoreDataset(Dataset):
         candidate_t = candidate_a.to(torch.float32)
 
         loes_score = candidate_info.loes_score_float
-        loes_score_t = torch.tensor(loes_score, dtype=torch.float32)
+        has_ald = 1.0 if loes_score > 0.0 + THRESHOLD else 0.0
+        has_ald_t = torch.tensor(has_ald, dtype=torch.float32)
 
-        return candidate_t, loes_score_t, candidate_info.subject_str, candidate_info.session_str
+        return candidate_t, has_ald_t, candidate_info.subject_str, candidate_info.session_str

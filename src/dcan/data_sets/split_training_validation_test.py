@@ -18,16 +18,18 @@ import os
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
+from dcan.training.create_train_test_split import create_train_test_split
+
 # Load a dataset
-data_dir = '/users/9/reine097/projects/loes-scoring-2/data/'
-data = pd.read_csv(os.path.join(data_dir, 'anon_train_scans_and_loes.csv'))
+data_dir = 'data'
+data = pd.read_csv(os.path.join(data_dir, 'anon_train_scans_and_loes_training_test_non_gd_ald.csv'))
 data = data[~data['scan'].str.contains('Gd')]
 
 # Split the dataset
 X = data.drop('loes-score', axis=1)
 y = data['loes-score']
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, stratify=y, random_state=42)
+X_train, X_test, y_train, y_test = create_train_test_split(X, y, test_size=0.3)
 X_train['test'] = 0
 X_test['test'] = 1
 
@@ -49,4 +51,4 @@ print("\ntest_new")
 print(test_new.head())
 
 data_new = pd.concat([train_new, test_new], ignore_index=True)
-data_new.to_csv(os.path.join(data_dir, 'anon_train_scans_and_loes_2.csv'), index=False)
+data_new.to_csv(os.path.join(data_dir, 'anon_train_scans_and_loes_training_test_non_gd_ald_2.csv'), index=False)

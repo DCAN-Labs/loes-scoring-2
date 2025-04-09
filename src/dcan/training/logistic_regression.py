@@ -19,12 +19,15 @@ import logging
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from dcan.data_sets.dsets import get_candidate_info_list
-from dcan.training.data_handler import DataHandler
+from dcan.data_sets.dsets import CandidateInfoTuple, LoesScoreDataset
+import torch
+from torch.utils.data import DataLoader
+from mri_logistic_regression import get_mri_logistic_regression_model
+
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout)
@@ -32,12 +35,57 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
+
+class DataHandler:
+    def __init__(self, df, output_df, use_cuda, batch_size, num_workers):
+        self.df = df
+        self.output_df = output_df
+        self.use_cuda = use_cuda
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+
+    def init_dl(self, folder, subjects, is_val_set: bool = False):
+        dataset = LoesScoreDataset(folder, subjects, self.df, self.output_df, is_val_set_bool=is_val_set)
+        batch_size = self.batch_size
+        if self.use_cuda:
+            batch_size *= torch.cuda.device_count()
+
+        return DataLoader(dataset, batch_size=batch_size, num_workers=self.num_workers, pin_memory=self.use_cuda)
+
 # Metrics indices
 METRICS_LABEL_NDX = 0
 METRICS_PRED_NDX = 1
 METRICS_PROB_NDX = 2
 METRICS_LOSS_NDX = 3
 METRICS_SIZE = 4
+
+def append_candidate(folder, candidate_info_list, row):
+    subject_str = row['anonymized_subject_id']
+    session_str = row['anonymized_session_id']
+    file_name = f"{subject_str}_{session_str}_space-MNI_brain_mprage_RAVEL.nii.gz"
+    file_path = os.path.join(folder, file_name)
+    loes_score_float = float(row['loes-score'])
+    candidate_info_list.append(CandidateInfoTuple(
+        loes_score_float,
+        file_path,
+        subject_str,
+        session_str
+    ))
+
+
+def get_candidate_info_list(folder, df, candidates: List[str]):
+    candidate_info_list = []
+    df = df.reset_index()  # make sure indexes pair with number of rows
+
+    for _, row in df.iterrows():
+        candidate = row['anonymized_subject_id']
+        if candidate in candidates:
+            append_candidate(folder, candidate_info_list, row)
+
+    candidate_info_list.sort(reverse=True)
+
+    return candidate_info_list
+
 
 # Configuration class to handle CLI arguments
 class Config:
@@ -65,6 +113,12 @@ class Config:
         self.parser.add_argument('--weight-decay', default=0.0001, type=float, help='L2 regularization')
         self.parser.add_argument('--class-weights', action='store_true', help='Use class weights for imbalanced data')
         self.parser.add_argument('--gd', action='store_true', help='Use gadolinium-enhanced MRIs.')
+        self.parser.add_argument(
+            '--model-type', 
+            default='conv', 
+            choices=['conv', 'simple'],
+            help='Type of MRI logistic regression model to use')
+
         
         # Output and tracking
         self.parser.add_argument('--tb-prefix', default='logistic_regression', help="Tensorboard data prefix")
@@ -132,6 +186,7 @@ class LogisticRegressionDataset(Dataset):
         return len(self.df)
     
     def __getitem__(self, idx):
+        log.debug("Calling __getitem__(self, idx)")
         return self.features[idx], self.target[idx]
     
     def get_feature_columns(self):
@@ -196,9 +251,15 @@ class LogisticRegressionTrainer:
         return val_metrics_g.to('cpu')
     
     def _compute_batch_loss(self, batch_ndx, batch_tup, batch_size, metrics_g):
-        input_t, label_t = batch_tup
+        log.info(f'batch_tup: {batch_tup}')
+        log.info(f'type(batch_tup): {type(batch_tup)}')
+        input_t, label_t, _, _ = batch_tup
+        label = [1.0 if l_t.value > 0 + self.threshold else 0.0 for l_t in label_t]
+        label_t = torch.tensor(label, dtype=torch.float32)
         input_g = input_t.to(self.device, non_blocking=True)
         label_g = label_t.to(self.device, non_blocking=True)
+        log.info(f'input_g: {input_g}')
+        log.info(f'label_g: {label_g}')
         
         prob_g = self.model(input_g)
         prob_g = prob_g.squeeze(dim=-1)  # [batch_size]
@@ -265,6 +326,7 @@ class TensorBoardLogger:
 
 
 # Main Application Class
+# Update the initialization sequence in your LogisticRegressionApp class
 class LogisticRegressionApp:
     def __init__(self, sys_argv=None):
         self.config = Config().parse_args(sys_argv)
@@ -281,7 +343,7 @@ class LogisticRegressionApp:
         self.output_df = self.input_df.copy()
         self.output_df["prediction"] = np.nan
 
-        if self.config.gd:
+        if hasattr(self.config, 'gd') and self.config.gd:
             self.input_df = self.input_df[~self.input_df['scan'].str.contains('Gd')]
 
         # Print data summary
@@ -294,12 +356,19 @@ class LogisticRegressionApp:
         if missing_values > 0:
             log.warning(f"Found {missing_values} missing values in the dataset")
         
-        # Setup model and training components
+        # Setup model, datasets, and training components IN THE CORRECT ORDER
         self.folder = self.config.folder
-        self.data_handler = DataHandler(self.input_df, self.output_df, self.use_cuda, self.config.batch_size, self.config.num_workers)
+        
+        # 1. First, set up the model (needs to be done before optimizer)
         self._setup_model()
+        
+        # 2. Then initialize the data handler and datasets
+        self.data_handler = DataHandler(self.input_df, self.output_df, self.use_cuda, self.config.batch_size, self.config.num_workers)
         self._setup_datasets()
         self._setup_dataloaders()
+        
+        # 3. Only after model is set up, initialize optimizer and scheduler
+        print(list(self.model.parameters()))
         self._setup_optimizer()
         self._setup_scheduler()
         
@@ -308,126 +377,191 @@ class LogisticRegressionApp:
         self.tb_logger = TensorBoardLogger(self.config.tb_prefix, self.time_str, self.config.comment)
     
     def _setup_model(self):
-        input_dim = len(self.config.features)
-        self.model = LogisticRegressionModel(input_dim=input_dim)
+        """Setup the logistic regression model for MRI data"""
+        # Use the MRI-specific model
+        model_type = self.config.model_type if hasattr(self.config, 'model_type') else 'conv'
+        debug_mode = self.config.DEBUG if hasattr(self.config, 'DEBUG') else False
         
+        # Import the MRI model directly here if you haven't added it to your imports
+        try:
+            from mri_logistic_regression import get_mri_logistic_regression_model
+            self.model = get_mri_logistic_regression_model(
+                model_type=model_type,
+                debug=debug_mode
+            )
+        except ImportError:
+            # Fallback to a simple model that can handle the data shape
+            log.warning("mri_logistic_regression module not found. Using a simple model instead.")
+            self.model = SimpleMRIModel(debug_mode)
+            
+        # Make sure the model is moved to the correct device
         if self.use_cuda:
             self.model = self.model.to(self.device)
             log.info(f"Using CUDA: {torch.cuda.get_device_name(0)}")
         else:
             log.info("Using CPU")
-    
-    def _setup_datasets(self):
-        # Prepare train/val split
-        train_df = self.input_df.loc[self.input_df['training'] == 1]
-        train_subjects = train_df['anonymized_subject_id'].tolist()
-        val_df = self.input_df.loc[self.input_df['validation'] == 1]
         
-        log.info(f"Train set: {len(train_df)} samples, Val set: {len(val_df)} samples")
+        # Verify the model has parameters
+        param_count = sum(p.numel() for p in self.model.parameters())
+        log.info(f"Model created with {param_count} parameters")
         
-        # Create datasets
-        self.train_dataset = LogisticRegressionDataset(
-            self.config.folder,
-            train_subjects, 
-            train_df, 
-            train_df.copy(),
-            is_val_set_bool=False
-        )
-        
-        val_subjects = val_df['anonymized_subject_id'].tolist()
-        self.val_dataset = LogisticRegressionDataset(
-            self.config.folder,
-            val_subjects, 
-            val_df, 
-            val_df.copy(),
-            is_val_set_bool=True
-        )
-        
-        # Calculate class weights if needed
-        if self.config.class_weights:
-            target_counts = train_df[self.config.target].value_counts()
-            total_samples = len(train_df)
-            
-            # Class weights are inversely proportional to class frequencies
-            self.class_weights = {
-                0: total_samples / (2 * (total_samples - target_counts.get(1, 0))),
-                1: total_samples / (2 * target_counts.get(1, 0)) if target_counts.get(1, 0) > 0 else 1.0
-            }
-            
-            log.info(f"Using class weights: {self.class_weights}")
-        else:
-            self.class_weights = None
-    
-    def _setup_dataloaders(self):
-        if self.config.use_train_validation_cols:
-            training_rows = self.input_df.loc[self.input_df['training'] == 1]
-            train_subjects = list(training_rows['anonymized_subject_id'])
-            validation_rows = self.input_df.loc[self.input_df['validation'] == 1]
-            val_subjects = list(validation_rows['anonymized_subject_id'])
-        else:
-            train_subjects, val_subjects = self.split_train_validation()
-
-        self.train_dl = self.data_handler.init_dl(self.folder, train_subjects)
-        self.val_dl = self.data_handler.init_dl(self.folder, val_subjects, is_val_set=True)
-
+        # If no parameters, this will cause optimizer to fail
+        if param_count == 0:
+            raise ValueError("Model has no parameters! Check model implementation.")
     
     def _setup_optimizer(self):
+        # Verify that the model has parameters before creating optimizer
+        if not any(p.requires_grad for p in self.model.parameters()):
+            log.error("No parameters in the model require gradients!")
+            # Add a dummy parameter to prevent optimizer error
+            self.model.dummy_param = nn.Parameter(torch.zeros(1, requires_grad=True))
+        
+        # Get list of parameters that require gradients
+        params = [p for p in self.model.parameters() if p.requires_grad]
+        
+        # Log parameter information
+        log.info(f"Setting up optimizer with {len(params)} parameter groups")
+        
         if self.config.optimizer.lower() == 'adam':
             self.optimizer = Adam(
-                self.model.parameters(), 
+                params,
                 lr=self.config.lr,
                 weight_decay=self.config.weight_decay
             )
         else:
             self.optimizer = SGD(
-                self.model.parameters(), 
+                params,
                 lr=self.config.lr, 
                 momentum=0.9,
                 weight_decay=self.config.weight_decay
             )
+        
+        log.info(f"Optimizer initialized: {type(self.optimizer).__name__}")
+
+    def _setup_datasets(self):
+        """
+        Prepare train/validation datasets by extracting subjects from the dataframes.
+        This method doesn't actually create the datasets but prepares the lists
+        of subjects that will be used in _setup_dataloaders.
+        """
+        log.info("Setting up datasets...")
+        
+        # Extract training and validation subjects
+        if self.config.use_train_validation_cols:
+            # Use existing training/validation flags from the DataFrame
+            training_rows = self.input_df[self.input_df['training'] == 1]
+            self.train_subjects = list(set(training_rows['anonymized_subject_id'].tolist()))
+            
+            validation_rows = self.input_df[self.input_df['validation'] == 1]
+            self.val_subjects = list(set(validation_rows['anonymized_subject_id'].tolist()))
+        else:
+            # Split based on config split ratio
+            self.train_subjects, self.val_subjects = self.split_train_validation()
+        
+        log.info(f"Train set: {len(self.train_subjects)} subjects")
+        log.info(f"Val set: {len(self.val_subjects)} subjects")
+
+    # If you're moving away from the dataset-oriented approach and using DataHandler directly,
+    # update your _setup_dataloaders method to match:
+
+    def _setup_dataloaders(self):
+        """
+        Create DataLoader objects for training and validation using the DataHandler.
+        """
+        log.info("Setting up dataloaders...")
+        
+        # Use DataHandler to create the data loaders
+        self.train_dl = self.data_handler.init_dl(self.folder, self.train_subjects)
+        self.val_dl = self.data_handler.init_dl(self.folder, self.val_subjects, is_val_set=True)
+        
+        log.info(f"Train dataloader: {len(self.train_dl)} batches")
+        log.info(f"Val dataloader: {len(self.val_dl)} batches")
+
+    def split_train_validation(self):
+        training_rows = self.input_df.loc[self.input_df['training'] == 1]
+        validation_rows = self.input_df.loc[self.input_df['validation'] == 1]
+        validation_users = list(set(validation_rows['anonymized_subject_id'].to_list()))
+        training_users = list(set(training_rows['anonymized_subject_id'].to_list()))
+        
+        return training_users, validation_users
     
     def _setup_scheduler(self):
+        """
+        Set up the learning rate scheduler based on the configuration.
+        This method should be called after the optimizer has been initialized.
+        """
+        log.info(f"Setting up {self.config.scheduler} scheduler...")
+        
         if self.config.scheduler == 'step':
-            self.scheduler = StepLR(self.optimizer, step_size=30, gamma=0.1)
+            self.scheduler = StepLR(
+                self.optimizer, 
+                step_size=30, 
+                gamma=0.1
+            )
+            log.info(f"Step scheduler with step_size=30, gamma=0.1")
+            
         elif self.config.scheduler == 'cosine':
-            self.scheduler = CosineAnnealingLR(self.optimizer, T_max=self.config.epochs, eta_min=0)
+            self.scheduler = CosineAnnealingLR(
+                self.optimizer, 
+                T_max=self.config.epochs, 
+                eta_min=0
+            )
+            log.info(f"Cosine scheduler with T_max={self.config.epochs}")
+            
         elif self.config.scheduler == 'onecycle':
+            # Calculate total steps based on dataloader length and epochs
+            total_steps = len(self.train_dl) * self.config.epochs
+            
             self.scheduler = OneCycleLR(
                 self.optimizer,
-                max_lr=self.config.lr * 10,
-                total_steps=len(self.train_dl) * self.config.epochs,
-                pct_start=0.3
+                max_lr=self.config.lr * 10,  # Max LR is 10x base LR
+                total_steps=total_steps,
+                pct_start=0.3  # Spend 30% of time in warmup
             )
-        else:  # 'plateau'
+            log.info(f"OneCycle scheduler with total_steps={total_steps}, pct_start=0.3")
+            
+        else:  # 'plateau' (default)
             self.scheduler = ReduceLROnPlateau(
                 self.optimizer, 
-                mode='min', 
-                factor=0.1, 
-                patience=10,
-                verbose=True
+                mode='min',  # Reduce LR when the validation loss stops decreasing
+                factor=0.1,  # Multiply LR by this factor
+                patience=10,  # Number of epochs with no improvement after which LR will be reduced
+                verbose=True  # Print message when LR is reduced
             )
-    
-    def train(self):
-        log.info("Starting training...")
+            log.info(f"ReduceLROnPlateau scheduler with factor=0.1, patience=10")
         
+        log.info(f"Scheduler initialized: {type(self.scheduler).__name__}")
+
+    def train(self):
+        """
+        Execute the training loop over multiple epochs.
+        This method handles training, validation, logging, and model checkpointing.
+        """
+        log.info("Starting training process...")
+        
+        # Initialize the trainer with model, optimizer, and device
         trainer = LogisticRegressionTrainer(
             self.model, 
             self.optimizer, 
             self.device, 
-            self.class_weights,
+            self.class_weights if hasattr(self, 'class_weights') else None,
             threshold=self.config.threshold
         )
         
+        # Track the best model
         best_val_loss = float('inf')
         best_val_acc = 0.0
         best_epoch = 0
         
+        # Train for the specified number of epochs
         for epoch in range(1, self.config.epochs + 1):
-            # Training
+            log.info(f"Epoch {epoch}/{self.config.epochs}")
+            
+            # Training phase
             trn_metrics = trainer.train_epoch(epoch, self.train_dl)
             trn_loss = trn_metrics[METRICS_LOSS_NDX].mean().item()
             
-            # Validation
+            # Validation phase
             val_metrics = trainer.validate_epoch(epoch, self.val_dl)
             val_loss = val_metrics[METRICS_LOSS_NDX].mean().item()
             
@@ -437,22 +571,24 @@ class LogisticRegressionApp:
                 val_metrics[METRICS_PRED_NDX].numpy()
             )
             
-            # Log metrics
+            # Log metrics to TensorBoard
             self.tb_logger.log_metrics('trn', epoch, trn_metrics, trainer.total_samples)
             self.tb_logger.log_metrics('val', epoch, val_metrics, trainer.total_samples)
             
-            # Step the scheduler based on validation loss
-            if self.config.scheduler != 'onecycle':
-                if self.config.scheduler == 'plateau':
-                    self.scheduler.step(val_loss)
-                else:
-                    self.scheduler.step()
+            # Update learning rate scheduler
+            if self.config.scheduler == 'plateau':
+                self.scheduler.step(val_loss)  # Pass validation loss to ReduceLROnPlateau
+            elif self.config.scheduler != 'onecycle':  # Step and Cosine schedulers step each epoch
+                self.scheduler.step()
+            # Note: OneCycleLR steps after each batch, not each epoch
             
-            # Track the best model
+            # Check if this is the best model so far
+            is_best = False
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
                 best_val_loss = val_loss
                 best_epoch = epoch
+                is_best = True
                 
                 # Save the best model
                 if self.config.model_save_location:
@@ -464,174 +600,77 @@ class LogisticRegressionApp:
                     f"Train Loss: {trn_loss:.4f}, "
                     f"Val Loss: {val_loss:.4f}, "
                     f"Val Accuracy: {val_acc:.4f}, "
-                    f"LR: {self.optimizer.param_groups[0]['lr']:.6f}")
+                    f"LR: {self.optimizer.param_groups[0]['lr']:.6f}"
+                    f"{' (BEST)' if is_best else ''}")
         
         log.info(f"Training completed. Best validation accuracy: {best_val_acc:.4f} (epoch {best_epoch})")
         
-        # Save final model if needed
+        # Save final model if no best model was saved during training
         if not self.config.model_save_location:
             final_model_path = f'./logistic_model_final-{self.time_str}.pt'
             self.save_model(final_model_path)
+            log.info(f"Final model saved to {final_model_path}")
         
-        # Generate predictions and plots
+        # Generate predictions and plots if output file is specified
         if self.config.csv_output_file:
             self.generate_predictions()
         
         # Close tensorboard logger
         self.tb_logger.close()
-    
+
     def save_model(self, path):
         """Save the trained model to disk"""
         os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
         torch.save(self.model.state_dict(), path)
         log.info(f"Model saved to {path}")
-    
-    def load_model(self, path):
-        """Load a trained model from disk"""
-        self.model.load_state_dict(torch.load(path, map_location=self.device))
-        log.info(f"Model loaded from {path}")
-    
-    def generate_predictions(self):
-        """Generate predictions for the entire dataset and save to CSV"""
-        log.info("Generating predictions...")
-        
-        # Ensure the model is in evaluation mode
-        self.model.eval()
-        
-        # Make a copy of the input dataframe
-        output_df = self.df.copy()
-        
-        # Create dataset for the entire data
-        full_dataset = LogisticRegressionDataset(
-            self.df,
-            self.config.features,
-            self.config.target,
-            normalize=self.config.normalize_features
-        )
-        
-        # Create dataloader
-        full_dl = DataLoader(
-            full_dataset,
-            batch_size=self.config.batch_size,
-            shuffle=False,
-            num_workers=self.config.num_workers,
-            pin_memory=self.use_cuda
-        )
-        
-        # Generate predictions
-        all_probs = []
-        all_preds = []
-        
-        with torch.no_grad():
-            for features, _ in full_dl:
-                features = features.to(self.device)
-                probs = self.model(features).squeeze(dim=-1).cpu().numpy()
-                preds = (probs >= self.config.threshold).astype(int)
-                
-                all_probs.extend(probs)
-                all_preds.extend(preds)
-        
-        # Add predictions to output dataframe
-        output_df['probability'] = all_probs
-        output_df['prediction'] = all_preds
-        
-        # Create output directory if needed
-        os.makedirs(os.path.dirname(self.config.csv_output_file) or '.', exist_ok=True)
-        
-        # Save to CSV
-        output_df.to_csv(self.config.csv_output_file, index=False)
-        log.info(f"Predictions saved to {self.config.csv_output_file}")
-        
-        # Generate evaluation metrics
-        y_true = output_df[self.config.target].values
-        y_pred = output_df['prediction'].values
-        y_prob = output_df['probability'].values
-        
-        # Calculate and log metrics
-        accuracy = accuracy_score(y_true, y_pred)
-        precision = precision_score(y_true, y_pred, zero_division=0)
-        recall = recall_score(y_true, y_pred, zero_division=0)
-        f1 = f1_score(y_true, y_pred, zero_division=0)
-        
-        log.info(f"Final metrics on full dataset:")
-        log.info(f"  Accuracy:  {accuracy:.4f}")
-        log.info(f"  Precision: {precision:.4f}")
-        log.info(f"  Recall:    {recall:.4f}")
-        log.info(f"  F1 Score:  {f1:.4f}")
-        
-        # Only compute AUC if we have both classes
-        if len(np.unique(y_true)) > 1:
-            auc = roc_auc_score(y_true, y_prob)
-            log.info(f"  AUC:       {auc:.4f}")
-        
-        # Create confusion matrix
-        conf_matrix = confusion_matrix(y_true, y_pred)
-        log.info(f"Confusion Matrix:\n{conf_matrix}")
-        
-        # Create ROC curve plot if plot location is specified
-        if self.config.plot_location:
-            self.create_plots(y_true, y_pred, y_prob)
-    
-    def create_plots(self, y_true, y_pred, y_prob):
-        """Create and save evaluation plots"""
-        # Create figure with subplots
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
-        
-        # Confusion Matrix
-        cm = confusion_matrix(y_true, y_pred)
-        im = ax1.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
-        ax1.set_title('Confusion Matrix')
-        
-        # Add labels to confusion matrix
-        classes = ['Negative (0)', 'Positive (1)']
-        tick_marks = np.arange(len(classes))
-        ax1.set_xticks(tick_marks)
-        ax1.set_yticks(tick_marks)
-        ax1.set_xticklabels(classes)
-        ax1.set_yticklabels(classes)
-        
-        # Add text annotations
-        thresh = cm.max() / 2
-        for i in range(cm.shape[0]):
-            for j in range(cm.shape[1]):
-                ax1.text(j, i, format(cm[i, j], 'd'),
-                        ha="center", va="center",
-                        color="white" if cm[i, j] > thresh else "black")
-        
-        # Add axis labels
-        ax1.set_ylabel('True Label')
-        ax1.set_xlabel('Predicted Label')
-        
-        # Add colorbar
-        plt.colorbar(im, ax=ax1)
-        
-        # Only create ROC curve if we have both classes
-        if len(np.unique(y_true)) > 1:
-            from sklearn.metrics import roc_curve, auc
-            fpr, tpr, _ = roc_curve(y_true, y_prob)
-            roc_auc = auc(fpr, tpr)
+
+    # Fallback simple model in case mri_logistic_regression.py isn't available
+    class SimpleMRIModel(nn.Module):
+        def __init__(self, debug=False):
+            super(SimpleMRIModel, self).__init__()
+            self.debug = debug
+            self.initialized = False
             
-            ax2.plot(fpr, tpr, color='darkorange', lw=2, 
-                    label=f'ROC curve (area = {roc_auc:.2f})')
-            ax2.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-            ax2.set_xlim([0.0, 1.0])
-            ax2.set_ylim([0.0, 1.05])
-            ax2.set_xlabel('False Positive Rate')
-            ax2.set_ylabel('True Positive Rate')
-            ax2.set_title('Receiver Operating Characteristic')
-            ax2.legend(loc="lower right")
-        else:
-            ax2.text(0.5, 0.5, 'ROC curve cannot be created\n(only one class present)',
-                    ha='center', va='center', fontsize=12)
-            ax2.set_title('ROC Curve (Unavailable)')
-        
-        # Save the figure
-        plt.tight_layout()
-        os.makedirs(os.path.dirname(self.config.plot_location) or '.', exist_ok=True)
-        plt.savefig(self.config.plot_location, dpi=300, bbox_inches='tight')
-        log.info(f"Plots saved to {self.config.plot_location}")
-        plt.close()
-    
+        def _initialize(self, input_size):
+            # Create a simple feature extractor
+            self.feature_extractor = nn.Sequential(
+                nn.Linear(input_size, 512),
+                nn.ReLU(),
+                nn.Linear(512, 128),
+                nn.ReLU(),
+                nn.Linear(128, 32),
+                nn.ReLU()
+            )
+            self.classifier = nn.Linear(32, 1)
+            self.initialized = True
+            
+        def forward(self, x):
+            if self.debug:
+                print(f"Input shape: {x.shape}")
+            
+            # Reshape input to 2D (batch_size, features)
+            batch_size = x.size(0)
+            x_flat = x.view(batch_size, -1)
+            
+            if self.debug:
+                print(f"Flattened shape: {x_flat.shape}")
+            
+            # Initialize on first forward pass
+            if not self.initialized:
+                self._initialize(x_flat.size(1))
+                if self.debug:
+                    print(f"Model initialized with input size: {x_flat.size(1)}")
+            
+            # Apply feature extraction
+            features = self.feature_extractor(x_flat)
+            
+            if self.debug:
+                print(f"Features shape: {features.shape}")
+            
+            # Apply final classification
+            logits = self.classifier(features)
+            
+            return torch.sigmoid(logits)    
 
 def main():
     log_reg_app = LogisticRegressionApp()
