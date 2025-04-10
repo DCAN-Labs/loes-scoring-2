@@ -569,8 +569,7 @@ class LogisticRegressionApp:
                 self.optimizer, 
                 mode='min',  # Reduce LR when the validation loss stops decreasing
                 factor=0.1,  # Multiply LR by this factor
-                patience=10,  # Number of epochs with no improvement after which LR will be reduced
-                verbose=True  # Print message when LR is reduced
+                patience=10
             )
             log.info(f"ReduceLROnPlateau scheduler with factor=0.1, patience=10")
         
