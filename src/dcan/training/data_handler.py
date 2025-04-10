@@ -2,6 +2,7 @@
 import torch
 from dcan.data_sets.dsets import LoesScoreDataset
 from torch.utils.data import DataLoader
+from torchio.data import SubjectsLoader
 
 
 class DataHandler:
@@ -18,4 +19,12 @@ class DataHandler:
         if self.use_cuda:
             batch_size *= torch.cuda.device_count()
 
-        return DataLoader(dataset, batch_size=batch_size, num_workers=self.num_workers, pin_memory=self.use_cuda)
+        # Replace DataLoader with SubjectsLoader
+        return SubjectsLoader(
+            dataset,
+            batch_size=batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.use_cuda,
+            shuffle=not is_val_set  # Shuffle training but not validation
+        )
+    

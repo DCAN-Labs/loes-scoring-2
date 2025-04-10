@@ -21,7 +21,7 @@ from tqdm import tqdm
 
 from dcan.data_sets.dsets import CandidateInfoTuple, LoesScoreDataset
 import torch
-from torch.utils.data import DataLoader
+from dcan.training.augmented_loes_score_dataset import AugmentedLoesScoreDataset
 from mri_logistic_regression import get_mri_logistic_regression_model
 
 
@@ -43,9 +43,19 @@ class DataHandler:
         self.use_cuda = use_cuda
         self.batch_size = batch_size
         self.num_workers = num_workers
-
+    
     def init_dl(self, folder, subjects, is_val_set: bool = False):
-        dataset = LoesScoreDataset(folder, subjects, self.df, self.output_df, is_val_set_bool=is_val_set)
+        # Use augmented dataset for training
+        if not is_val_set and hasattr(self, 'augment_minority') and self.augment_minority:
+            dataset = AugmentedLoesScoreDataset(
+                folder, subjects, self.df, self.output_df, 
+                is_val_set_bool=is_val_set,
+                augment_minority=True, 
+                num_augmentations=3
+            )
+        else:
+            dataset = LoesScoreDataset(folder, subjects, self.df, self.output_df, is_val_set_bool=is_val_set)
+        
         batch_size = self.batch_size
         if self.use_cuda:
             batch_size *= torch.cuda.device_count()
@@ -118,7 +128,10 @@ class Config:
             default='conv', 
             choices=['conv', 'simple'],
             help='Type of MRI logistic regression model to use')
-
+        self.parser.add_argument('--augment-minority', action='store_true', 
+                        help='Apply data augmentation to minority class')
+        self.parser.add_argument('--num-augmentations', type=int, default=3,
+                                help='Number of augmentations per minority class sample')
         
         # Output and tracking
         self.parser.add_argument('--tb-prefix', default='logistic_regression', help="Tensorboard data prefix")
@@ -405,6 +418,32 @@ class LogisticRegressionApp:
         
         # 2. Then initialize the data handler and datasets
         self.data_handler = DataHandler(self.input_df, self.output_df, self.use_cuda, self.config.batch_size, self.config.num_workers)
+        self.data_handler = DataHandler(
+            self.input_df, self.output_df, self.use_cuda, 
+            self.config.batch_size, self.config.num_workers
+        )
+        self.data_handler.augment_minority = self.config.augment_minority
+
+        # Load the data
+        log.info(f"Loading data from {self.config.csv_input_file}")
+        self.input_df = pd.read_csv(self.config.csv_input_file)
+        self.output_df = self.input_df.copy()
+        self.output_df["prediction"] = np.nan
+
+        if hasattr(self.config, 'gd') and self.config.gd:
+            self.input_df = self.input_df[~self.input_df['scan'].str.contains('Gd')]
+
+        # Print data summary
+        log.info(f"Dataset shape: {self.input_df.shape}")
+        log.info(f"Features: {self.config.features}")
+        log.info(f"Target: {self.config.target}")
+        
+        # Setup augmentation (add this line)
+        self._setup_augmentation()
+        
+        # Setup model, datasets, and training components
+        self.folder = self.config.folder
+
         self._setup_datasets()
         self._setup_dataloaders()
         
@@ -574,6 +613,23 @@ class LogisticRegressionApp:
             log.info(f"ReduceLROnPlateau scheduler with factor=0.1, patience=10")
         
         log.info(f"Scheduler initialized: {type(self.scheduler).__name__}")
+
+    def _setup_augmentation(self):
+        """Identify minority class samples for augmentation"""
+        log.info("Setting up augmentation for minority class...")
+        
+        # Get all samples
+        all_subjects = set(self.input_df['anonymized_subject_id'].tolist())
+        
+        # Identify subjects without ALD (minority class)
+        self.non_ald_subjects = []
+        for subject in all_subjects:
+            subject_rows = self.input_df[self.input_df['anonymized_subject_id'] == subject]
+            max_loes = subject_rows['loes-score'].max()
+            if max_loes <= self.config.threshold:
+                self.non_ald_subjects.append(subject)
+        
+        log.info(f"Found {len(self.non_ald_subjects)} subjects in minority class (non-ALD)")
 
     def run_cross_validation(self, k=5):
         """
