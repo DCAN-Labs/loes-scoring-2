@@ -214,12 +214,7 @@ class LogisticRegressionTrainer:
         self.threshold = threshold
         
         # Set up loss function
-        if class_weights is not None:
-            # Convert weights to tensor and move to device
-            weight_tensor = torch.tensor([class_weights[0], class_weights[1]], dtype=torch.float32).to(device)
-            self.loss_fn = nn.BCELoss(weight=weight_tensor, reduction='none')
-        else:
-            self.loss_fn = nn.BCELoss(reduction='none')
+        self.loss_fn = nn.BCELoss(reduction='none')
     
     def train_epoch(self, epoch, train_dl):
         self.model.train()
@@ -253,9 +248,8 @@ class LogisticRegressionTrainer:
     def _compute_batch_loss(self, batch_ndx, batch_tup, batch_size, metrics_g):
         log.debug(f'batch_tup: {batch_tup}')
         log.debug(f'type(batch_tup): {type(batch_tup)}')
-        input_t, label_t, _, _ = batch_tup
-        label = [1.0 if l_t.item() > 0 + self.threshold else 0.0 for l_t in label_t]
-        label_t = torch.tensor(label, dtype=torch.float32)
+        input_t, _, has_ald_t, _, _ = batch_tup
+        label_t = torch.tensor(has_ald_t, dtype=torch.float32)
         input_g = input_t.to(self.device, non_blocking=True)
         label_g = label_t.to(self.device, non_blocking=True)
         log.debug(f'input_g: {input_g}')
@@ -280,6 +274,26 @@ class LogisticRegressionTrainer:
         metrics_g[METRICS_PRED_NDX, start_ndx:end_ndx] = pred_g.detach()
         metrics_g[METRICS_PROB_NDX, start_ndx:end_ndx] = prob_g.detach()
         metrics_g[METRICS_LOSS_NDX, start_ndx:end_ndx] = loss_g.detach()
+
+        # Calculate batch-specific weights
+        batch_pos = (label_g > 0.5).sum().item()
+        batch_neg = label_g.size(0) - batch_pos
+        
+        if batch_neg > 0:
+            pos_weight = 1.0
+            # Adjust weight based on batch composition, with a cap
+            neg_weight = min(batch_pos / batch_neg * 3.0, 10.0)
+        else:
+            pos_weight = 1.0
+            neg_weight = 5.0  # Default if no negatives in batch
+        
+        # Apply weights to individual samples
+        sample_weights = torch.ones_like(label_g)
+        sample_weights[label_g < 0.5] = neg_weight
+        
+        # Apply weighted loss
+        loss_g = self.loss_fn(prob_g, label_g) * sample_weights
+        loss_mean = loss_g.mean()
         
         return loss_mean
 
@@ -330,6 +344,7 @@ class TensorBoardLogger:
 class LogisticRegressionApp:
     def __init__(self, sys_argv=None):
         self.config = Config().parse_args(sys_argv)
+        self.class_weights = self.config.class_weights
         if not self.config.DEBUG:
             self.use_cuda = torch.cuda.is_available()
             self.device = torch.device("cuda" if self.use_cuda else "cpu")
@@ -534,6 +549,225 @@ class LogisticRegressionApp:
             log.info(f"ReduceLROnPlateau scheduler with factor=0.1, patience=10")
         
         log.info(f"Scheduler initialized: {type(self.scheduler).__name__}")
+
+    def run_cross_validation(self, k=5):
+        """
+        Run k-fold cross-validation on the dataset.
+        
+        Args:
+            k (int): Number of folds for cross-validation
+        """
+        log.info(f"Starting {k}-fold cross-validation")
+        
+        # Get all unique subjects
+        all_subjects = list(set(self.input_df['anonymized_subject_id'].tolist()))
+        
+        # Stratify subjects based on whether they have ALD
+        subjects_with_ald = []
+        subjects_without_ald = []
+        
+        for subject in all_subjects:
+            subject_rows = self.input_df[self.input_df['anonymized_subject_id'] == subject]
+            max_loes = subject_rows['loes-score'].max()
+            if max_loes > self.config.threshold:
+                subjects_with_ald.append(subject)
+            else:
+                subjects_without_ald.append(subject)
+        
+        log.info(f"Total subjects: {len(all_subjects)} ({len(subjects_with_ald)} with ALD, {len(subjects_without_ald)} without ALD)")
+        
+        # Create stratified folds
+        random.shuffle(subjects_with_ald)
+        random.shuffle(subjects_without_ald)
+        
+        ald_folds = self._create_folds(subjects_with_ald, k)
+        no_ald_folds = self._create_folds(subjects_without_ald, k)
+    
+        # Metrics to track across folds
+        fold_metrics = {
+            'accuracy': [],
+            'precision': [],
+            'recall': [],
+            'f1': [],
+            'auc': [],
+            'sensitivity': [],
+            'specificity': []
+        }
+        
+        # Save path for the best model across all folds
+        best_model_path = self.config.model_save_location
+        best_val_f1 = 0.0
+        
+        # Run training for each fold
+        for fold in range(k):
+            log.info(f"\n{'='*40}")
+            log.info(f"FOLD {fold+1}/{k}")
+            log.info(f"{'='*40}")
+            
+            # Create train/validation split for this fold
+            val_subjects_ald = ald_folds[fold]
+            val_subjects_no_ald = no_ald_folds[fold]
+            
+            train_subjects_ald = [s for i, fold_subjects in enumerate(ald_folds) for s in fold_subjects if i != fold]
+            train_subjects_no_ald = [s for i, fold_subjects in enumerate(no_ald_folds) for s in fold_subjects if i != fold]
+            
+            self.train_subjects = train_subjects_ald + train_subjects_no_ald
+            self.val_subjects = val_subjects_ald + val_subjects_no_ald
+        
+            log.info(f"Train set: {len(self.train_subjects)} subjects ({len(train_subjects_ald)} with ALD, {len(train_subjects_no_ald)} without ALD)")
+            log.info(f"Val set: {len(self.val_subjects)} subjects ({len(val_subjects_ald)} with ALD, {len(val_subjects_no_ald)} without ALD)")
+            
+            # Initialize dataloaders
+            self._setup_dataloaders()
+            
+            # Initialize a new model for this fold
+            self._setup_model()
+            self._setup_optimizer()
+            self._setup_scheduler()
+            
+            # Train model for this fold
+            fold_results = self._train_fold(fold)
+            
+            # Track metrics
+            for metric in fold_metrics:
+                if metric in fold_results:
+                    fold_metrics[metric].append(fold_results[metric])
+            
+            # Save best model across folds
+            if fold_results.get('f1', 0) > best_val_f1:
+                best_val_f1 = fold_results.get('f1', 0)
+                fold_model_path = f"{os.path.splitext(best_model_path)[0]}_fold{fold+1}.pt"
+                self.save_model(fold_model_path)
+                log.info(f"New best model saved to {fold_model_path}")
+        
+        # Print cross-validation summary
+        log.info("\n" + "="*80)
+        log.info("CROSS-VALIDATION RESULTS")
+        log.info("="*80)
+    
+        for metric, values in fold_metrics.items():
+            if values:
+                mean_value = np.mean(values)
+                std_value = np.std(values)
+                log.info(f"{metric.capitalize()}: {mean_value:.4f} ± {std_value:.4f}")
+        
+        log.info("="*80)
+
+    def _create_folds(self, subjects, k):
+        """
+        Split list of subjects into k approximately equal folds.
+        
+        Args:
+            subjects (list): List of subject IDs
+            k (int): Number of folds
+            
+        Returns:
+            list: List of k lists, each containing subjects for one fold
+        """
+        folds = [[] for _ in range(k)]
+        for i, subject in enumerate(subjects):
+            folds[i % k].append(subject)
+        return folds
+
+    def _train_fold(self, fold_idx):
+        """
+        Train and evaluate model for a single fold.
+        
+        Args:
+            fold_idx (int): Index of the current fold
+            
+        Returns:
+            dict: Dictionary of validation metrics for this fold
+        """
+        # Initialize the trainer
+        trainer = LogisticRegressionTrainer(
+            self.model, 
+            self.optimizer, 
+            self.device, 
+            self.class_weights if hasattr(self, 'class_weights') else None,
+            threshold=self.config.threshold
+        )
+    
+        # Track best model
+        best_val_f1 = 0.0
+        best_epoch = 0
+        fold_metrics = {}
+        
+        # Train for specified number of epochs
+        for epoch in range(1, self.config.epochs + 1):
+            log.info(f"Fold {fold_idx+1} - Epoch {epoch}/{self.config.epochs}")
+            
+            # Training phase
+            trn_metrics = trainer.train_epoch(epoch, self.train_dl)
+            trn_loss = trn_metrics[METRICS_LOSS_NDX].mean().item()
+            
+            # Validation phase
+            val_metrics = trainer.validate_epoch(epoch, self.val_dl)
+            val_loss = val_metrics[METRICS_LOSS_NDX].mean().item()
+            
+            # Calculate metrics
+            y_true = val_metrics[METRICS_LABEL_NDX].numpy()
+            y_pred = val_metrics[METRICS_PRED_NDX].numpy()
+            y_prob = val_metrics[METRICS_PROB_NDX].numpy()
+            
+            try:
+                # Calculate classification metrics
+                accuracy = accuracy_score(y_true, y_pred)
+                precision = precision_score(y_true, y_pred, zero_division=0)
+                recall = sensitivity = recall_score(y_true, y_pred, zero_division=0)
+                f1 = f1_score(y_true, y_pred, zero_division=0)
+            
+                # Compute AUC if we have both classes
+                auc = 0.5
+                if len(np.unique(y_true)) > 1:
+                    auc = roc_auc_score(y_true, y_prob)
+                
+                # Compute confusion matrix
+                cm = confusion_matrix(y_true, y_pred)
+                
+                # Calculate specificity
+                specificity = 0.0
+                if cm.shape == (2, 2) and cm[0][0] + cm[0][1] > 0:
+                    specificity = cm[0][0] / (cm[0][0] + cm[0][1])
+                
+                # Update learning rate scheduler
+                if self.config.scheduler == 'plateau':
+                    self.scheduler.step(val_loss)
+                elif self.config.scheduler != 'onecycle':
+                    self.scheduler.step()
+                
+                # Track best F1 score
+                if f1 > best_val_f1:
+                    best_val_f1 = f1
+                    best_epoch = epoch
+                    
+                    # Save metrics for best epoch
+                    fold_metrics = {
+                        'accuracy': accuracy,
+                        'precision': precision,
+                        'recall': recall,
+                        'f1': f1,
+                        'auc': auc,
+                        'sensitivity': sensitivity,
+                        'specificity': specificity,
+                        'loss': val_loss
+                    }
+                    
+                    # Log best model info
+                    log.info(f"New best F1: {f1:.4f} (accuracy: {accuracy:.4f}, AUC: {auc:.4f})")
+                
+                # Log epoch summary
+                log.info(f"Fold {fold_idx+1} - Epoch {epoch} - "
+                        f"Loss: {val_loss:.4f}, "
+                        f"Accuracy: {accuracy:.4f}, "
+                        f"F1: {f1:.4f}, "
+                        f"LR: {self.optimizer.param_groups[0]['lr']:.6f}")
+                
+            except Exception as e:
+                log.error(f"Error computing metrics: {e}")
+        
+        log.info(f"Fold {fold_idx+1} completed. Best F1: {best_val_f1:.4f} (epoch {best_epoch})")
+        return fold_metrics
 
     def generate_summary_statistics(self):
         """
@@ -791,8 +1025,9 @@ class LogisticRegressionApp:
 
 def main():
     log_reg_app = LogisticRegressionApp()
-    log_reg_app.train()
-
+    
+    # Use cross-validation instead of single train/validation
+    log_reg_app.run_cross_validation(k=5)  # 5-fold cross-validation
 
 if __name__ == "__main__":
     main()
