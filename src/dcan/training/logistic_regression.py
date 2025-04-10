@@ -248,12 +248,39 @@ class LogisticRegressionTrainer:
     def _compute_batch_loss(self, batch_ndx, batch_tup, batch_size, metrics_g):
         log.debug(f'batch_tup: {batch_tup}')
         log.debug(f'type(batch_tup): {type(batch_tup)}')
-        input_t, _, has_ald_t, _, _ = batch_tup
-        label_t = torch.tensor(has_ald_t, dtype=torch.float32)
+        
+        # Check the structure of batch_tup
+        if len(batch_tup) == 4:
+            # Format: (input_t, label_t, subject_str, session_str)
+            input_t, label_t, _, _ = batch_tup
+            # Ensure it's a float
+            label_t = label_t.float()
+        elif len(batch_tup) == 5:
+            # Format: (input_t, _, has_ald_t, subject_str, session_str)
+            input_t, _, has_ald_t, _, _ = batch_tup
+            # Use has_ald_t as our label
+            label_t = has_ald_t.float()
+        else:
+            # Unknown format, try to handle gracefully
+            log.error(f"Unexpected batch tuple format: {[type(x) for x in batch_tup]}")
+            input_t = batch_tup[0]
+            # Try to find a tensor that could be the label
+            label_t = None
+            for item in batch_tup[1:]:
+                if isinstance(item, torch.Tensor) and item.dtype != torch.float32:
+                    label_t = item.float()
+                    break
+            if label_t is None:
+                # Fallback to the second item and hope for the best
+                label_t = batch_tup[1].float() if len(batch_tup) > 1 else torch.zeros_like(input_t[:, 0, 0, 0])
+        
+        # Make sure label_t is float32
+        label_t = label_t.to(torch.float32)
+        
         input_g = input_t.to(self.device, non_blocking=True)
         label_g = label_t.to(self.device, non_blocking=True)
-        log.debug(f'input_g: {input_g}')
-        log.debug(f'label_g: {label_g}')
+        log.debug(f'input_g: {input_g.shape}, {input_g.dtype}')
+        log.debug(f'label_g: {label_g.shape}, {label_g.dtype}')
         
         prob_g = self.model(input_g)
         prob_g = prob_g.squeeze(dim=-1)  # [batch_size]
@@ -264,17 +291,7 @@ class LogisticRegressionTrainer:
         
         # Compute loss
         loss_g = self.loss_fn(prob_g, label_g)
-        loss_mean = loss_g.mean()
         
-        # Store metrics
-        start_ndx = batch_ndx * batch_size
-        end_ndx = start_ndx + label_t.size(0)
-        
-        metrics_g[METRICS_LABEL_NDX, start_ndx:end_ndx] = label_g.detach()
-        metrics_g[METRICS_PRED_NDX, start_ndx:end_ndx] = pred_g.detach()
-        metrics_g[METRICS_PROB_NDX, start_ndx:end_ndx] = prob_g.detach()
-        metrics_g[METRICS_LOSS_NDX, start_ndx:end_ndx] = loss_g.detach()
-
         # Calculate batch-specific weights
         batch_pos = (label_g > 0.5).sum().item()
         batch_neg = label_g.size(0) - batch_pos
@@ -294,6 +311,15 @@ class LogisticRegressionTrainer:
         # Apply weighted loss
         loss_g = self.loss_fn(prob_g, label_g) * sample_weights
         loss_mean = loss_g.mean()
+        
+        # Store metrics
+        start_ndx = batch_ndx * batch_size
+        end_ndx = start_ndx + label_g.size(0)
+        
+        metrics_g[METRICS_LABEL_NDX, start_ndx:end_ndx] = label_g.detach()
+        metrics_g[METRICS_PRED_NDX, start_ndx:end_ndx] = pred_g.detach()
+        metrics_g[METRICS_PROB_NDX, start_ndx:end_ndx] = prob_g.detach()
+        metrics_g[METRICS_LOSS_NDX, start_ndx:end_ndx] = loss_g.detach()
         
         return loss_mean
 
