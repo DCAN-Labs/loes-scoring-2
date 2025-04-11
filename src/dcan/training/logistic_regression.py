@@ -126,8 +126,9 @@ class Config:
         self.parser.add_argument(
             '--model-type', 
             default='conv', 
-            choices=['conv', 'simple'],
-            help='Type of MRI logistic regression model to use')
+            choices=['conv', 'simple', 'resnet3d', 'dense3d'],
+            help='Type of MRI model to use'
+        )
         self.parser.add_argument('--augment-minority', action='store_true', 
                         help='Apply data augmentation to minority class')
         self.parser.add_argument('--num-augmentations', type=int, default=3,
@@ -456,42 +457,45 @@ class LogisticRegressionApp:
         self.time_str = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
         self.tb_logger = TensorBoardLogger(self.config.tb_prefix, self.time_str, self.config.comment)
     
-    def _setup_model(self):
-        """Setup the logistic regression model for MRI data"""
-        # Use the MRI-specific model
-        model_type = self.config.model_type if hasattr(self.config, 'model_type') else 'conv'
-        debug_mode = self.config.DEBUG if hasattr(self.config, 'DEBUG') else False
         
-        # Create the model
+    def _setup_model(self):
+        model_type = self.config.model_type
+        debug_mode = self.config.DEBUG
+        
+        log.info(f"Setting up {model_type} model")
+        
         try:
-            self.model = get_mri_logistic_regression_model(
-                model_type=model_type,
-                debug=debug_mode
-            )
-            
-            # If using the simple model, initialize it with a dummy input
-            if model_type.lower() == 'simple':
-                log.info("Initializing simple model with dummy input")
-                # Create a dummy input tensor - adjust the size as needed
+            if model_type in ['resnet3d', 'dense3d']:
+                from dcan.models.advanced_mri_models import get_advanced_mri_model
+                self.model = get_advanced_mri_model(model_type=model_type, debug=debug_mode)
+                
+                # Set to eval mode for initialization to avoid batch norm issues
+                self.model.eval()
+                
+                # Initialize with a dummy input
                 dummy_input = torch.zeros((1, 1, 16, 16, 16))
                 with torch.no_grad():
-                    _ = self.model(dummy_input)  # This triggers parameter initialization
+                    _ = self.model(dummy_input)
+                    
+                # Set back to train mode after initialization
+                self.model.train()
+            else:
+                # Original model implementation
+                self.model = get_mri_logistic_regression_model(
+                    model_type=model_type,
+                    debug=debug_mode
+                )
                 
-        except ImportError:
-            log.warning("mri_logistic_regression module not found. Using fallback model.")
-            self.model = SimpleMRIModel(debug_mode)
-            # Also initialize this model if needed
-            dummy_input = torch.zeros((1, 1, 16, 16, 16))
-            with torch.no_grad():
-                _ = self.model(dummy_input)
-                
-        # Verify the model has parameters
-        param_count = sum(p.numel() for p in self.model.parameters())
-        log.info(f"Model created with {param_count} parameters")
-        
-        if param_count == 0:
-            raise ValueError("Model has no parameters! Check model implementation.")
-        
+                if model_type == 'simple':
+                    # Initialize with a dummy input
+                    dummy_input = torch.zeros((1, 1, 16, 16, 16))
+                    with torch.no_grad():
+                        _ = self.model(dummy_input)
+                        
+        except Exception as e:
+            log.error(f"Error creating model: {e}")
+            raise
+
     def _setup_optimizer(self):
         # Verify that the model has parameters before creating optimizer
         if not any(p.requires_grad for p in self.model.parameters()):
@@ -1060,49 +1064,49 @@ class LogisticRegressionApp:
         torch.save(self.model.state_dict(), path)
         log.info(f"Model saved to {path}")
 
-    # Fallback simple model in case mri_logistic_regression.py isn't available
-    class SimpleMRIModel(nn.Module):
-        def __init__(self, debug=False):
-            super(SimpleMRIModel, self).__init__()
-            self.debug = debug
-            self.initialized = False
-            
-        def _initialize(self, input_size):
-            # Create a simple feature extractor
-            self.feature_extractor = nn.Sequential(
-                nn.Linear(input_size, 512),
-                nn.ReLU(),
-                nn.Linear(512, 128),
-                nn.ReLU(),
-                nn.Linear(128, 32),
-                nn.ReLU()
-            )
-            self.classifier = nn.Linear(32, 1)
-            self.initialized = True
-            
-        def forward(self, x):
-            log.debug(f"Input shape: {x.shape}")
-            
-            # Reshape input to 2D (batch_size, features)
-            batch_size = x.size(0)
-            x_flat = x.view(batch_size, -1)
-            
-            log.debug(f"Flattened shape: {x_flat.shape}")
-            
-            # Initialize on first forward pass
-            if not self.initialized:
-                self._initialize(x_flat.size(1))
-                log.debug(f"Model initialized with input size: {x_flat.size(1)}")
-            
-            # Apply feature extraction
-            features = self.feature_extractor(x_flat)
-            
-            log.debug(f"Features shape: {features.shape}")
-            
-            # Apply final classification
-            logits = self.classifier(features)
-            
-            return torch.sigmoid(logits)    
+# Fallback simple model in case mri_logistic_regression.py isn't available
+class SimpleMRIModel(nn.Module):
+    def __init__(self, debug=False):
+        super(SimpleMRIModel, self).__init__()
+        self.debug = debug
+        self.initialized = False
+        
+    def _initialize(self, input_size):
+        # Create a simple feature extractor
+        self.feature_extractor = nn.Sequential(
+            nn.Linear(input_size, 512),
+            nn.ReLU(),
+            nn.Linear(512, 128),
+            nn.ReLU(),
+            nn.Linear(128, 32),
+            nn.ReLU()
+        )
+        self.classifier = nn.Linear(32, 1)
+        self.initialized = True
+        
+    def forward(self, x):
+        log.debug(f"Input shape: {x.shape}")
+        
+        # Reshape input to 2D (batch_size, features)
+        batch_size = x.size(0)
+        x_flat = x.view(batch_size, -1)
+        
+        log.debug(f"Flattened shape: {x_flat.shape}")
+        
+        # Initialize on first forward pass
+        if not self.initialized:
+            self._initialize(x_flat.size(1))
+            log.debug(f"Model initialized with input size: {x_flat.size(1)}")
+        
+        # Apply feature extraction
+        features = self.feature_extractor(x_flat)
+        
+        log.debug(f"Features shape: {features.shape}")
+        
+        # Apply final classification
+        logits = self.classifier(features)
+        
+        return torch.sigmoid(logits)    
 
 def main():
     log_reg_app = LogisticRegressionApp()

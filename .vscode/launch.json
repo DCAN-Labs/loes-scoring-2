@@ -30,19 +30,18 @@
             "args": [
                 "--csv-input-file", "data/logistic_regression_data.csv",
                 "--csv-output-file", "predictions.csv",
-                "--batch-size", "64", 
+                "--batch-size", "4", 
                 "--epochs", "3", 
                 "--features", "scan",
-                "--target", "loes-score",
-                "--normalize-features", 
-                "--class-weights",
+                "--target", "has_ald",
                 "--DEBUG",
                 "--folder", "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/",
                 "--use_train_validation_cols",
-                "--model-type", "conv",
-                "--augment-minority",
-                "--threshold", "0.2",
-                "--lr", "0.0001"
+                "--model-type", "resnet3d", 
+                "--lr", "0.0005", 
+                "--weight-decay", "0.001",
+                "--threshold", "0.3", 
+                "--augment-minority"
             ],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         },
