@@ -40,7 +40,9 @@
                 "--folder", "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/",
                 "--use_train_validation_cols",
                 "--model-type", "conv",
-                "--augment-minority"
+                "--augment-minority",
+                "--threshold", "0.2",
+                "--lr", "0.0001"
             ],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         },
