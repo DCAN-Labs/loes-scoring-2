@@ -31,7 +31,7 @@
                 "--csv-input-file", "data/logistic_regression_data.csv",
                 "--csv-output-file", "predictions.csv",
                 "--batch-size", "4", 
-                "--epochs", "3", 
+                "--epochs", "10", 
                 "--features", "scan",
                 "--target", "has_ald",
                 "--DEBUG",
