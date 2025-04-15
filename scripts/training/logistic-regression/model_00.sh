@@ -26,4 +26,5 @@ export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src:/use
     --lr "0.0005" \
     --weight-decay "0.001" \
     --threshold "0.3" \
-    --augment-minority
+    --augment-minority \
+    --num-augmentations 18
