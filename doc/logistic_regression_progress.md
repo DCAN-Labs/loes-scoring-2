@@ -70,3 +70,115 @@ These results represent meaningful progress, especially the non-zero specificity
     Sensitivity: 0.9625 ± 0.0750
     Specificity: 0.1467 ± 0.2933
     ================================================================================
+
+## Run 2025-04-15 16:56:55
+
+Let's compare these results with your previous runs:
+
+### Comparison Across Different Configurations
+
+**Metric** | **Threshold 0.3, Aug=3** | **Threshold 0.55, Aug=3** | **Threshold 0.6, Aug=10** | **Trend**
+-----------|--------------------------|---------------------------|---------------------------|----------
+Accuracy   | 73.60% ± 5.62%          | 72.72% ± 3.92%           | 73.76% ± 7.88%            | Slight improvement
+Precision  | 75.19% ± 7.61%          | 73.83% ± 4.16%           | 74.90% ± 9.64%            | Returned to original levels
+Recall     | 96.25% ± 7.50%          | 95.66% ± 7.37%           | 97.73% ± 4.55%            | Improved
+F1 Score   | 83.83% ± 3.37%          | 83.09% ± 3.53%           | 84.21% ± 4.67%            | Improved slightly
+AUC        | 70.86% ± 13.87%         | 66.53% ± 6.81%           | 69.77% ± 17.25%           | Recovering, but higher variance
+Specificity| 14.67% ± 29.33%         | 12.63% ± 20.41%          | 15.00% ± 30.00%           | Slight improvement
+
+### Analysis
+
+Increasing augmentations to 10 has yielded some positive changes:
+
+1. **Improved overall metrics**: Your F1 score has improved to the highest value yet (84.21%), and accuracy is up slightly.
+
+2. **Higher recall/sensitivity**: At 97.73%, your model is now even better at identifying ALD cases, with lower variance (±4.55%).
+
+3. **Slight specificity improvement**: The specificity has increased slightly to 15%, though still with high variance (±30%). This means you're correctly identifying about 15% of non-ALD cases.
+
+4. **Higher variability in some metrics**: The standard deviation for AUC and accuracy has increased, suggesting less consistent performance across folds.
+
+### Interpretation
+
+The increased augmentation has helped your model slightly, especially for maintaining high recall even with a higher threshold (0.6). However, the fundamental challenge of correctly identifying non-ALD cases remains.
+
+The high variance in specificity (±30%) suggests that in some folds, the model performs decently on non-ALD cases, while in others, it performs very poorly. This inconsistency could be due to the small number of non-ALD cases and how they're distributed across folds.
+
+## Recommendations
+
+1. **Further increase augmentations**: Try pushing augmentations even higher (15-20) to see if that continues to improve results.
+
+2. **Class weighting**: Explicitly increase the weight of the minority class in your loss function. In your code, you have some weighting, but it might need to be more aggressive:
+
+   ```python
+   # Adjust weight based on batch composition, with a higher cap
+   neg_weight = min(batch_pos / batch_neg * 5.0, 20.0)  # Increase these values
+   ```
+
+3. **Ensemble approach**: Consider training multiple models with different random seeds and combining their predictions.
+
+4. **Explore per-fold results**: Look at the individual fold results to identify which folds have better specificity and analyze what's different about the data splits.
+
+5. **Feature analysis**: If possible, examine which features are most important for classification and consider enhancing those features or adding related ones.
+
+The results are improving, but more aggressive measures may be needed to significantly boost specificity while maintaining your excellent sensitivity. Would you like to try any of these specific approaches or analyze the data from a different angle?
+
+## Run 2025-04-15 18:15:39
+
+    2025-04-15 18:15:39,637 INFO     pid:3934159 __main__:736:run_cross_validation CROSS-VALIDATION RESULTS
+    2025-04-15 18:15:39,637 INFO     pid:3934159 __main__:737:run_cross_validation ================================================================================
+    2025-04-15 18:15:39,637 INFO     pid:3934159 __main__:743:run_cross_validation Accuracy: 0.7985 ± 0.0464
+    2025-04-15 18:15:39,637 INFO     pid:3934159 __main__:743:run_cross_validation Precision: 0.8210 ± 0.0724
+    2025-04-15 18:15:39,637 INFO     pid:3934159 __main__:743:run_cross_validation Recall: 0.9389 ± 0.0793
+    2025-04-15 18:15:39,637 INFO     pid:3934159 __main__:743:run_cross_validation F1: 0.8699 ± 0.0229
+    2025-04-15 18:15:39,637 INFO     pid:3934159 __main__:743:run_cross_validation Auc: 0.7162 ± 0.1564
+    2025-04-15 18:15:39,638 INFO     pid:3934159 __main__:743:run_cross_validation Sensitivity: 0.9389 ± 0.0793
+    2025-04-15 18:15:39,638 INFO     pid:3934159 __main__:743:run_cross_validation Specificity: 0.3246 ± 0.3729
+    2025-04-15 18:15:39,638 INFO     pid:3934159 __main__:745:run_cross_validation ================================================================================
+
+    These results show a significant improvement! Let's compare them with your previous runs:
+
+### Comparison Across Different Configurations
+
+**Metric** | **Threshold 0.3, Aug=3** | **Threshold 0.6, Aug=10** | **Threshold 0.6, Aug=18** | **Change**
+-----------|--------------------------|---------------------------|---------------------------|----------
+Accuracy   | 73.60% ± 5.62%           | 73.76% ± 7.88%            | 79.85% ± 4.64%            | \u2191 6.09%
+Precision  | 75.19% ± 7.61%           | 74.90% ± 9.64%            | 82.10% ± 7.24%            | \u2191 7.20%
+Recall     | 96.25% ± 7.50%           | 97.73% ± 4.55%            | 93.89% ± 7.93%            | \u2193 3.84%
+F1 Score   | 83.83% ± 3.37%           | 84.21% ± 4.67%            | 86.99% ± 2.29%            | \u2191 2.78%
+AUC        | 70.86% ± 13.87%          | 69.77% ± 17.25%           | 71.62% ± 15.64%           | \u2191 1.85%
+Specificity| 14.67% ± 29.33%          | 15.00% ± 30.00%           | 32.46% ± 37.29%           | \u2191 17.46%
+
+### Analysis
+
+Increasing augmentations to 18 has led to dramatic improvements:
+
+1. **Much higher specificity**: The model is now correctly identifying 32.46% of non-ALD cases, more than double the previous result. This is the most significant improvement.
+
+2. **Better overall accuracy**: Accuracy has increased by about 6 percentage points to 79.85%.
+
+3. **Improved precision**: At 82.10%, the model is much more reliable when it predicts ALD.
+
+4. **Higher F1 score**: The F1 score of 86.99% with lower variance (±2.29%) indicates consistently better performance.
+
+5. **Small trade-off in recall**: The recall has decreased slightly to 93.89%, but this is a reasonable trade-off for the significant gains in specificity.
+
+### Interpretation
+
+This is a very encouraging result! The substantial increase in augmentations has helped the model learn more effectively from the minority class examples. The model is now much better balanced between detecting ALD cases and correctly identifying non-ALD cases.
+
+The specificity still has high variance (±37.29%), which suggests that performance on non-ALD cases is still somewhat inconsistent across folds, but the overall trend is very positive.
+
+### Recommendations
+
+1. **Continue with high augmentation**: The increase to 18 augmentations has been very effective. You might try going even higher (20-25) to see if further improvements are possible.
+
+2. **Fine-tune threshold**: Since your model is now more balanced, you may want to experiment with slightly different thresholds (0.55-0.65) to find the optimal operating point.
+
+3. **Analyze fold-specific results**: The high variance in specificity suggests that some folds perform much better than others. Understanding these differences could provide insights for further improvement.
+
+4. **Consider ensemble methods**: Combining multiple models trained with different random seeds might help stabilize the specificity across folds.
+
+5. **Evaluate on new data**: If possible, test the model on completely new data to ensure these improvements generalize well.
+
+This is a substantial improvement, demonstrating that aggressive data augmentation can effectively address class imbalance issues in medical image classification tasks. Your model is now much more useful for clinical decision support, with a good balance between detecting ALD cases (high sensitivity) and minimizing false positives (improved specificity).
