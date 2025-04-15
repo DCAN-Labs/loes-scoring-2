@@ -456,8 +456,8 @@ class LogisticRegressionApp:
         # Setup logging
         self.time_str = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
         self.tb_logger = TensorBoardLogger(self.config.tb_prefix, self.time_str, self.config.comment)
-    
-        
+
+
     def _setup_model(self):
         model_type = self.config.model_type
         debug_mode = self.config.DEBUG
@@ -469,11 +469,14 @@ class LogisticRegressionApp:
                 from dcan.models.advanced_mri_models import get_advanced_mri_model
                 self.model = get_advanced_mri_model(model_type=model_type, debug=debug_mode)
                 
+                # Move model to the correct device BEFORE initialization
+                self.model = self.model.to(self.device)
+                
                 # Set to eval mode for initialization to avoid batch norm issues
                 self.model.eval()
                 
-                # Initialize with a dummy input
-                dummy_input = torch.zeros((1, 1, 16, 16, 16))
+                # Initialize with a dummy input (make sure this is on the same device)
+                dummy_input = torch.zeros((1, 1, 16, 16, 16), device=self.device)
                 with torch.no_grad():
                     _ = self.model(dummy_input)
                     
@@ -486,9 +489,12 @@ class LogisticRegressionApp:
                     debug=debug_mode
                 )
                 
+                # Move model to the correct device
+                self.model = self.model.to(self.device)
+                
                 if model_type == 'simple':
-                    # Initialize with a dummy input
-                    dummy_input = torch.zeros((1, 1, 16, 16, 16))
+                    # Initialize with a dummy input on the correct device
+                    dummy_input = torch.zeros((1, 1, 16, 16, 16), device=self.device)
                     with torch.no_grad():
                         _ = self.model(dummy_input)
                         

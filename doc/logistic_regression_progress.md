@@ -56,3 +56,17 @@ These results show significant improvement compared to your previous runs! Let m
 4. <b>Standard deviations</b> - There's meaningful variation across folds, which indicates the model is actually learning patterns rather than applying the same strategy to all data.
 
 These results represent meaningful progress, especially the non-zero specificity. Your model is now actually distinguishing between ALD and non-ALD cases, albeit imperfectly. The advanced architecture is likely better capturing the spatial patterns in the MRI data.
+
+## Run 025-04-15 12:41:52
+
+    ================================================================================
+    CROSS-VALIDATION RESULTS
+    ================================================================================
+    Accuracy: 0.7360 ± 0.0562
+    Precision: 0.7519 ± 0.0761
+    Recall: 0.9625 Â± 0.0750
+    F1: 0.8383 ± 0.0337
+    Auc: 0.7086 ± 0.1387
+    Sensitivity: 0.9625 ± 0.0750
+    Specificity: 0.1467 ± 0.2933
+    ================================================================================

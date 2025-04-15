@@ -78,8 +78,7 @@ class Dense3DCNN(nn.Module):
         self.classifier = nn.Linear(in_channels, 1)
         
     def forward(self, x):
-        if self.debug:
-            print(f"Input shape: {x.shape}")
+        log.debug(f"Input shape: {x.shape}")
         
         # Ensure input has 5 dimensions [batch_size, channels, D, H, W]
         if len(x.shape) == 4:
@@ -193,30 +192,23 @@ class ResNet3D(nn.Module):
         x = self.relu(x)
         x = self.maxpool(x)
         
-        if self.debug:
-            print(f"After initial processing: {x.shape}")
+        log.debug(f"After initial processing: {x.shape}")
         
         # Residual blocks
         x = self.layer1(x)
-        if self.debug:
-            print(f"After layer1: {x.shape}")
+        log.debug(f"After layer1: {x.shape}")
         x = self.layer2(x)
-        if self.debug:
-            print(f"After layer2: {x.shape}")
+        log.debug(f"After layer2: {x.shape}")
         x = self.layer3(x)
-        if self.debug:
-            print(f"After layer3: {x.shape}")
+        log.debug(f"After layer3: {x.shape}")
         x = self.layer4(x)
-        if self.debug:
-            print(f"After layer4: {x.shape}")
+        log.debug(f"After layer4: {x.shape}")
         
         # Global pooling and classification
         x = self.avgpool(x)
-        if self.debug:
-            print(f"After pooling: {x.shape}")
+        log.debug(f"After pooling: {x.shape}")
         x = torch.flatten(x, 1)
-        if self.debug:
-            print(f"Flattened: {x.shape}")
+        log.debug(f"Flattened: {x.shape}")
         x = self.fc(x)
         
         return torch.sigmoid(x)
