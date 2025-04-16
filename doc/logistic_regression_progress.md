@@ -321,3 +321,63 @@ for threshold in [0.6, 0.7, 0.8, 0.85, 0.9]:
 ```
 
 The current configuration has created a model that's extremely biased toward positive predictions. While this might seem problematic, this could still be useful in a screening context where missing ALD cases is considered much more harmful than false positives - but only if combined with a follow-up test or procedure to confirm the diagnosis for cases flagged as positive.
+
+## Run 2025-04-16 15:53:47
+
+    CROSS-VALIDATION RESULTS
+    ================================================================================
+    Accuracy: 0.7204 ± 0.0899
+    Precision: 0.7288 ± 0.1040
+    Recall: 0.9737 ± 0.0274
+    F1: 0.8286 ± 0.0657
+    Auc: 0.7046 ± 0.1478
+    Sensitivity: 0.9737 ± 0.0274
+    Specificity: 0.0648 ± 0.0626
+    ================================================================================
+
+These results with the 0.8 threshold show that increasing the threshold hasn't substantially improved the model's specificity. Let me compare these results with your previous configurations:
+
+### Comparison of Different Configurations
+
+**Metric** | **Aug=18** | **Aug=22** | **Ensemble** | **Threshold 0.8**
+-----------|------------|------------|--------------|------------------
+Accuracy   | 79.85%     | 76.24%     | 71.15%       | 72.04% ± 8.99%
+Precision  | 82.10%     | 79.37%     | 71.15%       | 72.88% ± 10.40%
+Recall     | 93.89%     | 93.77%     | 100.00%      | 97.37% ± 2.74%
+F1 Score   | 86.99%     | 84.81%     | 83.14%       | 82.86% ± 6.57%
+AUC        | 71.62%     | 78.85%     | 84.43%       | 70.46% ± 14.78%
+Specificity| 32.46%     | 31.63%     | 0.00%        | 6.48% ± 6.26%
+
+### Analysis
+
+The threshold of 0.8 has produced mixed results:
+
+1. **Very poor specificity**: At only 6.48%, the model is still failing to correctly identify non-ALD cases. This is better than the ensemble's 0% but significantly worse than your best individual models (32.46%).
+
+2. **High recall/sensitivity**: The model maintains excellent sensitivity at 97.37%, which means it rarely misses ALD cases.
+
+3. **Moderate precision and accuracy**: Both metrics are around 72-73%, which is lower than your best individual models.
+
+4. **Lower AUC**: The AUC is 70.46%, which is lower than both your Aug=22 model (78.85%) and especially the ensemble (84.43%).
+
+### Interpretation
+
+These results suggest that simply increasing the threshold to 0.8 isn't enough to improve the model's ability to correctly identify non-ALD cases. This indicates that:
+
+1. The model is producing very high probability scores for most samples, both ALD and non-ALD
+2. Even with a high threshold of 0.8, most non-ALD cases are still being classified as positive
+3. The probability distributions for ALD and non-ALD cases likely have significant overlap
+
+### Recommendations
+
+1. **Return to your Aug=18 configuration**: This provided the best balance of metrics with significantly better specificity (32.46%)
+
+2. **Try post-processing calibration**: Your ensemble showed a high AUC (84.43%), indicating good ranking capability. Consider using Platt scaling or isotonic regression to calibrate the probabilities.
+
+3. **Additional feature engineering**: The current feature set may not provide enough discriminative power between ALD and non-ALD cases.
+
+4. **Cost-sensitive learning**: Further increase the penalty for misclassifying minority class examples in your loss function.
+
+5. **Alternative model architectures**: The current architecture may have reached its limit in discriminative capability.
+
+The main takeaway is that your Aug=18 individual model configuration (with 18 augmentations per minority class example) still appears to be your best performing model across the board, particularly for specificity. The ensemble has superior AUC but needs significant threshold calibration to be clinically useful.
