@@ -12,10 +12,13 @@
 
 cd /users/9/reine097/projects/loes-scoring-2/src/dcan/training || exit
 export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src:/users/9/reine097/projects/AlexNet_Abrol2021/src/"
+
+# Run with Aug=18 configuration
 /users/9/reine097/projects/loes-scoring-2/.venv/bin/python \
   /users/9/reine097/projects/loes-scoring-2/src/dcan/training/logistic_regression.py \
     --csv-input-file "/users/9/reine097/projects/loes-scoring-2/data/logistic_regression_data.csv" \
-    --csv-output-file "predictions.csv" \
+    --csv-output-file "predictions_aug22.csv" \
+    --model-save-location "./model_aug22.pt" \
     --batch-size "4" \
     --epochs "15" \
     --features "scan" \
@@ -27,4 +30,4 @@ export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src:/use
     --weight-decay "0.001" \
     --threshold "0.3" \
     --augment-minority \
-    --num-augmentations 18
+    --num-augmentations 22

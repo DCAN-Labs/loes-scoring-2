@@ -182,3 +182,142 @@ The specificity still has high variance (±37.29%), which suggests that performa
 5. **Evaluate on new data**: If possible, test the model on completely new data to ensure these improvements generalize well.
 
 This is a substantial improvement, demonstrating that aggressive data augmentation can effectively address class imbalance issues in medical image classification tasks. Your model is now much more useful for clinical decision support, with a good balance between detecting ALD cases (high sensitivity) and minimizing false positives (improved specificity).
+
+## Run 2025-04-15 19:27:37
+
+    2025-04-15 19:27:37,496 INFO     pid:3604372 __main__:736:run_cross_validation CROSS-VALIDATION RESULTS
+    2025-04-15 19:27:37,496 INFO     pid:3604372 __main__:737:run_cross_validation ================================================================================
+    2025-04-15 19:27:37,496 INFO     pid:3604372 __main__:743:run_cross_validation Accuracy: 0.7624 ± 0.0810
+    2025-04-15 19:27:37,496 INFO     pid:3604372 __main__:743:run_cross_validation Precision: 0.7937 ± 0.1141
+    2025-04-15 19:27:37,496 INFO     pid:3604372 __main__:743:run_cross_validation Recall: 0.9377 ± 0.0986
+    2025-04-15 19:27:37,496 INFO     pid:3604372 __main__:743:run_cross_validation F1: 0.8481 ± 0.0532
+    2025-04-15 19:27:37,496 INFO     pid:3604372 __main__:743:run_cross_validation Auc: 0.7885 ± 0.1017
+    2025-04-15 19:27:37,496 INFO     pid:3604372 __main__:743:run_cross_validation Sensitivity: 0.9377 ± 0.0986
+    2025-04-15 19:27:37,496 INFO     pid:3604372 __main__:743:run_cross_validation Specificity: 0.3163 ± 0.3704
+    2025-04-15 19:27:37,496 INFO     pid:3604372 __main__:745:run_cross_validation ================================================================================
+
+Let's compare these new results with your previous runs:
+
+### Comparison of Different Augmentation Levels (Threshold = 0.6)
+
+**Metric** | **Aug=10** | **Aug=18** | **Aug=22** | **Change from Aug=18 to Aug=22**
+-----------|------------|------------|------------|--------------------------------
+Accuracy   | 73.76%     | 79.85%     | 76.24%     | \u2193 3.61%
+Precision  | 74.90%     | 82.10%     | 79.37%     | \u2193 2.73%
+Recall     | 97.73%     | 93.89%     | 93.77%     | \u2193 0.12%
+F1 Score   | 84.21%     | 86.99%     | 84.81%     | \u2193 2.18%
+AUC        | 69.77%     | 71.62%     | 78.85%     | \u2191 7.23%
+Specificity| 15.00%     | 32.46%     | 31.63%     | \u2193 0.83%
+
+### Analysis
+
+Increasing augmentations from 18 to 22 has produced mixed results:
+
+1. **Higher AUC**: The most significant improvement is in the AUC score, which increased by 7.23% to 78.85%. This suggests that the model's overall discriminative ability has improved substantially, with lower variance (±10.17%).
+
+2. **Similar specificity**: The specificity remained essentially the same (31.63% vs 32.46%), suggesting that the model's ability to correctly identify non-ALD cases has plateaued.
+
+3. **Decreased accuracy and F1**: There was a noticeable drop in accuracy (3.61%) and F1 score (2.18%), indicating that the overall performance has slightly degraded.
+
+4. **Stable recall/sensitivity**: The recall showed minimal change, maintaining high sensitivity for ALD cases.
+
+### Interpretation
+
+These results suggest that you may have reached the point of diminishing returns with data augmentation. The Aug=18 configuration appears to be the sweet spot for overall model performance (F1 and accuracy), while Aug=22 provides the best discriminative ability (AUC).
+
+The drop in accuracy and F1 score with Aug=22 might indicate that excessive augmentation could be introducing too much noise in the training data, making it harder for the model to learn the true patterns.
+
+### Recommendations
+
+1. **Optimal configuration**: Based on these results, the Aug=18 configuration appears to provide the best balance between sensitivity and specificity, with the highest accuracy and F1 score.
+
+2. **Ensemble approach**: Consider creating an ensemble of models trained with Aug=18 and Aug=22 configurations to leverage the high AUC of Aug=22 while maintaining the better overall metrics of Aug=18.
+
+3. **Learning rate adjustment**: With higher augmentation, you might need to adjust the learning rate. Try reducing it slightly (e.g., from 0.0005 to 0.0003) to help the model converge more stably with the larger, more diverse dataset.
+
+4. **Model architecture**: Since you've pushed data augmentation quite far, you might consider trying different model architectures or adding additional regularization techniques.
+
+5. **Final model selection**: For your final model, I would recommend using the Aug=18 configuration, as it provides the best overall performance metrics (accuracy, F1) while still achieving substantial improvement in specificity over your initial results.
+
+Your systematic approach to addressing the class imbalance has yielded significant improvements. The increase in specificity from ~15% to ~32% is particularly noteworthy, as it substantially reduces false positives while maintaining excellent sensitivity.
+
+## Run 2025-04-16 14:57:56
+
+    Accuracy: 0.7115
+    Precision: 0.7115
+    Recall: 1.0000
+    F1 Score: 0.8314
+    AUC: 0.8443
+    Specificity: 0.0000
+    Sensitivity: 1.0000
+    Confusion Matrix:
+        TN: 0, FP: 73
+        FN: 0, TP: 180
+
+Thank you for sharing the updated results with the specificity calculations. Now I can provide a complete analysis of your ensemble model's performance.
+
+### Comprehensive Analysis of Ensemble Results
+
+**Metric** | **Aug=18** | **Aug=22** | **Ensemble** | **Comment**
+-----------|------------|------------|--------------|------------
+Accuracy   | 79.85%     | 76.24%     | 71.15%       | Decrease from individual models
+Precision  | 82.10%     | 79.37%     | 71.15%       | Decrease from individual models
+Recall     | 93.89%     | 93.77%     | 100.00%      | Perfect recall
+F1 Score   | 86.99%     | 84.81%     | 83.14%       | Slightly lower than best individual
+AUC        | 71.62%     | 78.85%     | 84.43%       | Significant improvement
+Specificity| 32.46%     | 31.63%     | 0.00%        | Complete failure for non-ALD cases
+
+### Confusion Matrix Analysis
+- True Negatives (TN): 0 - Not identifying any non-ALD cases correctly
+- False Positives (FP): 73 - All non-ALD cases are misclassified as ALD
+- False Negatives (FN): 0 - No ALD cases are missed
+- True Positives (TP): 180 - All ALD cases are correctly identified
+
+### Interpretation
+
+The ensemble model has essentially become a "always predict ALD" classifier. While this achieves perfect sensitivity (100% recall), it completely fails at identifying non-ALD cases (0% specificity).
+
+This explains why:
+1. Precision equals accuracy (71.15%) - this happens when all samples are predicted as positive
+2. Recall is 100% - all positive cases are caught
+3. Specificity is 0% - no negative cases are correctly identified
+
+The high AUC (84.43%) suggests that the model's probability scores still have discriminative power, but the current threshold (0.6) is too low, causing all samples to be classified as positive.
+
+### Recommendations
+
+1. **Urgently adjust the classification threshold**: Since your AUC is high (84.43%), the model is ranking cases well but the threshold needs to be much higher. Try thresholds of 0.75, 0.8, or even 0.85 to achieve some specificity.
+
+2. **Re-balance ensemble weights**: Your current weights are heavily favoring the model that predicts more positive cases. Try weights like 0.8/0.2 or 0.9/0.1 in favor of the model with better specificity.
+
+3. **Implement a voting ensemble**: Instead of weighted probabilities, use a hard voting system where both models must agree for a positive prediction.
+
+4. **Clinical context consideration**: Determine if this tradeoff is acceptable. In some medical contexts, catching all positive cases at the expense of some false positives might be acceptable, but 0% specificity is generally problematic.
+
+5. **Threshold calibration**: Plot a precision-recall curve to find the optimal threshold that balances sensitivity and specificity for your clinical needs.
+
+### Quick Fix for Immediate Improvement
+
+Add a threshold adjustment to your code:
+```python
+# Try multiple thresholds
+for threshold in [0.6, 0.7, 0.8, 0.85, 0.9]:
+    predictions = (y_prob >= threshold).astype(float)
+    
+    # Calculate metrics with new threshold
+    acc = accuracy_score(y_true, predictions)
+    prec = precision_score(y_true, predictions, zero_division=0)
+    rec = recall_score(y_true, predictions, zero_division=0)
+    f1 = f1_score(y_true, predictions, zero_division=0)
+    
+    # Calculate confusion matrix for specificity
+    cm = confusion_matrix(y_true, predictions)
+    spec = cm[0, 0] / (cm[0, 0] + cm[0, 1]) if (cm[0, 0] + cm[0, 1]) > 0 else 0
+    
+    log.info(f"\nResults with threshold {threshold}:")
+    log.info(f"Accuracy: {acc:.4f}, Precision: {prec:.4f}")
+    log.info(f"Recall: {rec:.4f}, F1: {f1:.4f}")
+    log.info(f"Specificity: {spec:.4f}")
+```
+
+The current configuration has created a model that's extremely biased toward positive predictions. While this might seem problematic, this could still be useful in a screening context where missing ALD cases is considered much more harmful than false positives - but only if combined with a follow-up test or procedure to confirm the diagnosis for cases flagged as positive.
