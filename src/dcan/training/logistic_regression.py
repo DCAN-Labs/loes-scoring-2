@@ -43,18 +43,40 @@ class DataHandler:
         self.use_cuda = use_cuda
         self.batch_size = batch_size
         self.num_workers = num_workers
-    
+
     def init_dl(self, folder, subjects, is_val_set: bool = False):
+        if not folder or not os.path.exists(folder):
+            raise ValueError(f"Invalid MRI folder path: {folder}")
+            
+        if not subjects:
+            raise ValueError("No subjects provided for dataset creation")
+            
+        # Check how many subjects we actually have MRI files for
+        valid_subjects = 0
+        for subject in subjects:
+            subject_rows = self.df[self.df['anonymized_subject_id'] == subject]
+            if not subject_rows.empty:
+                valid_subjects += 1
+                
+        if valid_subjects == 0:
+            raise ValueError("None of the provided subjects exist in the dataset")
+        elif valid_subjects < len(subjects):
+            log.warning(f"Only {valid_subjects} out of {len(subjects)} subjects exist in the dataset")
+        
         # Use augmented dataset for training
-        if not is_val_set and hasattr(self, 'augment_minority') and self.augment_minority:
-            dataset = AugmentedLoesScoreDataset(
-                folder, subjects, self.df, self.output_df, 
-                is_val_set_bool=is_val_set,
-                augment_minority=True, 
-                num_augmentations=3
-            )
-        else:
-            dataset = LoesScoreDataset(folder, subjects, self.df, self.output_df, is_val_set_bool=is_val_set)
+        try:
+            if not is_val_set and hasattr(self, 'augment_minority') and self.augment_minority:
+                dataset = AugmentedLoesScoreDataset(
+                    folder, subjects, self.df, self.output_df, 
+                    is_val_set_bool=is_val_set,
+                    augment_minority=True, 
+                    num_augmentations=3
+                )
+            else:
+                dataset = LoesScoreDataset(folder, subjects, self.df, self.output_df, is_val_set_bool=is_val_set)
+        except Exception as e:
+            log.error(f"Error creating dataset: {e}")
+            raise
         
         batch_size = self.batch_size
         if self.use_cuda:
@@ -74,14 +96,25 @@ def append_candidate(folder, candidate_info_list, row):
     session_str = row['anonymized_session_id']
     file_name = f"{subject_str}_{session_str}_space-MNI_brain_mprage_RAVEL.nii.gz"
     file_path = os.path.join(folder, file_name)
-    loes_score_float = float(row['loes-score'])
+    
+    # Check if file exists
+    if not os.path.exists(file_path):
+        log.warning(f"MRI file not found: {file_path}")
+        return False
+        
+    try:
+        loes_score_float = float(row['loes-score'])
+    except (ValueError, TypeError):
+        log.warning(f"Invalid LOES score for subject {subject_str}, session {session_str}: {row['loes-score']}")
+        return False
+        
     candidate_info_list.append(CandidateInfoTuple(
         loes_score_float,
         file_path,
         subject_str,
         session_str
     ))
-
+    return True
 
 def get_candidate_info_list(folder, df, candidates: List[str]):
     candidate_info_list = []
@@ -394,6 +427,9 @@ class LogisticRegressionApp:
             
         # Load the data (only once)
         self._load_data()
+
+        # Check data integrity before proceeding
+        self.check_data_integrity()
         
         # Setup model, datasets, and training components IN THE CORRECT ORDER
         self.folder = self.config.folder
@@ -432,6 +468,74 @@ class LogisticRegressionApp:
         self.time_str = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
         self.tb_logger = TensorBoardLogger(self.config.tb_prefix, self.time_str, self.config.comment)
 
+    def check_data_integrity(self):
+        """
+        Performs various checks to ensure data integrity before training.
+        Raises appropriate exceptions if issues are found.
+        """
+        log.info("Checking data integrity...")
+        
+        # Check class balance
+        target_values = self.input_df[self.config.target].values
+        class_counts = np.bincount(target_values.astype(int))
+        
+        if len(class_counts) <= 1:
+            raise ValueError(f"Only one class found in target column '{self.config.target}'. Cannot train a classifier.")
+        
+        minority_class_count = min(class_counts)
+        majority_class_count = max(class_counts)
+        imbalance_ratio = majority_class_count / minority_class_count if minority_class_count > 0 else float('inf')
+        
+        if imbalance_ratio > 10:
+            log.warning(f"Severe class imbalance detected: ratio of {imbalance_ratio:.2f}. "
+                        f"Consider using --class-weights or --augment-minority.")
+        
+        # Check feature distributions
+        for feature in self.config.features:
+            feature_values = self.input_df[feature].values
+            if len(np.unique(feature_values)) == 1:
+                log.warning(f"Feature '{feature}' has only one unique value. Consider removing it.")
+            
+            # Check for outliers using IQR
+            if np.issubdtype(feature_values.dtype, np.number):
+                q1 = np.percentile(feature_values, 25)
+                q3 = np.percentile(feature_values, 75)
+                iqr = q3 - q1
+                outlier_mask = (feature_values < q1 - 1.5 * iqr) | (feature_values > q3 + 1.5 * iqr)
+                outlier_count = np.sum(outlier_mask)
+                
+                if outlier_count > 0:
+                    outlier_pct = outlier_count / len(feature_values) * 100
+                    if outlier_pct > 5:
+                        log.warning(f"Feature '{feature}' has {outlier_pct:.1f}% outliers. "
+                                    f"Consider normalization or outlier handling.")
+    
+        # Check for MRI file existence if applicable
+        if self.config.folder:
+            if not os.path.exists(self.config.folder):
+                raise FileNotFoundError(f"MRI folder not found: {self.config.folder}")
+                
+            # Check a sample of MRI files
+            sample_subjects = random.sample(list(self.input_df['anonymized_subject_id'].unique()), 
+                                            min(5, len(self.input_df['anonymized_subject_id'].unique())))
+                                        
+            missing_files = 0
+            for subject in sample_subjects:
+                sample_rows = self.input_df[self.input_df['anonymized_subject_id'] == subject].iloc[:1]
+                for _, row in sample_rows.iterrows():
+                    subject_str = row['anonymized_subject_id']
+                    session_str = row['anonymized_session_id']
+                    file_name = f"{subject_str}_{session_str}_space-MNI_brain_mprage_RAVEL.nii.gz"
+                    file_path = os.path.join(self.config.folder, file_name)
+                    
+                    if not os.path.exists(file_path):
+                        missing_files += 1
+                        
+            if missing_files > 0:
+                log.warning(f"{missing_files} out of {len(sample_subjects)} sampled MRI files are missing. "
+                            f"This might indicate data availability issues.")
+        
+        log.info("Data integrity check completed.")
 
     def _setup_model(self):
         model_type = self.config.model_type
@@ -1010,84 +1114,103 @@ class LogisticRegressionApp:
         This method handles training, validation, logging, and model checkpointing.
         """
         log.info("Starting training process...")
-        
-        # Initialize the trainer with model, optimizer, and device
-        trainer = LogisticRegressionTrainer(
-            self.model, 
-            self.optimizer, 
-            self.device, 
-            self.class_weights if hasattr(self, 'class_weights') else None,
-            threshold=self.config.threshold
-        )
-        
-        # Track the best model
-        best_val_loss = float('inf')
-        best_val_acc = 0.0
-        best_epoch = 0
-        
-        # Train for the specified number of epochs
-        for epoch in range(1, self.config.epochs + 1):
-            log.info(f"Epoch {epoch}/{self.config.epochs}")
             
-            # Training phase
-            trn_metrics = trainer.train_epoch(epoch, self.train_dl)
-            trn_loss = trn_metrics[METRICS_LOSS_NDX].mean().item()
+        # Ensure we have data to train on
+        if len(self.train_dl.dataset) == 0:
+            raise ValueError("Training dataset is empty. Cannot proceed with training.")
             
-            # Validation phase
-            val_metrics = trainer.validate_epoch(epoch, self.val_dl)
-            val_loss = val_metrics[METRICS_LOSS_NDX].mean().item()
-            
-            # Calculate validation accuracy
-            val_acc = accuracy_score(
-                val_metrics[METRICS_LABEL_NDX].numpy(), 
-                val_metrics[METRICS_PRED_NDX].numpy()
+        if len(self.val_dl.dataset) == 0:
+            raise ValueError("Validation dataset is empty. Cannot proceed with training.")
+
+        try:        
+            # Initialize the trainer with model, optimizer, and device
+            trainer = LogisticRegressionTrainer(
+                self.model, 
+                self.optimizer, 
+                self.device, 
+                self.class_weights if hasattr(self, 'class_weights') else None,
+                threshold=self.config.threshold
             )
             
-            # Log metrics to TensorBoard
-            self.tb_logger.log_metrics('trn', epoch, trn_metrics, trainer.total_samples)
-            self.tb_logger.log_metrics('val', epoch, val_metrics, trainer.total_samples)
+            # Track the best model
+            best_val_loss = float('inf')
+            best_val_acc = 0.0
+            best_epoch = 0
             
-            # Update learning rate scheduler
-            if self.config.scheduler == 'plateau':
-                self.scheduler.step(val_loss)  # Pass validation loss to ReduceLROnPlateau
-            elif self.config.scheduler != 'onecycle':  # Step and Cosine schedulers step each epoch
-                self.scheduler.step()
-            # Note: OneCycleLR steps after each batch, not each epoch
-            
-            # Check if this is the best model so far
-            is_best = False
-            if val_acc > best_val_acc:
-                best_val_acc = val_acc
-                best_val_loss = val_loss
-                best_epoch = epoch
-                is_best = True
+            # Train for the specified number of epochs
+            for epoch in range(1, self.config.epochs + 1):
+                log.info(f"Epoch {epoch}/{self.config.epochs}")
                 
-                # Save the best model
-                if self.config.model_save_location:
-                    log.info(f"New best validation accuracy: {best_val_acc:.4f}, saving model")
-                    self.save_model(self.config.model_save_location)
+                # Training phase
+                trn_metrics = trainer.train_epoch(epoch, self.train_dl)
+                trn_loss = trn_metrics[METRICS_LOSS_NDX].mean().item()
+                
+                # Validation phase
+                val_metrics = trainer.validate_epoch(epoch, self.val_dl)
+                val_loss = val_metrics[METRICS_LOSS_NDX].mean().item()
+                
+                # Calculate validation accuracy
+                val_acc = accuracy_score(
+                    val_metrics[METRICS_LABEL_NDX].numpy(), 
+                    val_metrics[METRICS_PRED_NDX].numpy()
+                )
             
-            # Log epoch summary
-            log.info(f"Epoch {epoch}/{self.config.epochs} - "
-                    f"Train Loss: {trn_loss:.4f}, "
-                    f"Val Loss: {val_loss:.4f}, "
-                    f"Val Accuracy: {val_acc:.4f}, "
-                    f"LR: {self.optimizer.param_groups[0]['lr']:.6f}"
-                    f"{' (BEST)' if is_best else ''}")
-        
-        log.info(f"Training completed. Best validation accuracy: {best_val_acc:.4f} (epoch {best_epoch})")
-        
-        # Save final model if no best model was saved during training
-        if not self.config.model_save_location:
-            final_model_path = f'./logistic_model_final-{self.time_str}.pt'
-            self.save_model(final_model_path)
-            log.info(f"Final model saved to {final_model_path}")
+                # Log metrics to TensorBoard
+                self.tb_logger.log_metrics('trn', epoch, trn_metrics, trainer.total_samples)
+                self.tb_logger.log_metrics('val', epoch, val_metrics, trainer.total_samples)
+                
+                # Update learning rate scheduler
+                if self.config.scheduler == 'plateau':
+                    self.scheduler.step(val_loss)  # Pass validation loss to ReduceLROnPlateau
+                elif self.config.scheduler != 'onecycle':  # Step and Cosine schedulers step each epoch
+                    self.scheduler.step()
+                # Note: OneCycleLR steps after each batch, not each epoch
+                
+                # Check if this is the best model so far
+                is_best = False
+                if val_acc > best_val_acc:
+                    best_val_acc = val_acc
+                    best_val_loss = val_loss
+                    best_epoch = epoch
+                    is_best = True
+                    
+                    # Save the best model
+                    if self.config.model_save_location:
+                        log.info(f"New best validation accuracy: {best_val_acc:.4f}, saving model")
+                        self.save_model(self.config.model_save_location)
+                
+                # Log epoch summary
+                log.info(f"Epoch {epoch}/{self.config.epochs} - "
+                        f"Train Loss: {trn_loss:.4f}, "
+                        f"Val Loss: {val_loss:.4f}, "
+                        f"Val Accuracy: {val_acc:.4f}, "
+                        f"LR: {self.optimizer.param_groups[0]['lr']:.6f}"
+                        f"{' (BEST)' if is_best else ''}")
             
-        # Generate comprehensive summary statistics
-        self.generate_summary_statistics()
-        
-        # Close tensorboard logger
-        self.tb_logger.close()
+            log.info(f"Training completed. Best validation accuracy: {best_val_acc:.4f} (epoch {best_epoch})")
+            
+            # Save final model if no best model was saved during training
+            if not self.config.model_save_location:
+                final_model_path = f'./logistic_model_final-{self.time_str}.pt'
+                self.save_model(final_model_path)
+                log.info(f"Final model saved to {final_model_path}")
+                
+            # Generate comprehensive summary statistics
+            self.generate_summary_statistics()
+            
+            # Close tensorboard logger
+            self.tb_logger.close()
+        except RuntimeError as e:
+            if "CUDA out of memory" in str(e):
+                log.error("CUDA out of memory error. Try reducing batch size or using a smaller model.")
+            elif "Expected object of device" in str(e):
+                log.error("Device mismatch error. Check that all tensors are on the same device.")
+            else:
+                log.error(f"Runtime error during training: {e}")
+            raise
+        except Exception as e:
+            log.error(f"Error during training: {e}")
+            raise
 
     def save_model(self, path):
         """Save the trained model to disk"""
