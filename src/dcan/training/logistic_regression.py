@@ -538,48 +538,48 @@ class LogisticRegressionApp:
         log.info("Data integrity check completed.")
 
     def _setup_model(self):
+        """
+        Set up the model based on configuration.
+        This method handles model initialization with proper error checking.
+        """
         model_type = self.config.model_type
         debug_mode = self.config.DEBUG
         
         log.info(f"Setting up {model_type} model")
         
         try:
-            if model_type in ['resnet3d', 'dense3d']:
+            # Create model
+            if model_type == 'simple':
+                self.model = SimpleMRIModel(debug=debug_mode)
+            elif model_type == 'conv':
+                self.model = get_mri_logistic_regression_model(model_type='conv', debug=debug_mode)
+            elif model_type in ['resnet3d', 'dense3d', 'efficientnet3d']:
+                # Import only if needed
                 from dcan.models.advanced_mri_models import get_advanced_mri_model
                 self.model = get_advanced_mri_model(model_type=model_type, debug=debug_mode)
-                
-                # Move model to the correct device BEFORE initialization
-                self.model = self.model.to(self.device)
-                
-                # Set to eval mode for initialization to avoid batch norm issues
-                self.model.eval()
-                
-                # Initialize with a dummy input (make sure this is on the same device)
-                dummy_input = torch.zeros((1, 1, 16, 16, 16), device=self.device)
-                with torch.no_grad():
-                    _ = self.model(dummy_input)
-                    
-                # Set back to train mode after initialization
-                self.model.train()
             else:
-                # Original model implementation
-                self.model = get_mri_logistic_regression_model(
-                    model_type=model_type,
-                    debug=debug_mode
-                )
+                raise ValueError(f"Unknown model type: {model_type}")
                 
-                # Move model to the correct device
-                self.model = self.model.to(self.device)
-                
-                if model_type == 'simple':
-                    # Initialize with a dummy input on the correct device
-                    dummy_input = torch.zeros((1, 1, 16, 16, 16), device=self.device)
-                    with torch.no_grad():
-                        _ = self.model(dummy_input)
-                        
+            # Move model to device
+            self.model = self.model.to(self.device)
+            log.info(f"Model moved to {self.device}")
+            
+            # Log model parameter count
+            total_params = sum(p.numel() for p in self.model.parameters())
+            trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+            log.info(f"Model has {total_params:,} total parameters ({trainable_params:,} trainable)")
+        
+            # Ensure model is in training mode
+            self.model.train()
+            
+        except ImportError as e:
+            log.error(f"Failed to import necessary modules for model type '{model_type}': {e}")
+            raise
         except Exception as e:
             log.error(f"Error creating model: {e}")
             raise
+            
+        log.info(f"Model initialization complete: {model_type}")
 
     def _load_data(self):
         log.info(f"Loading data from {self.config.csv_input_file}")
