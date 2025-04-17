@@ -126,8 +126,8 @@ class Config:
         self.parser.add_argument(
             '--model-type', 
             default='conv', 
-            choices=['conv', 'simple', 'resnet3d', 'dense3d'],
-            help='Type of MRI model to use'
+            choices=['conv', 'simple', 'resnet3d', 'dense3d', 'efficientnet3d'],
+            help='Type of model to use'
         )
         self.parser.add_argument('--augment-minority', action='store_true', 
                         help='Apply data augmentation to minority class')
@@ -391,21 +391,7 @@ class LogisticRegressionApp:
         else:
             self.use_cuda = False
             self.device = "cpu"
-        
-        # Load the data
-        log.info(f"Loading data from {self.config.csv_input_file}")
-        self.input_df = pd.read_csv(self.config.csv_input_file)
-        self.output_df = self.input_df.copy()
-        self.output_df["prediction"] = np.nan
-
-        if hasattr(self.config, 'gd') and self.config.gd:
-            self.input_df = self.input_df[~self.input_df['scan'].str.contains('Gd')]
-
-        # Print data summary
-        log.info(f"Dataset shape: {self.input_df.shape}")
-        log.info(f"Features: {self.config.features}")
-        log.info(f"Target: {self.config.target}")
-        
+                
         # Check for missing values
         missing_values = self.input_df[self.config.features + [self.config.target]].isnull().sum().sum()
         if missing_values > 0:
@@ -678,6 +664,7 @@ class LogisticRegressionApp:
         fold_metrics = {
             'accuracy': [],
             'precision': [],
+            'ppv': [],
             'recall': [],
             'f1': [],
             'auc': [],
@@ -805,6 +792,7 @@ class LogisticRegressionApp:
                 # Calculate classification metrics
                 accuracy = accuracy_score(y_true, y_pred)
                 precision = precision_score(y_true, y_pred, zero_division=0)
+                ppv = precision  # PPV is identical to precision
                 recall = sensitivity = recall_score(y_true, y_pred, zero_division=0)
                 f1 = f1_score(y_true, y_pred, zero_division=0)
             
@@ -836,6 +824,7 @@ class LogisticRegressionApp:
                     fold_metrics = {
                         'accuracy': accuracy,
                         'precision': precision,
+                        'ppv': ppv,
                         'recall': recall,
                         'f1': f1,
                         'auc': auc,

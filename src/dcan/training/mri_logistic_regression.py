@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from dcan.models.advanced_mri_models import EfficientNet3D
+
 
 # Configure logging
 logging.basicConfig(
@@ -170,5 +172,7 @@ def get_mri_logistic_regression_model(model_type='conv', debug=False):
         return MRILogisticRegressionModel(debug=debug)
     elif model_type.lower() == 'simple':
         return SimpleMRILogisticRegression(debug=debug)
+    elif model_type.lower() == 'efficientnet3d':
+        return EfficientNet3D(debug=debug)
     else:
         raise ValueError(f"Unknown model type: {model_type}. Choose 'conv' or 'simple'.")
