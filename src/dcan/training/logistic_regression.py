@@ -391,11 +391,9 @@ class LogisticRegressionApp:
         else:
             self.use_cuda = False
             self.device = "cpu"
-                
-        # Check for missing values
-        missing_values = self.input_df[self.config.features + [self.config.target]].isnull().sum().sum()
-        if missing_values > 0:
-            log.warning(f"Found {missing_values} missing values in the dataset")
+            
+        # Load the data (only once)
+        self._load_data()
         
         # Setup model, datasets, and training components IN THE CORRECT ORDER
         self.folder = self.config.folder
@@ -410,15 +408,6 @@ class LogisticRegressionApp:
             self.config.batch_size, self.config.num_workers
         )
         self.data_handler.augment_minority = self.config.augment_minority
-
-        # Load the data
-        log.info(f"Loading data from {self.config.csv_input_file}")
-        self.input_df = pd.read_csv(self.config.csv_input_file)
-        self.output_df = self.input_df.copy()
-        self.output_df["prediction"] = np.nan
-
-        if hasattr(self.config, 'gd') and self.config.gd:
-            self.input_df = self.input_df[~self.input_df['scan'].str.contains('Gd')]
 
         # Print data summary
         log.info(f"Dataset shape: {self.input_df.shape}")
@@ -486,6 +475,53 @@ class LogisticRegressionApp:
                         
         except Exception as e:
             log.error(f"Error creating model: {e}")
+            raise
+
+    def _load_data(self):
+        log.info(f"Loading data from {self.config.csv_input_file}")
+        try:
+            if not os.path.exists(self.config.csv_input_file):
+                raise FileNotFoundError(f"Input file not found: {self.config.csv_input_file}")
+                
+            self.input_df = pd.read_csv(self.config.csv_input_file)
+            
+            # Validate that required columns exist
+            missing_features = [f for f in self.config.features if f not in self.input_df.columns]
+            if missing_features:
+                raise ValueError(f"Missing required feature columns: {missing_features}")
+                
+            if self.config.target not in self.input_df.columns:
+                raise ValueError(f"Target column '{self.config.target}' not found in input file")
+                
+            self.output_df = self.input_df.copy()
+            self.output_df["prediction"] = np.nan
+            
+            # Check for missing values
+            missing_values = self.input_df[self.config.features + [self.config.target]].isnull().sum()
+            if missing_values.sum() > 0:
+                for col, count in missing_values.items():
+                    if count > 0:
+                        log.warning(f"Found {count} missing values in column '{col}'")
+            
+            if hasattr(self.config, 'gd') and self.config.gd:
+                before_count = len(self.input_df)
+                self.input_df = self.input_df[~self.input_df['scan'].str.contains('Gd')]
+                after_count = len(self.input_df)
+                log.info(f"Removed {before_count - after_count} Gd scans from dataset")
+            
+            # Print data summary
+            log.info(f"Dataset shape: {self.input_df.shape}")
+            log.info(f"Features: {self.config.features}")
+            log.info(f"Target: {self.config.target}")
+        
+        except pd.errors.EmptyDataError:
+            log.error(f"CSV file is empty: {self.config.csv_input_file}")
+            raise
+        except pd.errors.ParserError:
+            log.error(f"Error parsing CSV file: {self.config.csv_input_file}")
+            raise
+        except Exception as e:
+            log.error(f"Error loading data: {e}")
             raise
 
     def _setup_optimizer(self):
