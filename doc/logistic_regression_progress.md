@@ -138,7 +138,7 @@ The results are improving, but more aggressive measures may be needed to signifi
 
     These results show a significant improvement! Let's compare them with your previous runs:
 
-### Comparison Across Different Configurations
+### Comparison Across Different Configurations (best)
 
 **Metric** | **Threshold 0.3, Aug=3** | **Threshold 0.6, Aug=10** | **Threshold 0.6, Aug=18** | **Change**
 -----------|--------------------------|---------------------------|---------------------------|----------
