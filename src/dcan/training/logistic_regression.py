@@ -177,6 +177,62 @@ class Config:
         # Evaluation
         self.parser.add_argument('--threshold', default=0.5, type=float, help='Classification threshold')
 
+    def validate_args(self, args):
+        """Validate command line arguments and provide warnings/errors for invalid configurations."""
+        # File path validations
+        if not os.path.exists(args.csv_input_file):
+            raise FileNotFoundError(f"Input CSV file not found: {args.csv_input_file}")
+            
+        if args.folder and not os.path.exists(args.folder):
+            raise FileNotFoundError(f"MRI folder not found: {args.folder}")
+        
+        # Numeric parameter validations
+        if args.batch_size <= 0:
+            raise ValueError(f"Batch size must be positive, got {args.batch_size}")
+            
+        if args.epochs <= 0:
+            raise ValueError(f"Number of epochs must be positive, got {args.epochs}")
+            
+        if args.lr <= 0:
+            raise ValueError(f"Learning rate must be positive, got {args.lr}")
+            
+        if args.num_workers < 0:
+            raise ValueError(f"Number of workers must be non-negative, got {args.num_workers}")
+            
+        if not (0 < args.split_ratio < 1):
+            raise ValueError(f"Split ratio must be between 0 and 1, got {args.split_ratio}")
+            
+        if args.weight_decay < 0:
+            raise ValueError(f"Weight decay must be non-negative, got {args.weight_decay}")
+            
+        if not (0 <= args.threshold <= 1):
+            raise ValueError(f"Classification threshold must be between 0 and 1, got {args.threshold}")
+    
+        # Feature validation
+        if not args.features:
+            raise ValueError("No features specified")
+            
+        # Model compatibility checks
+        if args.model_type in ['resnet3d', 'dense3d', 'efficientnet3d'] and not args.folder:
+            raise ValueError(f"Model type '{args.model_type}' requires MRI data folder (--folder)")
+        
+        # Optimizer/scheduler compatibility
+        if args.scheduler == 'onecycle' and args.optimizer.lower() != 'adam':
+            log.warning(f"OneCycle scheduler works best with Adam optimizer, but {args.optimizer} was specified")
+        
+        # Augmentation parameter checks
+        if args.augment_minority and args.num_augmentations <= 0:
+            raise ValueError(f"Number of augmentations must be positive when augment_minority is enabled")
+            
+        # Warning for potentially problematic configurations
+        if args.num_workers > 8:
+            log.warning(f"High number of workers ({args.num_workers}) may cause memory issues")
+            
+        if args.batch_size > 128:
+            log.warning(f"Large batch size ({args.batch_size}) may cause memory issues")
+            
+        return args
+
     def parse_args(self, sys_argv=None):
         if sys_argv is None:
             sys_argv = sys.argv[1:]
@@ -189,6 +245,9 @@ class Config:
         # Set default plot location if not provided
         if not args.plot_location and args.csv_output_file:
             args.plot_location = os.path.splitext(args.csv_output_file)[0] + "_plot.png"
+        
+        # Validate arguments
+        args = self.validate_args(args)
         
         return args
 
