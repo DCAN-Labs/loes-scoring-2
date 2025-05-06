@@ -22,6 +22,7 @@ from tqdm import tqdm
 from dcan.data_sets.dsets import CandidateInfoTuple, LoesScoreDataset
 import torch
 from dcan.training.augmented_loes_score_dataset import AugmentedLoesScoreDataset
+from dcan.training.metrics.participant_visible_error import score
 from mri_logistic_regression import get_mri_logistic_regression_model
 
 
@@ -1075,12 +1076,13 @@ class LogisticRegressionApp:
             'f1': [],
             'auc': [],
             'sensitivity': [],
-            'specificity': []
+            'specificity': [],
+            'pAUC': []
         }
         
         # Save path for the best model across all folds
         best_model_path = self.config.model_save_location
-        best_val_f1 = 0.0
+        best_val_pauc = 0.0
     
         # Run training for each fold
         for fold in range(k):
@@ -1119,8 +1121,8 @@ class LogisticRegressionApp:
                     fold_metrics[metric].append(fold_results[metric])
             
             # Save best model across folds
-            if fold_results.get('f1', 0) > best_val_f1:
-                best_val_f1 = fold_results.get('f1', 0)
+            if fold_results.get('pAUC', 0) > best_val_pauc:
+                best_val_pauc = fold_results.get('pAUC', 0)
                 fold_model_path = f"{os.path.splitext(best_model_path)[0]}_fold{fold+1}.pt"
                 self.save_model(fold_model_path)
                 log.info(f"New best model saved to {fold_model_path}")
@@ -1249,7 +1251,7 @@ class LogisticRegressionApp:
         )
     
         # Track best model
-        best_val_f1 = 0.0
+        best_val_p_auc = 0.0
         best_epoch = 0
         fold_metrics = {}
         
@@ -1283,7 +1285,11 @@ class LogisticRegressionApp:
                 auc = 0.5
                 if len(np.unique(y_true)) > 1:
                     auc = roc_auc_score(y_true, y_prob)
-                
+
+                    solution = y_true
+                    submission = y_prob
+                    p_auc = score(solution, submission)
+
                 # Compute confusion matrix
                 cm = confusion_matrix(y_true, y_pred)
                 
@@ -1298,9 +1304,9 @@ class LogisticRegressionApp:
                 elif self.config.scheduler != 'onecycle':
                     self.scheduler.step()
                 
-                # Track best F1 score
-                if f1 > best_val_f1:
-                    best_val_f1 = f1
+                # Track best partial area under the ROC curve (pAUC) score
+                if p_auc > best_val_p_auc:
+                    best_val_p_auc = p_auc
                     best_epoch = epoch
                     
                     # Save metrics for best epoch
@@ -1313,23 +1319,25 @@ class LogisticRegressionApp:
                         'auc': auc,
                         'sensitivity': sensitivity,
                         'specificity': specificity,
-                        'loss': val_loss
+                        'loss': val_loss,
+                        'pAUC': p_auc
                     }
                     
                     # Log best model info
-                    log.info(f"New best F1: {f1:.4f} (accuracy: {accuracy:.4f}, AUC: {auc:.4f})")
+                    log.info(f"New best pAUC: {p_auc:.4f} (F1: {f1:.4f}, (accuracy: {accuracy:.4f}, AUC: {auc:.4f})")
                 
                 # Log epoch summary
                 log.info(f"Fold {fold_idx+1} - Epoch {epoch} - "
                         f"Loss: {val_loss:.4f}, "
                         f"Accuracy: {accuracy:.4f}, "
+                        f"pAUC: {best_val_p_auc:.4f}, "
                         f"F1: {f1:.4f}, "
                         f"LR: {self.optimizer.param_groups[0]['lr']:.6f}")
                 
             except Exception as e:
                 log.error(f"Error computing metrics: {e}")
         
-        log.info(f"Fold {fold_idx+1} completed. Best F1: {best_val_f1:.4f} (epoch {best_epoch})")
+        log.info(f"Fold {fold_idx+1} completed. Best pAUC: {best_val_p_auc:.4f} (epoch {best_epoch})")
         return fold_metrics
 
     def generate_summary_statistics(self):
@@ -1427,6 +1435,8 @@ class LogisticRegressionApp:
         
             # Compute AUC if we have both classes
             if len(np.unique(val_labels)) > 1:
+                p_auc = score(val_labels, val_probs)
+                log.info(f"pAUC: {p_auc:.4f}")
                 auc = roc_auc_score(val_labels, val_probs)
                 log.info(f"AUC: {auc:.4f}")
             
