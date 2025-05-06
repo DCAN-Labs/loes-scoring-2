@@ -14,7 +14,7 @@ from torch.optim import Adam, SGD
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingLR, OneCycleLR
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix
+from sklearn.metrics import accuracy_score, auc, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, roc_curve
 import logging
 import matplotlib.pyplot as plt
 from tqdm import tqdm
@@ -470,261 +470,54 @@ class TensorBoardLogger:
         self.trn_writer.close()
         self.val_writer.close()
 
-
-# Main Application Class
-# Update the initialization sequence in your LogisticRegressionApp class
 class LogisticRegressionApp:
-    def __init__(self, sys_argv=None):
+
+    def __init__(self, sys_argv=None, input_df=None, output_df=None):
+        """
+        Initialize with optional pre-loaded data to simplify the sequence.
+        """
+        # Parse arguments first
         self.config = Config().parse_args(sys_argv)
-        self.class_weights = self.config.class_weights
+        
+        # Set device
         if not self.config.DEBUG:
             self.use_cuda = torch.cuda.is_available()
             self.device = torch.device("cuda" if self.use_cuda else "cpu")
         else:
             self.use_cuda = False
             self.device = "cpu"
-            
-        # Load the data (only once)
-        self._load_data()
-
-        # Check data integrity before proceeding
-        self.check_data_integrity()
         
-        # Setup model, datasets, and training components IN THE CORRECT ORDER
-        self.folder = self.config.folder
-        
-        # 1. First, set up the model (needs to be done before optimizer)
-        self._setup_model()
-        
-        # 2. Then initialize the data handler and datasets
-        self.data_handler = DataHandler(self.input_df, self.output_df, self.use_cuda, self.config.batch_size, self.config.num_workers)
-        self.data_handler = DataHandler(
-            self.input_df, self.output_df, self.use_cuda, 
-            self.config.batch_size, self.config.num_workers
-        )
-        self.data_handler.augment_minority = self.config.augment_minority
-
-        # Print data summary
-        log.info(f"Dataset shape: {self.input_df.shape}")
-        log.info(f"Features: {self.config.features}")
-        log.info(f"Target: {self.config.target}")
-        
-        # Setup augmentation (add this line)
-        self._setup_augmentation()
-        
-        # Setup model, datasets, and training components
-        self.folder = self.config.folder
-
-        self._setup_datasets()
-        self._setup_dataloaders()
-        
-        # 3. Only after model is set up, initialize optimizer and scheduler
-        print(list(self.model.parameters()))
-        self._setup_optimizer()
-        self._setup_scheduler()
-        
-        # Setup logging
-        self.time_str = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
-        self.tb_logger = TensorBoardLogger(self.config.tb_prefix, self.time_str, self.config.comment)
-
-    def check_data_integrity(self):
-        """
-        Performs various checks to ensure data integrity before training.
-        Raises appropriate exceptions if issues are found.
-        """
-        log.info("Checking data integrity...")
-        
-        # Check class balance
-        target_values = self.input_df[self.config.target].values
-        class_counts = np.bincount(target_values.astype(int))
-        
-        if len(class_counts) <= 1:
-            raise ValueError(f"Only one class found in target column '{self.config.target}'. Cannot train a classifier.")
-        
-        minority_class_count = min(class_counts)
-        majority_class_count = max(class_counts)
-        imbalance_ratio = majority_class_count / minority_class_count if minority_class_count > 0 else float('inf')
-        
-        if imbalance_ratio > 10:
-            log.warning(f"Severe class imbalance detected: ratio of {imbalance_ratio:.2f}. "
-                        f"Consider using --class-weights or --augment-minority.")
-        
-        # Check feature distributions
-        for feature in self.config.features:
-            feature_values = self.input_df[feature].values
-            if len(np.unique(feature_values)) == 1:
-                log.warning(f"Feature '{feature}' has only one unique value. Consider removing it.")
-            
-            # Check for outliers using IQR
-            if np.issubdtype(feature_values.dtype, np.number):
-                q1 = np.percentile(feature_values, 25)
-                q3 = np.percentile(feature_values, 75)
-                iqr = q3 - q1
-                outlier_mask = (feature_values < q1 - 1.5 * iqr) | (feature_values > q3 + 1.5 * iqr)
-                outlier_count = np.sum(outlier_mask)
-                
-                if outlier_count > 0:
-                    outlier_pct = outlier_count / len(feature_values) * 100
-                    if outlier_pct > 5:
-                        log.warning(f"Feature '{feature}' has {outlier_pct:.1f}% outliers. "
-                                    f"Consider normalization or outlier handling.")
-    
-        # Check for MRI file existence if applicable
-        if self.config.folder:
-            if not os.path.exists(self.config.folder):
-                raise FileNotFoundError(f"MRI folder not found: {self.config.folder}")
-                
-            # Check a sample of MRI files
-            sample_subjects = random.sample(list(self.input_df['anonymized_subject_id'].unique()), 
-                                            min(5, len(self.input_df['anonymized_subject_id'].unique())))
-                                        
-            missing_files = 0
-            for subject in sample_subjects:
-                sample_rows = self.input_df[self.input_df['anonymized_subject_id'] == subject].iloc[:1]
-                for _, row in sample_rows.iterrows():
-                    subject_str = row['anonymized_subject_id']
-                    session_str = row['anonymized_session_id']
-                    file_name = f"{subject_str}_{session_str}_space-MNI_brain_mprage_RAVEL.nii.gz"
-                    file_path = os.path.join(self.config.folder, file_name)
-                    
-                    if not os.path.exists(file_path):
-                        missing_files += 1
-                        
-            if missing_files > 0:
-                log.warning(f"{missing_files} out of {len(sample_subjects)} sampled MRI files are missing. "
-                            f"This might indicate data availability issues.")
-        
-        log.info("Data integrity check completed.")
-
-    def _setup_model(self):
-        """
-        Set up the model based on configuration.
-        This method handles model initialization with proper error checking.
-        """
-        model_type = self.config.model_type
-        debug_mode = self.config.DEBUG
-        
-        log.info(f"Setting up {model_type} model")
-        
-        try:
-            # Create model
-            if model_type == 'simple':
-                self.model = SimpleMRIModel(debug=debug_mode)
-            elif model_type == 'conv':
-                self.model = get_mri_logistic_regression_model(model_type='conv', debug=debug_mode)
-            elif model_type in ['resnet3d', 'dense3d', 'efficientnet3d']:
-                # Import only if needed
-                from dcan.models.advanced_mri_models import get_advanced_mri_model
-                self.model = get_advanced_mri_model(model_type=model_type, debug=debug_mode)
-            else:
-                raise ValueError(f"Unknown model type: {model_type}")
-                
-            # Move model to device
-            self.model = self.model.to(self.device)
-            log.info(f"Model moved to {self.device}")
-            
-            # Log model parameter count
-            total_params = sum(p.numel() for p in self.model.parameters())
-            trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-            log.info(f"Model has {total_params:,} total parameters ({trainable_params:,} trainable)")
-        
-            # Ensure model is in training mode
-            self.model.train()
-            
-        except ImportError as e:
-            log.error(f"Failed to import necessary modules for model type '{model_type}': {e}")
-            raise
-        except Exception as e:
-            log.error(f"Error creating model: {e}")
-            raise
-            
-        log.info(f"Model initialization complete: {model_type}")
-
-    def _load_data(self):
-        log.info(f"Loading data from {self.config.csv_input_file}")
-        try:
-            if not os.path.exists(self.config.csv_input_file):
-                raise FileNotFoundError(f"Input file not found: {self.config.csv_input_file}")
-                
-            self.input_df = pd.read_csv(self.config.csv_input_file)
-            
-            # Validate that required columns exist
-            missing_features = [f for f in self.config.features if f not in self.input_df.columns]
-            if missing_features:
-                raise ValueError(f"Missing required feature columns: {missing_features}")
-                
-            if self.config.target not in self.input_df.columns:
-                raise ValueError(f"Target column '{self.config.target}' not found in input file")
-                
-            self.output_df = self.input_df.copy()
-            self.output_df["prediction"] = np.nan
-            
-            # Check for missing values
-            missing_values = self.input_df[self.config.features + [self.config.target]].isnull().sum()
-            if missing_values.sum() > 0:
-                for col, count in missing_values.items():
-                    if count > 0:
-                        log.warning(f"Found {count} missing values in column '{col}'")
-            
-            if hasattr(self.config, 'gd') and self.config.gd:
-                before_count = len(self.input_df)
-                self.input_df = self.input_df[~self.input_df['scan'].str.contains('Gd')]
-                after_count = len(self.input_df)
-                log.info(f"Removed {before_count - after_count} Gd scans from dataset")
-            
-            # Print data summary
-            log.info(f"Dataset shape: {self.input_df.shape}")
-            log.info(f"Features: {self.config.features}")
-            log.info(f"Target: {self.config.target}")
-        
-        except pd.errors.EmptyDataError:
-            log.error(f"CSV file is empty: {self.config.csv_input_file}")
-            raise
-        except pd.errors.ParserError:
-            log.error(f"Error parsing CSV file: {self.config.csv_input_file}")
-            raise
-        except Exception as e:
-            log.error(f"Error loading data: {e}")
-            raise
-
-    def _setup_optimizer(self):
-        # Verify that the model has parameters before creating optimizer
-        if not any(p.requires_grad for p in self.model.parameters()):
-            log.error("No parameters in the model require gradients!")
-            # Add a dummy parameter to prevent optimizer error
-            self.model.dummy_param = nn.Parameter(torch.zeros(1, requires_grad=True))
-        
-        # Get list of parameters that require gradients
-        params = [p for p in self.model.parameters() if p.requires_grad]
-        
-        # Log parameter information
-        log.info(f"Setting up optimizer with {len(params)} parameter groups")
-        
-        if self.config.optimizer.lower() == 'adam':
-            self.optimizer = Adam(
-                params,
-                lr=self.config.lr,
-                weight_decay=self.config.weight_decay
-            )
+        # Use pre-loaded data if provided, otherwise load it
+        if input_df is not None and output_df is not None:
+            self.input_df = input_df
+            self.output_df = output_df
         else:
-            self.optimizer = SGD(
-                params,
-                lr=self.config.lr, 
-                momentum=0.9,
-                weight_decay=self.config.weight_decay
-            )
+            self._load_data()
         
-        log.info(f"Optimizer initialized: {type(self.optimizer).__name__}")
-
-    def _setup_datasets(self):
-        """
-        Prepare train/validation datasets by extracting subjects from the dataframes.
-        This method doesn't actually create the datasets but prepares the lists
-        of subjects that will be used in _setup_dataloaders.
-        """
-        log.info("Setting up datasets...")
+        # Continue with the original initialization sequence
+        # but be more careful with method calls
         
-        # Extract training and validation subjects
+        # The rest of your initialization sequence...
+        
+        # 3. Load data
+        print("Loading data...")
+        self._load_data()
+        print("Data loaded successfully")
+    
+        # 4. Data integrity check
+        try:
+            print("Checking data integrity...")
+            self.check_data_integrity()
+            print("Data integrity check passed")
+        except Exception as e:
+            print(f"Warning: Data integrity check failed: {e}")
+        
+        # 5. Set folder path
+        self.folder = self.config.folder
+        
+        # 6. Set up train/validation subjects directly
+        print("Setting up train/validation subjects...")
+        # Use existing columns if specified, otherwise use fixed ratio
         if self.config.use_train_validation_cols:
             # Use existing training/validation flags from the DataFrame
             training_rows = self.input_df[self.input_df['training'] == 1]
@@ -733,36 +526,55 @@ class LogisticRegressionApp:
             validation_rows = self.input_df[self.input_df['validation'] == 1]
             self.val_subjects = list(set(validation_rows['anonymized_subject_id'].tolist()))
         else:
-            # Split based on config split ratio
-            self.train_subjects, self.val_subjects = self.split_train_validation()
+            # Use a fixed split ratio
+            all_subjects = list(set(self.input_df['anonymized_subject_id'].tolist()))
+            split_idx = int(len(all_subjects) * self.config.split_ratio)
+            self.train_subjects = all_subjects[:split_idx]
+            self.val_subjects = all_subjects[split_idx:]
         
-        log.info(f"Train set: {len(self.train_subjects)} subjects")
-        log.info(f"Val set: {len(self.val_subjects)} subjects")
-
-    # If you're moving away from the dataset-oriented approach and using DataHandler directly,
-    # update your _setup_dataloaders method to match:
-
-    def _setup_dataloaders(self):
-        """
-        Create DataLoader objects for training and validation using the DataHandler.
-        """
-        log.info("Setting up dataloaders...")
+        print(f"Train subjects: {len(self.train_subjects)}")
+        print(f"Val subjects: {len(self.val_subjects)}")
         
-        # Use DataHandler to create the data loaders
+        # 7. Set up model
+        print("Setting up model...")
+        self._setup_model()
+        print("Model set up successfully")
+    
+        # 8. Initialize data handler
+        print("Initializing DataHandler...")
+        self.data_handler = DataHandler(
+            self.input_df, self.output_df, self.use_cuda, 
+            self.config.batch_size, self.config.num_workers
+        )
+        # Set any additional properties
+        if hasattr(self.config, 'augment_minority'):
+            self.data_handler.augment_minority = self.config.augment_minority
+        print("DataHandler initialized")
+        
+        # 9. Set up dataloaders using DataHandler
+        print("Setting up dataloaders...")
         self.train_dl = self.data_handler.init_dl(self.folder, self.train_subjects)
         self.val_dl = self.data_handler.init_dl(self.folder, self.val_subjects, is_val_set=True)
+        print("Dataloaders set up successfully")
         
-        log.info(f"Train dataloader: {len(self.train_dl)} batches")
-        log.info(f"Val dataloader: {len(self.val_dl)} batches")
-
-    def split_train_validation(self):
-        training_rows = self.input_df.loc[self.input_df['training'] == 1]
-        validation_rows = self.input_df.loc[self.input_df['validation'] == 1]
-        validation_users = list(set(validation_rows['anonymized_subject_id'].to_list()))
-        training_users = list(set(training_rows['anonymized_subject_id'].to_list()))
-        
-        return training_users, validation_users
+        # 10. Set up optimizer and scheduler
+        print("Setting up optimizer...")
+        self._setup_optimizer()
+        print("Setting up scheduler...")
+        self._setup_scheduler()
+        print("Optimizer and scheduler set up successfully")
     
+        # 11. Set up TensorBoard logger
+        print("Setting up TensorBoard logger...")
+        self.time_str = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
+        self.tb_logger = TensorBoardLogger(
+            self.config.tb_prefix, self.time_str, self.config.comment
+        )
+        print("TensorBoard logger set up successfully")
+        
+        print("LogisticRegressionApp initialized successfully")
+
+        
     def _setup_scheduler(self):
         """
         Set up the learning rate scheduler based on the configuration.
@@ -809,22 +621,417 @@ class LogisticRegressionApp:
         
         log.info(f"Scheduler initialized: {type(self.scheduler).__name__}")
 
-    def _setup_augmentation(self):
-        """Identify minority class samples for augmentation"""
-        log.info("Setting up augmentation for minority class...")
+
+    def _setup_optimizer(self):
+        # Verify that the model has parameters before creating optimizer
+        if not any(p.requires_grad for p in self.model.parameters()):
+            log.error("No parameters in the model require gradients!")
+            # Add a dummy parameter to prevent optimizer error
+            self.model.dummy_param = nn.Parameter(torch.zeros(1, requires_grad=True))
         
-        # Get all samples
-        all_subjects = set(self.input_df['anonymized_subject_id'].tolist())
+        # Get list of parameters that require gradients
+        params = [p for p in self.model.parameters() if p.requires_grad]
         
-        # Identify subjects without ALD (minority class)
-        self.non_ald_subjects = []
-        for subject in all_subjects:
-            subject_rows = self.input_df[self.input_df['anonymized_subject_id'] == subject]
-            max_loes = subject_rows['loes-score'].max()
-            if max_loes <= self.config.threshold:
-                self.non_ald_subjects.append(subject)
+        # Log parameter information
+        log.info(f"Setting up optimizer with {len(params)} parameter groups")
         
-        log.info(f"Found {len(self.non_ald_subjects)} subjects in minority class (non-ALD)")
+        if self.config.optimizer.lower() == 'adam':
+            self.optimizer = Adam(
+                params,
+                lr=self.config.lr,
+                weight_decay=self.config.weight_decay
+            )
+        else:
+            self.optimizer = SGD(
+                params,
+                lr=self.config.lr, 
+                momentum=0.9,
+                weight_decay=self.config.weight_decay
+            )
+        
+        log.info(f"Optimizer initialized: {type(self.optimizer).__name__}")
+
+    def _setup_dataloaders(self):
+        """
+        Create DataLoader objects for training and validation.
+        """
+        log.info("Setting up dataloaders...")
+        
+        if not self.folder or not os.path.exists(self.folder):
+            raise ValueError(f"Invalid MRI folder path: {self.folder}")
+        
+        # Create training dataset
+        train_dataset = LoesScoreDataset(
+            self.folder, self.train_subjects, self.input_df, self.output_df, 
+            is_val_set_bool=False
+        )
+        
+        # Create validation dataset
+        val_dataset = LoesScoreDataset(
+            self.folder, self.val_subjects, self.input_df, self.output_df, 
+            is_val_set_bool=True
+        )
+        
+        # Create dataloaders
+        batch_size = self.config.batch_size
+        if self.use_cuda:
+            batch_size *= torch.cuda.device_count()
+        
+        self.train_dl = DataLoader(
+            train_dataset, 
+            batch_size=batch_size, 
+            num_workers=self.config.num_workers, 
+            pin_memory=self.use_cuda
+        )
+    
+        self.val_dl = DataLoader(
+            val_dataset, 
+            batch_size=batch_size, 
+            num_workers=self.config.num_workers, 
+            pin_memory=self.use_cuda
+        )
+        
+        log.info(f"Train dataloader: {len(self.train_dl)} batches")
+        log.info(f"Val dataloader: {len(self.val_dl)} batches")    
+
+                
+    def _setup_model(self):
+        """
+        Set up the model based on configuration.
+        Handles model initialization with proper error checking and device placement.
+        """
+        model_type = self.config.model_type
+        debug_mode = self.config.DEBUG
+        
+        log.info(f"Setting up {model_type} model")
+        
+        try:
+            # Create model based on type
+            if model_type == 'simple':
+                # Simple model for testing or baseline performance
+                input_dim = len(self.config.features)
+                log.info(f"Creating simple model with {input_dim} input features")
+                self.model = SimpleMRIModel(input_dim=input_dim, debug=debug_mode)
+            
+            elif model_type == 'conv':
+                # Import the convolutional model
+                try:
+                    # Check if module exists before importing
+                    log.info("Importing MRI logistic regression model")
+                    self.model = get_mri_logistic_regression_model(model_type='conv', debug=debug_mode)
+                except ImportError as e:
+                    log.error(f"Failed to import get_mri_logistic_regression_model: {e}")
+                    # Fallback to simple model if import fails
+                    log.warning("Falling back to SimpleMRIModel due to import error")
+                    input_dim = len(self.config.features)
+                    self.model = SimpleMRIModel(input_dim=input_dim, debug=debug_mode)
+            
+            elif model_type in ['resnet3d', 'dense3d', 'efficientnet3d']:
+                # Import advanced models (only if needed)
+                try:
+                    log.info(f"Importing advanced model: {model_type}")
+                    from dcan.models.advanced_mri_models import get_advanced_mri_model
+                    self.model = get_advanced_mri_model(model_type=model_type, debug=debug_mode)
+                except ImportError as e:
+                    log.error(f"Failed to import advanced model modules: {e}")
+                    raise ValueError(f"Advanced model '{model_type}' requires additional dependencies that are not available")
+            
+            else:
+                raise ValueError(f"Unknown model type: {model_type}")
+        
+            # Validate model structure
+            if self.model is None:
+                raise ValueError("Model initialization failed, returned None")
+                
+            # Move model to the appropriate device
+            self.model = self.model.to(self.device)
+            log.info(f"Model moved to {self.device}")
+            
+            # Log model parameter count and structure
+            total_params = sum(p.numel() for p in self.model.parameters())
+            trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+            log.info(f"Model has {total_params:,} total parameters ({trainable_params:,} trainable)")
+            
+            # Log model structure (basic summary)
+            if not debug_mode:
+                log.info("Model structure:")
+                for name, param in self.model.named_parameters():
+                    if param.requires_grad:
+                        log.info(f"  {name}: {param.shape}")
+            
+            # Ensure model is in training mode
+            self.model.train()
+            
+        except ImportError as e:
+            log.error(f"Failed to import necessary modules for model type '{model_type}': {e}")
+            raise
+        except Exception as e:
+            log.error(f"Error creating model: {e}")
+            raise
+                
+        log.info(f"Model initialization complete: {model_type}")
+
+    def check_data_integrity(self):
+        """
+        Performs comprehensive checks to ensure data integrity before training.
+        Validates feature distributions, class balance, and data availability.
+        Raises appropriate exceptions if critical issues are found.
+        """
+        log.info("Checking data integrity...")
+        
+        # 1. Check for empty dataset
+        if self.input_df.empty:
+            raise ValueError("Input DataFrame is empty. Cannot proceed with training.")
+        
+        # 2. Check class balance
+        try:
+            target_values = self.input_df[self.config.target].values
+            
+            # Check if target is binary or continuous
+            unique_values = np.unique(target_values)
+            if len(unique_values) <= 1:
+                raise ValueError(f"Target column '{self.config.target}' has only one unique value. Cannot train a classifier.")
+            
+            # For binary targets, check class balance
+            if len(unique_values) <= 10:  # Assume it's a classification task
+                # Get class counts
+                value_counts = pd.Series(target_values).value_counts()
+                
+                # For binary classification, check imbalance
+                if len(value_counts) == 2:
+                    minority_class_count = value_counts.min()
+                    majority_class_count = value_counts.max()
+                    imbalance_ratio = majority_class_count / minority_class_count
+                    
+                    if imbalance_ratio > 10:
+                        log.warning(f"Severe class imbalance detected: ratio of {imbalance_ratio:.2f}. "
+                                    f"Consider using --class-weights or --augment-minority.")
+                    elif imbalance_ratio > 3:
+                        log.warning(f"Class imbalance detected: ratio of {imbalance_ratio:.2f}.")
+                
+                # For multi-class, check for any small classes
+                elif len(value_counts) > 2:
+                    smallest_class_count = value_counts.min()
+                    smallest_class_pct = (smallest_class_count / len(target_values)) * 100
+                    
+                    if smallest_class_pct < 5:
+                        log.warning(f"Some classes have very few examples (min: {smallest_class_count}, {smallest_class_pct:.1f}%). "
+                                    f"Consider data augmentation or stratified sampling.")
+        except Exception as e:
+            log.error(f"Error checking class balance: {e}")
+        
+        # 3. Check feature distributions
+        for feature in self.config.features:
+            try:
+                feature_values = self.input_df[feature].values
+                
+                # Check for constant features
+                if len(np.unique(feature_values)) == 1:
+                    log.warning(f"Feature '{feature}' has only one unique value. Consider removing it.")
+                    continue
+                    
+                # Check for features with too many unique values (potential one-hot encoding issues)
+                if len(np.unique(feature_values)) > 100 and len(np.unique(feature_values)) > len(self.input_df) * 0.5:
+                    log.warning(f"Feature '{feature}' has {len(np.unique(feature_values))} unique values. "
+                            f"This might be an ID column or require special encoding.")
+                
+                # For numeric features, check distribution
+                if np.issubdtype(feature_values.dtype, np.number):
+                    # Check for outliers using IQR
+                    q1 = np.percentile(feature_values, 25)
+                    q3 = np.percentile(feature_values, 75)
+                    iqr = q3 - q1
+                    outlier_mask = (feature_values < q1 - 1.5 * iqr) | (feature_values > q3 + 1.5 * iqr)
+                    outlier_count = np.sum(outlier_mask)
+                    
+                    if outlier_count > 0:
+                        outlier_pct = outlier_count / len(feature_values) * 100
+                        if outlier_pct > 5:
+                            log.warning(f"Feature '{feature}' has {outlier_pct:.1f}% outliers. "
+                                    f"Consider normalization or outlier handling.")
+                    
+                    # Check for skewed distributions
+                    skewness = stats.skew(feature_values)
+                    if abs(skewness) > 1.0:
+                        log.info(f"Feature '{feature}' is skewed (skewness={skewness:.2f}). "
+                                f"Consider transformation if appropriate.")
+                
+                    # Check for missing values
+                    missing_count = np.sum(np.isnan(feature_values))
+                    if missing_count > 0:
+                        missing_pct = missing_count / len(feature_values) * 100
+                        log.warning(f"Feature '{feature}' has {missing_pct:.1f}% missing values.")
+            except Exception as e:
+                log.error(f"Error checking feature '{feature}': {e}")
+    
+        # 4. Check MRI file availability if applicable
+        if self.config.folder:
+            try:
+                if not os.path.exists(self.config.folder):
+                    raise FileNotFoundError(f"MRI folder not found: {self.config.folder}")
+                    
+                # Check a random sample of MRI files to ensure they exist
+                if 'anonymized_subject_id' in self.input_df.columns and 'anonymized_session_id' in self.input_df.columns:
+                    sample_size = min(5, len(self.input_df))
+                    sample_rows = self.input_df.sample(sample_size)
+                    
+                    missing_files = 0
+                    for _, row in sample_rows.iterrows():
+                        subject_str = row['anonymized_subject_id']
+                        session_str = row['anonymized_session_id']
+                        file_name = f"{subject_str}_{session_str}_space-MNI_brain_mprage_RAVEL.nii.gz"
+                        file_path = os.path.join(self.config.folder, file_name)
+                        
+                        if not os.path.exists(file_path):
+                            missing_files += 1
+                    
+                    if missing_files > 0:
+                        missing_pct = missing_files / sample_size * 100
+                        if missing_pct > 50:
+                            raise ValueError(f"{missing_files} out of {sample_size} sampled MRI files are missing. "
+                                            f"Check data path and file naming convention.")
+                        else:
+                            log.warning(f"{missing_files} out of {sample_size} sampled MRI files are missing. "
+                                    f"Some subjects may be excluded during training.")
+            except Exception as e:
+                if isinstance(e, ValueError):
+                    raise
+                log.error(f"Error checking MRI files: {e}")
+        
+        # 5. Check memory requirements (approximate)
+        try:
+            # Estimate dataset size in memory
+            dataset_size_mb = self.input_df.memory_usage(deep=True).sum() / (1024 * 1024)
+            
+            # Estimate model parameter count (rough approximation)
+            model_param_estimate = 0
+            if self.config.model_type == 'simple':
+                input_dim = len(self.config.features)
+                # Simple model: input -> 512 -> 128 -> 32 -> 1
+                model_param_estimate = (input_dim * 512 + 512) + (512 * 128 + 128) + (128 * 32 + 32) + (32 * 1 + 1)
+            elif self.config.model_type == 'conv':
+                # Rough estimate for conv model
+                model_param_estimate = 500000  # Typical CNN parameter count
+            else:
+                # Large models
+                model_param_estimate = 10000000  # Typical parameter count for larger architectures
+            
+            # Estimate memory required for training (very rough approximation)
+            batch_memory_mb = (dataset_size_mb / len(self.input_df)) * self.config.batch_size * 4  # 4x for gradient storage, etc.
+            model_memory_mb = model_param_estimate * 4 / (1024 * 1024)  # 4 bytes per parameter
+            
+            total_memory_estimate_gb = (batch_memory_mb + model_memory_mb) / 1024
+            
+            # Log memory estimates
+            log.info(f"Estimated dataset size: {dataset_size_mb:.2f} MB")
+            log.info(f"Estimated model parameters: {model_param_estimate:,}")
+            log.info(f"Estimated GPU memory required: {total_memory_estimate_gb:.2f} GB")
+            
+            # Warn if memory requirements might be excessive
+            if self.use_cuda and total_memory_estimate_gb > 4.0:
+                log.warning(f"High memory usage expected ({total_memory_estimate_gb:.2f} GB). "
+                        f"Consider reducing batch size if you encounter CUDA out of memory errors.")
+        except Exception as e:
+            log.error(f"Error estimating memory requirements: {e}")
+    
+        log.info("Data integrity check completed.")
+
+    def _load_data(self):
+        """
+        Load and validate input data from CSV files.
+        This method handles initial data loading and basic validation,
+        preparing data for use by the DataHandler.
+        """
+        log.info(f"Loading data from {self.config.csv_input_file}")
+        
+        try:
+            # Validate file existence
+            if not os.path.exists(self.config.csv_input_file):
+                raise FileNotFoundError(f"Input file not found: {self.config.csv_input_file}")
+            
+            # Load the data
+            self.input_df = pd.read_csv(self.config.csv_input_file)
+            
+            # Validate that required columns exist
+            missing_features = [f for f in self.config.features if f not in self.input_df.columns]
+            if missing_features:
+                raise ValueError(f"Missing required feature columns: {missing_features}")
+                
+            if self.config.target not in self.input_df.columns:
+                raise ValueError(f"Target column '{self.config.target}' not found in input file")
+                
+            # Create output dataframe
+            self.output_df = self.input_df.copy()
+            self.output_df["prediction"] = np.nan
+            
+            # Add validation and training columns if they don't exist
+            if 'validation' not in self.output_df.columns:
+                self.output_df['validation'] = np.nan
+            if 'training' not in self.output_df.columns:
+                self.output_df['training'] = np.nan
+            
+            # Check for missing values in critical columns
+            missing_values = self.input_df[self.config.features + [self.config.target]].isnull().sum()
+            if missing_values.sum() > 0:
+                for col, count in missing_values.items():
+                    if count > 0:
+                        log.warning(f"Found {count} missing values in column '{col}'")
+            
+            # Handle gadolinium-enhanced scans if needed
+            if hasattr(self.config, 'gd') and self.config.gd:
+                before_count = len(self.input_df)
+                # Make sure 'scan' column exists before filtering
+                if 'scan' not in self.input_df.columns:
+                    log.warning("'scan' column not found; cannot filter gadolinium-enhanced scans")
+                else:
+                    self.input_df = self.input_df[~self.input_df['scan'].str.contains('Gd')]
+                    after_count = len(self.input_df)
+                    log.info(f"Removed {before_count - after_count} Gd scans from dataset")
+            
+            # Handle feature normalization if requested
+            if self.config.normalize_features:
+                self._normalize_features()
+            
+            # Log dataset summary
+            log.info(f"Dataset loaded successfully: {self.input_df.shape[0]} rows, {self.input_df.shape[1]} columns")
+            log.info(f"Features: {self.config.features}")
+            log.info(f"Target: {self.config.target}")
+            log.info(f"Class distribution: {self.input_df[self.config.target].value_counts().to_dict()}")
+        
+        except pd.errors.EmptyDataError:
+            log.error(f"CSV file is empty: {self.config.csv_input_file}")
+            raise
+        except pd.errors.ParserError:
+            log.error(f"Error parsing CSV file: {self.config.csv_input_file}")
+            raise
+        except Exception as e:
+            log.error(f"Error loading data: {e}")
+            raise
+
+    def _normalize_features(self):
+        """
+        Normalize feature columns to have zero mean and unit variance.
+        Only applied if normalize_features option is enabled.
+        """
+        from sklearn.preprocessing import StandardScaler
+        
+        log.info("Normalizing feature columns...")
+        
+        # Create a scaler for numerical features
+        scaler = StandardScaler()
+        
+        # Store the original values before normalization
+        self.original_feature_values = self.input_df[self.config.features].copy()
+        
+        # Normalize only the configured feature columns
+        self.input_df[self.config.features] = scaler.fit_transform(
+            self.input_df[self.config.features]
+        )
+        
+        # Save scaler for later use (e.g., for predictions on new data)
+        self.feature_scaler = scaler
+        
+        log.info("Feature normalization complete")
 
     def run_cross_validation(self, k=5):
         """
@@ -851,14 +1058,14 @@ class LogisticRegressionApp:
                 subjects_without_ald.append(subject)
         
         log.info(f"Total subjects: {len(all_subjects)} ({len(subjects_with_ald)} with ALD, {len(subjects_without_ald)} without ALD)")
-        
+    
         # Create stratified folds
         random.shuffle(subjects_with_ald)
         random.shuffle(subjects_without_ald)
         
         ald_folds = self._create_folds(subjects_with_ald, k)
         no_ald_folds = self._create_folds(subjects_without_ald, k)
-    
+
         # Metrics to track across folds
         fold_metrics = {
             'accuracy': [],
@@ -874,7 +1081,7 @@ class LogisticRegressionApp:
         # Save path for the best model across all folds
         best_model_path = self.config.model_save_location
         best_val_f1 = 0.0
-        
+    
         # Run training for each fold
         for fold in range(k):
             log.info(f"\n{'='*40}")
@@ -894,8 +1101,9 @@ class LogisticRegressionApp:
             log.info(f"Train set: {len(self.train_subjects)} subjects ({len(train_subjects_ald)} with ALD, {len(train_subjects_no_ald)} without ALD)")
             log.info(f"Val set: {len(self.val_subjects)} subjects ({len(val_subjects_ald)} with ALD, {len(val_subjects_no_ald)} without ALD)")
             
-            # Initialize dataloaders
-            self._setup_dataloaders()
+            # Set up dataloaders for this fold
+            self.train_dl = self.data_handler.init_dl(self.folder, self.train_subjects)
+            self.val_dl = self.data_handler.init_dl(self.folder, self.val_subjects, is_val_set=True)
             
             # Initialize a new model for this fold
             self._setup_model()
@@ -921,7 +1129,7 @@ class LogisticRegressionApp:
         log.info("\n" + "="*80)
         log.info("CROSS-VALIDATION RESULTS")
         log.info("="*80)
-    
+
         for metric, values in fold_metrics.items():
             if values:
                 mean_value = np.mean(values)
@@ -929,6 +1137,7 @@ class LogisticRegressionApp:
                 log.info(f"{metric.capitalize()}: {mean_value:.4f} ± {std_value:.4f}")
         
         log.info("="*80)
+        
 
     def _create_folds(self, subjects, k):
         """
@@ -945,6 +1154,80 @@ class LogisticRegressionApp:
         for i, subject in enumerate(subjects):
             folds[i % k].append(subject)
         return folds
+    
+    def find_optimal_threshold(self, val_metrics):
+        """
+        Find the optimal classification threshold by maximizing Youden's Index.
+        
+        Args:
+            val_metrics: Validation metrics tensor containing true labels and predicted probabilities
+            
+        Returns:
+            float: Optimal threshold value
+            dict: Performance metrics at optimal threshold
+        """
+        # Extract true labels and predicted probabilities
+        y_true = val_metrics[METRICS_LABEL_NDX].numpy()
+        y_prob = val_metrics[METRICS_PROB_NDX].numpy()
+        
+        # Generate ROC curve points
+        fpr, tpr, thresholds = roc_curve(y_true, y_prob)
+        
+        # Calculate Youden's Index (J = sensitivity + specificity - 1)
+        J = tpr - fpr
+        
+        # Find index of maximum value
+        optimal_idx = np.argmax(J)
+        optimal_threshold = thresholds[optimal_idx]
+        
+        # Get metrics at optimal threshold
+        y_pred = (y_prob >= optimal_threshold).astype(float)
+        
+        # Calculate metrics
+        accuracy = accuracy_score(y_true, y_pred)
+        precision = precision_score(y_true, y_pred, zero_division=0)
+        recall = sensitivity = recall_score(y_true, y_pred, zero_division=0)
+        f1 = f1_score(y_true, y_pred, zero_division=0)
+        
+        # Calculate specificity from confusion matrix
+        tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+        specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+        
+        # Create plot with matplotlib
+        plt.figure(figsize=(10, 8))
+        plt.plot(fpr, tpr, color='blue', lw=2, label=f'ROC curve (AUC = {auc(fpr, tpr):.2f})')
+        plt.plot([0, 1], [0, 1], color='gray', linestyle='--')
+        plt.scatter(fpr[optimal_idx], tpr[optimal_idx], marker='o', color='red', s=100,
+                    label=f'Optimal threshold: {optimal_threshold:.3f}')
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel('False Positive Rate (1 - Specificity)')
+        plt.ylabel('True Positive Rate (Sensitivity)')
+        plt.title('ROC Curve with Optimal Threshold')
+        plt.legend(loc="lower right")
+        
+        # Save plot
+        if self.config.plot_location:
+            os.makedirs(os.path.dirname(self.config.plot_location) or '.', exist_ok=True)
+            plt.savefig(self.config.plot_location)
+            log.info(f"ROC curve saved to {self.config.plot_location}")
+        
+        # Display metrics at optimal threshold
+        log.info(f"Optimal threshold: {optimal_threshold:.3f}")
+        log.info(f"At optimal threshold - Sensitivity: {sensitivity:.4f}, Specificity: {specificity:.4f}")
+        log.info(f"Youden's Index: {J[optimal_idx]:.4f}")
+        
+        # Return the optimal threshold and metrics
+        return optimal_threshold, {
+            "threshold": optimal_threshold,
+            "accuracy": accuracy,
+            "precision": precision,
+            "recall": recall,
+            "sensitivity": sensitivity,
+            "specificity": specificity,
+            "f1": f1,
+            "youdens_index": J[optimal_idx]
+        }
 
     def _train_fold(self, fold_idx):
         """
@@ -981,6 +1264,7 @@ class LogisticRegressionApp:
             # Validation phase
             val_metrics = trainer.validate_epoch(epoch, self.val_dl)
             val_loss = val_metrics[METRICS_LOSS_NDX].mean().item()
+            self.find_optimal_threshold(val_metrics)
             
             # Calculate metrics
             y_true = val_metrics[METRICS_LABEL_NDX].numpy()
@@ -1277,55 +1561,129 @@ class LogisticRegressionApp:
         torch.save(self.model.state_dict(), path)
         log.info(f"Model saved to {path}")
 
-# Fallback simple model in case mri_logistic_regression.py isn't available
 class SimpleMRIModel(nn.Module):
-    def __init__(self, debug=False):
+    def __init__(self, input_dim=None, debug=False):
+        """
+        A simple MLP model for MRI data classification.
+        
+        Args:
+            input_dim (int, optional): Input feature dimension. If None, will be initialized on first forward pass.
+            debug (bool): Whether to enable debug logging
+        """
         super(SimpleMRIModel, self).__init__()
         self.debug = debug
-        self.initialized = False
+        self.initialized = input_dim is not None
+        self.input_dim = input_dim
+        
+        if self.initialized:
+            self._initialize(input_dim)
         
     def _initialize(self, input_size):
+        """
+        Initialize model layers.
+        
+        Args:
+            input_size (int): Dimension of input features
+        """
         # Create a simple feature extractor
         self.feature_extractor = nn.Sequential(
             nn.Linear(input_size, 512),
             nn.ReLU(),
+            nn.Dropout(0.3),  # Add dropout for regularization
             nn.Linear(512, 128),
             nn.ReLU(),
+            nn.Dropout(0.2),
             nn.Linear(128, 32),
             nn.ReLU()
         )
         self.classifier = nn.Linear(32, 1)
         self.initialized = True
         
+        if self.debug:
+            log.debug(f"SimpleMRIModel initialized with input size: {input_size}")
+        
     def forward(self, x):
-        log.debug(f"Input shape: {x.shape}")
+        """
+        Forward pass through the model.
         
-        # Reshape input to 2D (batch_size, features)
-        batch_size = x.size(0)
-        x_flat = x.view(batch_size, -1)
+        Args:
+            x (torch.Tensor): Input tensor
+            
+        Returns:
+            torch.Tensor: Probability predictions
+        """
+        if self.debug:
+            log.debug(f"Input shape: {x.shape}")
         
-        log.debug(f"Flattened shape: {x_flat.shape}")
+        # Reshape input to 2D (batch_size, features) if needed
+        original_shape = x.shape
+        if len(original_shape) > 2:
+            batch_size = original_shape[0]
+            x_flat = x.view(batch_size, -1)
+        else:
+            x_flat = x
         
-        # Initialize on first forward pass
+        if self.debug:
+            log.debug(f"Flattened shape: {x_flat.shape}")
+        
+        # Initialize on first forward pass if needed
         if not self.initialized:
             self._initialize(x_flat.size(1))
-            log.debug(f"Model initialized with input size: {x_flat.size(1)}")
+            self.input_dim = x_flat.size(1)
+            if self.debug:
+                log.debug(f"Model automatically initialized with input size: {self.input_dim}")
         
         # Apply feature extraction
         features = self.feature_extractor(x_flat)
         
-        log.debug(f"Features shape: {features.shape}")
+        if self.debug:
+            log.debug(f"Features shape: {features.shape}")
         
         # Apply final classification
         logits = self.classifier(features)
         
-        return torch.sigmoid(logits)    
+        return torch.sigmoid(logits)
 
 def main():
     log_reg_app = LogisticRegressionApp()
     
     # Use cross-validation instead of single train/validation
     log_reg_app.run_cross_validation(k=5)  # 5-fold cross-validation
+
+def main():
+    """
+    Entry point for the application.
+    """
+    # Instead of directly creating the LogisticRegressionApp instance
+    # Let's create a more controlled initialization process
+    
+    try:
+        print("Creating configuration...")
+        config = Config().parse_args()
+        
+        print("Loading data...")
+        # Load data directly before creating the app
+        input_df = pd.read_csv(config.csv_input_file)
+        output_df = input_df.copy()
+        output_df["prediction"] = np.nan
+        
+        print("Creating application instance...")
+        # Pass pre-loaded data to the constructor
+        log_reg_app = LogisticRegressionApp(
+            sys_argv=None,
+            input_df=input_df,
+            output_df=output_df
+        )
+        
+        # Run the application
+        print("Running cross-validation...")
+        log_reg_app.run_cross_validation(k=5)
+        
+    except Exception as e:
+        print(f"Error in main function: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

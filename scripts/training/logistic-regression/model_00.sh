@@ -2,7 +2,7 @@
 
 #SBATCH --job-name=loes-scoring-logistic-regression
 #SBATCH --mem=180g        
-#SBATCH --time=24:00:00          
+#SBATCH --time=12:00:00          
 #SBATCH -p a100-4,a100-8
 #SBATCH --gres=gpu:a100:2
 #SBATCH --ntasks=6      
@@ -17,8 +17,8 @@ export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src:/use
 /users/9/reine097/projects/loes-scoring-2/.venv/bin/python \
   /users/9/reine097/projects/loes-scoring-2/src/dcan/training/logistic_regression.py \
     --csv-input-file "/users/9/reine097/projects/loes-scoring-2/data/logistic_regression_data.csv" \
-    --csv-output-file "predictions_aug22.csv" \
-    --model-save-location "./model_aug22.pt" \
+    --csv-output-file "predictions_04.25.2025.csv" \
+    --model-save-location "./model_04.25.2025.pt" \
     --batch-size "4" \
     --epochs "15" \
     --features "scan" \
@@ -28,6 +28,6 @@ export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src:/use
     --model-type "resnet3d" \
     --lr "0.0005" \
     --weight-decay "0.001" \
-    --threshold "0.3" \
+    --threshold "0.999" \
     --augment-minority \
-    --num-augmentations 22
+    --num-augmentations 36

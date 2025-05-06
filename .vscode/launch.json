@@ -46,6 +46,56 @@
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         },
         {
+            "name": "logistic_regression (best)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "src/dcan/training/logistic_regression.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--csv-input-file", "data/logistic_regression_data.csv",
+                "--csv-output-file", "predictions.csv",
+                "--batch-size", "4", 
+                "--epochs", "10", 
+                "--features", "scan",
+                "--target", "has_ald",
+                "--DEBUG",
+                "--folder", "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/",
+                "--use_train_validation_cols",
+                "--model-type", "resnet3d", 
+                "--lr", "0.0005", 
+                "--weight-decay", "0.001",
+                "--threshold", "0.6", 
+                "--augment-minority",
+                "--num-augmentations", "18"
+            ],
+            "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
+        },
+        {
+            "name": "minimal_logistic_regression_app",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "src/dcan/training/minimal_logistic_regression_app.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--csv-input-file", "data/logistic_regression_data.csv",
+                "--csv-output-file", "predictions.csv",
+                "--batch-size", "4", 
+                "--epochs", "10", 
+                "--features", "scan",
+                "--target", "has_ald",
+                "--DEBUG",
+                "--folder", "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/",
+                "--use_train_validation_cols",
+                "--model-type", "resnet3d", 
+                "--lr", "0.0005", 
+                "--weight-decay", "0.001",
+                "--threshold", "0.6", 
+                "--augment-minority",
+                "--num-augmentations", "18"
+            ],
+            "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
+        },
+        {
             "name": "create_data_spreadsheet: Python Debugger",
             "type": "debugpy",
             "request": "launch",
