@@ -240,7 +240,6 @@ class Config:
         self.parser.add_argument('--scheduler', default='plateau', 
                                 choices=['plateau', 'step', 'cosine', 'onecycle'], help='Learning rate scheduler')
         self.parser.add_argument('--weight-decay', default=0.0001, type=float, help='L2 regularization')
-        self.parser.add_argument('--class-weights', action='store_true', help='Use class weights for imbalanced data')
         self.parser.add_argument(
             '--model-type', 
             default='conv', 
@@ -339,7 +338,7 @@ class Config:
 
 # Training and validation loop handler
 class LogisticRegressionTrainer:
-    def __init__(self, model, optimizer, device, class_weights=None, threshold=0.5):
+    def __init__(self, model, optimizer, device, threshold=0.5):
         self.model = model
         self.optimizer = optimizer
         self.device = device
@@ -1103,31 +1102,6 @@ class LogisticRegressionApp:
         # Check for empty dataset
         if self.input_df.empty:
             raise ValueError("Input DataFrame is empty. Cannot proceed with training.")
-        
-        # Check class balance
-        try:
-            target_values = self.input_df[self.config.target].values
-            unique_values = np.unique(target_values)
-            
-            if len(unique_values) <= 1:
-                raise ValueError(f"Target column '{self.config.target}' has only one unique value. Cannot train a classifier.")
-            
-            # For binary targets, check class balance
-            if len(unique_values) <= 10:
-                value_counts = pd.Series(target_values).value_counts()
-                
-                if len(value_counts) == 2:
-                    minority_class_count = value_counts.min()
-                    majority_class_count = value_counts.max()
-                    imbalance_ratio = majority_class_count / minority_class_count
-                    
-                    if imbalance_ratio > 10:
-                        log.warning(f"Severe class imbalance detected: ratio of {imbalance_ratio:.2f}. "
-                                    f"Consider using --class-weights or --augment-minority.")
-                    elif imbalance_ratio > 3:
-                        log.warning(f"Class imbalance detected: ratio of {imbalance_ratio:.2f}.")
-        except Exception as e:
-            log.error(f"Error checking class balance: {e}")
         
         log.info("Data integrity check completed.")
 
