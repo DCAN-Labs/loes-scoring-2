@@ -241,7 +241,6 @@ class Config:
                                 choices=['plateau', 'step', 'cosine', 'onecycle'], help='Learning rate scheduler')
         self.parser.add_argument('--weight-decay', default=0.0001, type=float, help='L2 regularization')
         self.parser.add_argument('--class-weights', action='store_true', help='Use class weights for imbalanced data')
-        self.parser.add_argument('--gd', action='store_true', help='Use gadolinium-enhanced MRIs.')
         self.parser.add_argument(
             '--model-type', 
             default='conv', 
