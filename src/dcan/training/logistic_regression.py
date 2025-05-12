@@ -92,46 +92,6 @@ METRICS_LOSS_NDX = 3
 METRICS_SIZE = 4
 
 
-def append_candidate(folder, candidate_info_list, row):
-    subject_str = row['anonymized_subject_id']
-    session_str = row['anonymized_session_id']
-    file_name = f"{subject_str}_{session_str}_space-MNI_brain_mprage_RAVEL.nii.gz"
-    file_path = os.path.join(folder, file_name)
-    
-    # Check if file exists
-    if not os.path.exists(file_path):
-        log.warning(f"MRI file not found: {file_path}")
-        return False
-        
-    try:
-        loes_score_float = float(row['loes-score'])
-    except (ValueError, TypeError):
-        log.warning(f"Invalid LOES score for subject {subject_str}, session {session_str}: {row['loes-score']}")
-        return False
-        
-    candidate_info_list.append(CandidateInfoTuple(
-        loes_score_float,
-        file_path,
-        subject_str,
-        session_str
-    ))
-    return True
-
-
-def get_candidate_info_list(folder, df, candidates: List[str]):
-    candidate_info_list = []
-    df = df.reset_index()  # make sure indexes pair with number of rows
-
-    for _, row in df.iterrows():
-        candidate = row['anonymized_subject_id']
-        if candidate in candidates:
-            append_candidate(folder, candidate_info_list, row)
-
-    candidate_info_list.sort(reverse=True)
-
-    return candidate_info_list
-
-
 class SimpleMRIModel(nn.Module):
     def __init__(self, input_dim=None, debug=False):
         """
