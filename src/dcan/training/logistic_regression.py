@@ -7,7 +7,6 @@ import sys
 from typing import List
 import numpy as np
 import pandas as pd
-from scipy import stats
 import torch
 import torch.nn as nn
 from torch.optim import Adam, SGD
