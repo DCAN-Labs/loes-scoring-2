@@ -14,20 +14,19 @@ cd /users/9/reine097/projects/loes-scoring-2/src/dcan/training || exit
 export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src:/users/9/reine097/projects/AlexNet_Abrol2021/src/"
 
 # Run with Aug=18 configuration
-/users/9/reine097/projects/loes-scoring-2/.venv/bin/python \
-  /users/9/reine097/projects/loes-scoring-2/src/dcan/training/logistic_regression.py \
-    --csv-input-file "/users/9/reine097/projects/loes-scoring-2/data/logistic_regression_data.csv" \
-    --csv-output-file "predictions_04.25.2025.csv" \
-    --model-save-location "./model_04.25.2025.pt" \
+/users/9/reine097/projects/loes-scoring-2/.venv/bin/python /users/9/reine097/projects/loes-scoring-2/src/dcan/training/logistic_regression.py \
+    --csv-input-file  "/users/9/reine097/projects/loes-scoring-2/data/logistic_regression_data.csv" \
+    --csv-output-file "predictions_test.csv" \
+    --model-save-location "./model_test.pt" \
     --batch-size "4" \
-    --epochs "15" \
+    --epochs "50" \
     --features "scan" \
     --target "has_ald" \
-    --folder "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/" \
-    --use_train_validation_cols \
+     --folder "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/" \
+  --use_train_validation_cols \
     --model-type "resnet3d" \
-    --lr "0.0005" \
+    --lr "0.01" \
     --weight-decay "0.001" \
-    --threshold "0.999" \
+    --threshold "0.5" \
     --augment-minority \
-    --num-augmentations 36
+    --num-augmentations 3
