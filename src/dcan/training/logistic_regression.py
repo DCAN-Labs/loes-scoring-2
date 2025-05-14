@@ -339,53 +339,57 @@ class LogisticRegressionTrainer:
                 input_g = input_t.to(self.device)
                 probs = self.model(input_g).squeeze().cpu().numpy()
                 
-                # Handle single sample case
-                if np.isscalar(probs):
+                # Handle single sample case and 0-d arrays
+                if np.ndim(probs) == 0:  # Check for 0-dimensional array
                     probs = np.array([probs])
+                elif np.ndim(probs) == 1:  # Already 1-dimensional, good to go
+                    pass
+                else:  # Multi-dimensional, flatten to 1-D
+                    probs = probs.flatten()
                 
                 all_probs.extend(probs)
-        
-        # Convert to numpy arrays
-        all_probs = np.array(all_probs)
-        all_labels = np.array(all_labels)
-        
-        # Calculate ROC curve
-        fpr, tpr, thresholds = roc_curve(all_labels, all_probs)
-        
-        # Find indices where FPR <= max_fpr
-        valid_indices = np.where(fpr <= max_fpr)[0]
-    
-        if len(valid_indices) <= 1:
-            log.warning(f"Not enough points to calculate pAUC at max_fpr={max_fpr}")
-            return 0.5, 0.0, {}
-        
-        # Calculate pAUC for each threshold
-        best_pauc = 0
-        best_threshold = 0.5
-        best_metrics = {}
-        
-        for i in valid_indices:
-            if i < len(thresholds):
-                threshold = thresholds[i]
             
-                # Calculate pAUC up to current threshold
-                current_fpr = fpr[:i+1]
-                current_tpr = tpr[:i+1]
-                
-                if len(current_fpr) > 1:
-                    current_pauc = auc(current_fpr, current_tpr) / max_fpr
-                    
-                    if current_pauc > best_pauc:
-                        best_pauc = current_pauc
-                        best_threshold = threshold
-                        
-                        # Calculate comprehensive metrics at this threshold
-                        y_pred = (all_probs >= threshold).astype(int)
-                        best_metrics = self._calculate_metrics(all_labels, y_pred, all_probs)
-                        best_metrics['threshold'] = threshold
-                        best_metrics['pauc'] = current_pauc
+            # Convert to numpy arrays
+            all_probs = np.array(all_probs)
+            all_labels = np.array(all_labels)
+            
+            # Calculate ROC curve
+            fpr, tpr, thresholds = roc_curve(all_labels, all_probs)
+            
+            # Find indices where FPR <= max_fpr
+            valid_indices = np.where(fpr <= max_fpr)[0]
         
-        return best_threshold, best_pauc, best_metrics
+            if len(valid_indices) <= 1:
+                log.warning(f"Not enough points to calculate pAUC at max_fpr={max_fpr}")
+                return 0.5, 0.0, {}
+            
+            # Calculate pAUC for each threshold
+            best_pauc = 0
+            best_threshold = 0.5
+            best_metrics = {}
+            
+            for i in valid_indices:
+                if i < len(thresholds):
+                    threshold = thresholds[i]
+                
+                    # Calculate pAUC up to current threshold
+                    current_fpr = fpr[:i+1]
+                    current_tpr = tpr[:i+1]
+                    
+                    if len(current_fpr) > 1:
+                        current_pauc = auc(current_fpr, current_tpr) / max_fpr
+                        
+                        if current_pauc > best_pauc:
+                            best_pauc = current_pauc
+                            best_threshold = threshold
+                            
+                            # Calculate comprehensive metrics at this threshold
+                            y_pred = (all_probs >= threshold).astype(int)
+                            best_metrics = self._calculate_metrics(all_labels, y_pred, all_probs)
+                            best_metrics['threshold'] = threshold
+                            best_metrics['pauc'] = current_pauc
+            
+            return best_threshold, best_pauc, best_metrics
 
     def _calculate_metrics(self, y_true, y_pred, y_prob):
         """Calculate comprehensive classification metrics"""
@@ -865,12 +869,21 @@ class LogisticRegressionApp:
         
         log.info(f"Training completed. Best pAUC: {best_pauc:.4f} at epoch {best_epoch}")
         log.info(f"Best threshold: {best_threshold:.4f}")
-        
+
+        log.info(f"Training completed. Best pAUC: {best_pauc:.4f} at epoch {best_epoch}")
+        log.info(f"Best threshold: {best_threshold:.4f}")
+
         # Plot threshold optimization results
         self.plot_threshold_optimization_results(epoch_metrics)
-        
-        return best_threshold, best_pauc
 
+        # Return metrics as a dictionary instead of a tuple
+        return {
+            'threshold': best_threshold,
+            'pAUC': best_pauc,
+            'epoch': best_epoch,
+            'metrics': epoch_metrics
+        }
+    
     def plot_threshold_optimization_results(self, epoch_metrics):
         """Plot threshold optimization results over epochs"""
         import matplotlib.pyplot as plt
@@ -915,6 +928,9 @@ class LogisticRegressionApp:
             plt.savefig(plot_path)
             log.info(f"Threshold optimization plot saved to {plot_path}")
         
+        
+        plt.show()
+
         plt.show()
 
     def _setup_scheduler(self):
@@ -1244,105 +1260,15 @@ class LogisticRegressionApp:
         for i, subject in enumerate(subjects):
             folds[i % k].append(subject)
         return folds
-
-    def _train_fold(self, fold_idx):
-        """
-        Train and evaluate model for a single fold.
-        """
-        # Initialize the trainer
-        trainer = LogisticRegressionTrainer(
-            self.model, 
-            self.optimizer, 
-            self.device, 
-            threshold=self.config.threshold
-        )
     
-        # Track best model
-        best_val_p_auc = 0.0
-        best_epoch = 0
-        fold_metrics = {}
+    def _train_fold(self, fold_idx):
+        # Set up model, optimizer, etc.
+        self._setup_model()
+        self._setup_optimizer()
+        self._setup_scheduler()
         
-        # Train for specified number of epochs
-        for epoch in range(1, self.config.epochs + 1):
-            log.info(f"Fold {fold_idx+1} - Epoch {epoch}/{self.config.epochs}")
-            
-            # Training phase
-            trn_metrics = trainer.train_epoch(epoch, self.train_dl)
-            trn_loss = trn_metrics[METRICS_LOSS_NDX].mean().item()
-            
-            # Validation phase
-            val_metrics = trainer.validate_epoch(epoch, self.val_dl)
-            val_loss = val_metrics[METRICS_LOSS_NDX].mean().item()
-            
-            # Calculate metrics
-            y_true = val_metrics[METRICS_LABEL_NDX].numpy()
-            y_pred = val_metrics[METRICS_PRED_NDX].numpy()
-            y_prob = val_metrics[METRICS_PROB_NDX].numpy()
-            
-            try:
-                # Calculate classification metrics
-                accuracy = accuracy_score(y_true, y_pred)
-                precision = precision_score(y_true, y_pred, zero_division=0)
-                ppv = precision  # PPV is identical to precision
-                recall = sensitivity = recall_score(y_true, y_pred, zero_division=0)
-                f1 = f1_score(y_true, y_pred, zero_division=0)
-            
-                # Compute AUC if we have both classes
-                auc_score = 0.5
-                p_auc = 0.0
-                if len(np.unique(y_true)) > 1:
-                    auc_score = roc_auc_score(y_true, y_prob)
-                    p_auc = score(y_true, y_prob)
-
-                # Compute confusion matrix
-                cm = confusion_matrix(y_true, y_pred)
-                
-                # Calculate specificity
-                specificity = 0.0
-                if cm.shape == (2, 2) and cm[0][0] + cm[0][1] > 0:
-                    specificity = cm[0][0] / (cm[0][0] + cm[0][1])
-                
-                # Update learning rate scheduler
-                if self.config.scheduler == 'plateau':
-                    self.scheduler.step(val_loss)
-                elif self.config.scheduler != 'onecycle':
-                    self.scheduler.step()
-                
-                # Track best partial area under the ROC curve (pAUC) score
-                if p_auc > best_val_p_auc:
-                    best_val_p_auc = p_auc
-                    best_epoch = epoch
-                    
-                    # Save metrics for best epoch
-                    fold_metrics = {
-                        'accuracy': accuracy,
-                        'precision': precision,
-                        'ppv': ppv,
-                        'recall': recall,
-                        'f1': f1,
-                        'auc': auc_score,
-                        'sensitivity': sensitivity,
-                        'specificity': specificity,
-                        'loss': val_loss,
-                        'pAUC': p_auc
-                    }
-                    
-                    # Log best model info
-                    log.info(f"New best pAUC: {p_auc:.4f} (F1: {f1:.4f}, Accuracy: {accuracy:.4f}, AUC: {auc_score:.4f})")
-                
-                # Log epoch summary
-                log.info(f"Fold {fold_idx+1} - Epoch {epoch} - "
-                        f"Loss: {val_loss:.4f}, "
-                        f"Accuracy: {accuracy:.4f}, "
-                        f"pAUC: {p_auc:.4f}, "
-                        f"F1: {f1:.4f}, "
-                        f"LR: {self.optimizer.param_groups[0]['lr']:.6f}")
-                
-            except Exception as e:
-                log.error(f"Error computing metrics: {e}")
-        
-        log.info(f"Fold {fold_idx+1} completed. Best pAUC: {best_val_p_auc:.4f} (epoch {best_epoch})")
-        return fold_metrics
+        # Call train() instead of duplicating the training logic
+        return self.train()  # This would handle threshold optimization, etc.
 
     def generate_summary_statistics(self):
         """

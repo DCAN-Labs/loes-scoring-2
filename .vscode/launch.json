@@ -22,16 +22,16 @@
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         },
         {
-            "name": "logistic_regression",
+            "name": "logistic_regression: test",
             "type": "debugpy",
             "request": "launch",
             "program": "src/dcan/training/logistic_regression.py",
             "console": "integratedTerminal",
             "args": [
-                "--csv-input-file", "data/logistic_regression_data.csv",
+                "--csv-input-file", "data/logistic_regression_data_test.csv",
                 "--csv-output-file", "predictions.csv",
                 "--batch-size", "4", 
-                "--epochs", "10", 
+                "--epochs", "2", 
                 "--features", "scan",
                 "--target", "has_ald",
                 "--DEBUG",
@@ -41,7 +41,8 @@
                 "--lr", "0.0005", 
                 "--weight-decay", "0.001",
                 "--threshold", "0.3", 
-                "--augment-minority"
+                "--augment-minority",
+                "--plot-location", "."
             ],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         },

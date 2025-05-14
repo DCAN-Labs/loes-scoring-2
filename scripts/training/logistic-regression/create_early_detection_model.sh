@@ -19,7 +19,7 @@ export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src:/use
     --csv-output-file "predictions_test.csv" \
     --model-save-location "./model_test.pt" \
     --batch-size "4" \
-    --epochs "50" \
+    --epochs "4" \
     --features "scan" \
     --target "has_ald" \
      --folder "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/" \
@@ -29,4 +29,5 @@ export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src:/use
     --weight-decay "0.001" \
     --threshold "0.5" \
     --augment-minority \
-    --num-augmentations 3
+    --num-augmentations 3 \
+    --plot-location "."
