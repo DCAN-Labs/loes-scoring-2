@@ -679,13 +679,13 @@ class LogisticRegressionApp:
         
         log.info("LogisticRegressionApp initialized successfully")
 
-    def train(self):
+    def train(self, fold_idx=None):
         """Modified train method with threshold optimization"""
         if self.config.threshold_optimization:
-            return self.train_with_threshold_optimization()
+            return self.train_with_threshold_optimization(fold_idx=fold_idx)
         else:
             # Use standard training method
-            return self._standard_train()
+            return self._standard_train(fold_idx=fold_idx)
 
     def _standard_train(self):
         """
@@ -780,7 +780,7 @@ class LogisticRegressionApp:
             log.error(f"Error during training: {e}")
             raise
 
-    def train_with_threshold_optimization(self):
+    def train_with_threshold_optimization(self, fold_idx=None):
         """
         Execute the training loop with threshold optimization after each epoch.
         """
@@ -842,39 +842,47 @@ class LogisticRegressionApp:
                 best_pauc = current_pauc
                 best_threshold = optimal_threshold
                 best_epoch = epoch
-                
-                if self.config.model_save_location:
-                    save_path = f"{os.path.splitext(self.config.model_save_location)[0]}_best_pauc.pt"
-                    self.save_model(save_path)
-                    
-                    # Save threshold information
-                    threshold_info = {
-                        'threshold': optimal_threshold,
-                        'pauc': current_pauc,
-                        'epoch': epoch,
-                        'metrics': threshold_metrics
-                    }
-                    
-                    threshold_path = f"{os.path.splitext(self.config.model_save_location)[0]}_threshold_info.json"
-                    with open(threshold_path, 'w') as f:
-                        json.dump(threshold_info, f, indent=4)
-                    
-                    log.info(f"New best pAUC: {current_pauc:.4f}, saved to {save_path}")
-            
             # Update learning rate scheduler
             if self.config.scheduler == 'plateau':
                 self.scheduler.step(-current_pauc)  # Use negative pAUC to maximize
             elif self.config.scheduler != 'onecycle':
                 self.scheduler.step()
+                
+        if self.config.model_save_location:
+            base_path = os.path.splitext(self.config.model_save_location)[0]
+        if fold_idx is not None:
+            save_path = f"{base_path}_fold{fold_idx+1}_best_pauc.pt"
+            threshold_path = f"{base_path}_fold{fold_idx+1}_threshold_info.json"
+        else:
+            save_path = f"{base_path}_best_pauc.pt"
+            threshold_path = f"{base_path}_threshold_info.json"
+        
+        self.save_model(save_path)
+        
+        # Save threshold information
+        threshold_info = {
+            'threshold': optimal_threshold,
+            'pauc': current_pauc,
+            'epoch': epoch,
+            'metrics': threshold_metrics
+        }
+        
+        with open(threshold_path, 'w') as f:
+            json.dump(threshold_info, f, indent=4)
+        
+        log.info(f"New best pAUC: {current_pauc:.4f}, saved to {save_path}")        
         
         log.info(f"Training completed. Best pAUC: {best_pauc:.4f} at epoch {best_epoch}")
         log.info(f"Best threshold: {best_threshold:.4f}")
 
         log.info(f"Training completed. Best pAUC: {best_pauc:.4f} at epoch {best_epoch}")
         log.info(f"Best threshold: {best_threshold:.4f}")
+            
+        log.info(f"Training completed. Best pAUC: {best_pauc:.4f} at epoch {best_epoch}")
+        log.info(f"Best threshold: {best_threshold:.4f}")
 
-        # Plot threshold optimization results
-        self.plot_threshold_optimization_results(epoch_metrics)
+        # Plot threshold optimization results with fold-specific name
+        self.plot_threshold_optimization_results(epoch_metrics, fold_idx=fold_idx)
 
         # Return metrics as a dictionary instead of a tuple
         return {
@@ -883,8 +891,9 @@ class LogisticRegressionApp:
             'epoch': best_epoch,
             'metrics': epoch_metrics
         }
+        
     
-    def plot_threshold_optimization_results(self, epoch_metrics):
+    def plot_threshold_optimization_results(self, epoch_metrics, fold_idx=None):
         """Plot threshold optimization results over epochs"""
         import matplotlib.pyplot as plt
         
@@ -924,14 +933,14 @@ class LogisticRegressionApp:
         
         # Save plot
         if self.config.plot_location:
-            plot_path = f"{os.path.splitext(self.config.plot_location)[0]}_threshold_optimization.png"
+            base_plot_path = os.path.splitext(self.config.plot_location)[0]
+            if fold_idx is not None:
+                plot_path = f"{base_plot_path}_threshold_optimization_fold{fold_idx+1}.png"
+            else:
+                plot_path = f"{base_plot_path}_threshold_optimization.png"
+        
             plt.savefig(plot_path)
             log.info(f"Threshold optimization plot saved to {plot_path}")
-        
-        
-        plt.show()
-
-        plt.show()
 
     def _setup_scheduler(self):
         """
@@ -1007,7 +1016,7 @@ class LogisticRegressionApp:
         
         log.info(f"Optimizer initialized: {type(self.optimizer).__name__}")
 
-    def _setup_model(self):
+    def _setup_model(self):        
         """
         Set up the model based on configuration.
         """
@@ -1267,8 +1276,8 @@ class LogisticRegressionApp:
         self._setup_optimizer()
         self._setup_scheduler()
         
-        # Call train() instead of duplicating the training logic
-        return self.train()  # This would handle threshold optimization, etc.
+        # Pass fold index to train method
+        return self.train(fold_idx=fold_idx)
 
     def generate_summary_statistics(self):
         """

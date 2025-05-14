@@ -42,7 +42,7 @@
                 "--weight-decay", "0.001",
                 "--threshold", "0.3", 
                 "--augment-minority",
-                "--plot-location", "."
+                "--plot-location", "/users/9/reine097/projects/loes-scoring-2/doc/linear_regression"
             ],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}
         },
