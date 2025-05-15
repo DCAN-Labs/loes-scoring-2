@@ -1,6 +1,44 @@
 # Logistic Regression Progress
 
+## Run 2025-05-25 
 
+025-05-15 15:11:40,620 INFO     pid:2447735 __main__:1267:run_cross_validation CROSS-VALIDATION RESULTS
+2025-05-15 15:11:40,620 INFO     pid:2447735 __main__:1268:run_cross_validation ================================================================================
+2025-05-15 15:11:40,620 INFO     pid:2447735 __main__:1274:run_cross_validation Accuracy: 0.5675 ± 0.3048
+2025-05-15 15:11:40,620 INFO     pid:2447735 __main__:1274:run_cross_validation Precision: 0.7457 ± 0.3744
+2025-05-15 15:11:40,620 INFO     pid:2447735 __main__:1274:run_cross_validation Ppv: 0.7457 ± 0.3744
+2025-05-15 15:11:40,620 INFO     pid:2447735 __main__:1274:run_cross_validation Recall: 0.4802 ± 0.2996
+2025-05-15 15:11:40,621 INFO     pid:2447735 __main__:1274:run_cross_validation F1: 0.5695 ± 0.3260
+2025-05-15 15:11:40,621 INFO     pid:2447735 __main__:1274:run_cross_validation Auc: 0.7007 ± 0.3574
+2025-05-15 15:11:40,621 INFO     pid:2447735 __main__:1274:run_cross_validation Sensitivity: 0.4802 ± 0.2996
+2025-05-15 15:11:40,621 INFO     pid:2447735 __main__:1274:run_cross_validation Specificity: 0.7359 ± 0.3681
+2025-05-15 15:11:40,621 INFO     pid:2447735 __main__:1274:run_cross_validation Pauc: 0.3972 ± 0.2692
+2025-05-15 15:11:40,621 INFO     pid:2447735 __main__:1276:run_cross_validation ================================================================================
+
+Based on the cross-validation results you've shared, I'd say these results show moderate performance with significant variability across folds. Let me break down my assessment:
+Strengths:
+
+AUC of 0.7007: An AUC of 0.7 is generally considered acceptable in medical diagnostics, indicating that the model has some discriminative ability. It means the model is performing better than random guessing (which would be 0.5).
+Good specificity (0.7359): The model is reasonably good at identifying negative cases.
+Precision is fairly good (0.7457): When the model predicts a positive case, it's right about 75% of the time.
+
+Concerns:
+
+High variability: The large standard deviations (ranging from ±0.27 to ±0.37) suggest inconsistent performance across different folds. This is a significant concern as it indicates the model may not generalize well.
+Moderate accuracy (0.5675): This is only slightly better than random guessing, indicating limited overall predictive power.
+Low recall/sensitivity (0.4802): The model is missing more than half of the positive cases, which could be problematic depending on your application.
+Low pAUC (0.3972): The partial AUC (at low false positive rates) is particularly low, suggesting the model doesn't perform well in high-specificity regions, which are often important in medical contexts.
+
+Recommendations:
+
+Investigate fold variability: The high standard deviations suggest the model performs well on some data subsets but poorly on others. Examine characteristics of each fold to understand this variability.
+Feature engineering: Consider creating new features or transforming existing ones to improve the model's ability to distinguish between classes.
+Try different models: The logistic regression might be too simple for your task. Consider more complex models like random forests, gradient boosting, or neural networks.
+Class imbalance handling: If your dataset has imbalanced classes, techniques like SMOTE, class weighting, or different thresholds might help.
+Hyperparameter tuning: Experiment with different regularization strengths, learning rates, and optimization methods.
+Ensemble methods: Combining multiple models might improve performance and reduce variance across folds.
+
+For a medical application, these results would typically be considered moderate and might need improvement, especially if high sensitivity (capturing all positive cases) is important. The high variability across folds is particularly concerning, as it suggests the model's performance may be unstable.
 
 ## Run 2025-04-10 17:18:23
 
