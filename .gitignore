@@ -218,3 +218,8 @@ runs/logistic_regression/2025-04-07_10.04.24-val_cls-/events.out.tfevents.174403
 scripts/training/loes-scoring-logistic-regression-33941797.err
 scripts/training/loes-scoring-logistic-regression-33941797.out
 scripts/training/loes-scoring-training_model-logistic-regression_agate.sh
+doc/linear_regression_threshold_optimization_fold1.png
+doc/linear_regression_threshold_optimization_fold2.png
+doc/linear_regression_threshold_optimization_fold3.png
+doc/linear_regression_threshold_optimization_fold4.png
+doc/linear_regression_threshold_optimization_fold5.png

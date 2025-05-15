@@ -798,7 +798,8 @@ class LogisticRegressionApp:
         best_pauc = 0.0
         best_threshold = self.config.threshold
         best_epoch = 0
-    
+        best_metrics = {}  # Store the best metrics
+
         # Arrays to store metrics for plotting
         epoch_metrics = {
             'thresholds': [],
@@ -842,6 +843,8 @@ class LogisticRegressionApp:
                 best_pauc = current_pauc
                 best_threshold = optimal_threshold
                 best_epoch = epoch
+                best_metrics = threshold_metrics.copy()  # Save the best metrics
+                
             # Update learning rate scheduler
             if self.config.scheduler == 'plateau':
                 self.scheduler.step(-current_pauc)  # Use negative pAUC to maximize
@@ -850,48 +853,52 @@ class LogisticRegressionApp:
                 
         if self.config.model_save_location:
             base_path = os.path.splitext(self.config.model_save_location)[0]
-        if fold_idx is not None:
-            save_path = f"{base_path}_fold{fold_idx+1}_best_pauc.pt"
-            threshold_path = f"{base_path}_fold{fold_idx+1}_threshold_info.json"
-        else:
-            save_path = f"{base_path}_best_pauc.pt"
-            threshold_path = f"{base_path}_threshold_info.json"
-        
-        self.save_model(save_path)
-
-        # Save threshold information
-        threshold_info = {
-            'threshold': float(optimal_threshold),  # Convert to Python float
-            'pauc': float(current_pauc),           # Convert to Python float
-            'epoch': int(epoch),                   # Convert to Python int
-            'metrics': {k: float(v) if isinstance(v, np.floating) else v 
-                        for k, v in threshold_metrics.items()}  # Convert numpy floats in metrics
-        }
-
-        with open(threshold_path, 'w') as f:
-            json.dump(threshold_info, f, indent=4)
-        
-        log.info(f"New best pAUC: {current_pauc:.4f}, saved to {save_path}")        
-        
-        log.info(f"Training completed. Best pAUC: {best_pauc:.4f} at epoch {best_epoch}")
-        log.info(f"Best threshold: {best_threshold:.4f}")
-
-        log.info(f"Training completed. Best pAUC: {best_pauc:.4f} at epoch {best_epoch}")
-        log.info(f"Best threshold: {best_threshold:.4f}")
+            if fold_idx is not None:
+                save_path = f"{base_path}_fold{fold_idx+1}_best_pauc.pt"
+                threshold_path = f"{base_path}_fold{fold_idx+1}_threshold_info.json"
+            else:
+                save_path = f"{base_path}_best_pauc.pt"
+                threshold_path = f"{base_path}_threshold_info.json"
             
+            self.save_model(save_path)
+
+            # Save threshold information
+            threshold_info = {
+                'threshold': float(best_threshold),  # Use best values, not current
+                'pauc': float(best_pauc),           
+                'epoch': int(best_epoch),           
+                'metrics': {k: float(v) if isinstance(v, np.floating) else v 
+                            for k, v in best_metrics.items()}
+            }
+
+            with open(threshold_path, 'w') as f:
+                json.dump(threshold_info, f, indent=4)
+            
+            log.info(f"New best pAUC: {best_pauc:.4f}, saved to {save_path}")        
+        
         log.info(f"Training completed. Best pAUC: {best_pauc:.4f} at epoch {best_epoch}")
         log.info(f"Best threshold: {best_threshold:.4f}")
 
         # Plot threshold optimization results with fold-specific name
         self.plot_threshold_optimization_results(epoch_metrics, fold_idx=fold_idx)
 
-        # Return metrics as a dictionary instead of a tuple
-        return {
+        # Return all metrics from the best epoch
+        return_metrics = {
             'threshold': best_threshold,
             'pAUC': best_pauc,
             'epoch': best_epoch,
-            'metrics': epoch_metrics
+            'accuracy': best_metrics.get('accuracy', 0),
+            'precision': best_metrics.get('precision', 0),
+            'recall': best_metrics.get('recall', 0),
+            'f1': best_metrics.get('f1', 0),
+            'sensitivity': best_metrics.get('sensitivity', 0),
+            'specificity': best_metrics.get('specificity', 0),
+            'ppv': best_metrics.get('ppv', 0),
+            'npv': best_metrics.get('npv', 0),
+            'auc': best_metrics.get('auc', 0)
         }
+        
+        return return_metrics
         
     
     def plot_threshold_optimization_results(self, epoch_metrics, fold_idx=None):
