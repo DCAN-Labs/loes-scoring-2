@@ -682,10 +682,16 @@ class LogisticRegressionApp:
     def train(self, fold_idx=None):
         """Modified train method with threshold optimization"""
         if self.config.threshold_optimization:
-            return self.train_with_threshold_optimization(fold_idx=fold_idx)
+            metrics = self.train_with_threshold_optimization(fold_idx=fold_idx)
         else:
             # Use standard training method
-            return self._standard_train(fold_idx=fold_idx)
+            metrics = self._standard_train(fold_idx=fold_idx)
+        
+        # After training completes, plot ROC curve
+        self.plot_roc_curve(fold_idx=fold_idx)
+       
+        return metrics
+
 
     def _standard_train(self):
         """
@@ -1410,6 +1416,337 @@ class LogisticRegressionApp:
         os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
         torch.save(self.model.state_dict(), path)
         log.info(f"Model saved to {path}")
+
+    def plot_roc_curve(self, val_dl=None, save_path=None, fold_idx=None):
+        """
+        Plot ROC curve for the trained model on validation set
+        
+        Args:
+            val_dl: Validation dataloader (uses self.val_dl if None)
+            save_path: Path to save the plot (uses config.plot_location if None)
+            fold_idx: Fold index for cross-validation (optional)
+        """
+        log.info("Plotting ROC curve...")
+        
+        if val_dl is None:
+            val_dl = self.val_dl
+            
+        # Set model to evaluation mode
+        self.model.eval()
+        all_probs = []
+        all_labels = []
+        
+        # Collect all predictions and labels
+        with torch.no_grad():
+            for batch_tup in val_dl:
+                # Handle different batch tuple formats
+                if len(batch_tup) == 4:
+                    input_t, label_t, _, _ = batch_tup
+                    labels = [1.0 if l_t.item() > self.config.threshold else 0.0 for l_t in label_t]
+                    all_labels.extend(labels)
+                elif len(batch_tup) == 5:
+                    input_t, _, has_ald_t, _, _ = batch_tup
+                    all_labels.extend(has_ald_t.float().cpu().numpy())
+                else:
+                    # Handle other formats
+                    input_t = batch_tup[0]
+                    label_t = batch_tup[1]
+                    labels = label_t.float().cpu().numpy()
+                    all_labels.extend(labels)
+                
+                # Get model predictions
+                input_g = input_t.to(self.device)
+                probs = self.model(input_g).squeeze().cpu().numpy()
+                
+                # Handle single sample case
+                if np.ndim(probs) == 0:
+                    probs = np.array([probs])
+                
+                all_probs.extend(probs)
+        
+        # Convert to numpy arrays
+        all_probs = np.array(all_probs)
+        all_labels = np.array(all_labels)
+        
+        # Calculate ROC curve
+        fpr, tpr, thresholds = roc_curve(all_labels, all_probs)
+        roc_auc = auc(fpr, tpr)
+        
+        # Calculate partial AUC (pAUC) at FPR <= 0.1
+        pauc_fpr_limit = 0.1
+        limited_fpr = fpr[fpr <= pauc_fpr_limit]
+        limited_tpr = tpr[:len(limited_fpr)]
+        
+        if len(limited_fpr) > 1:
+            pAUC = auc(limited_fpr, limited_tpr) / pauc_fpr_limit
+        else:
+            pAUC = 0.0
+        
+        # Create the plot
+        plt.figure(figsize=(10, 8))
+        
+        # Plot ROC curve
+        plt.plot(fpr, tpr, color='darkorange', lw=2, 
+                label=f'ROC curve (AUC = {roc_auc:.4f})')
+        
+        # Highlight pAUC region
+        plt.fill_between(limited_fpr, 0, limited_tpr, 
+                        alpha=0.2, color='blue', 
+                        label=f'pAUC region (pAUC = {pAUC:.4f})')
+        
+        # Plot diagonal line
+        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--', 
+                label='Random Classifier')
+        
+        # Mark current threshold point
+        current_threshold_idx = np.argmin(np.abs(thresholds - self.config.threshold))
+        plt.plot(fpr[current_threshold_idx], tpr[current_threshold_idx], 
+                'ro', markersize=10, 
+                label=f'Current threshold ({self.config.threshold:.3f})')
+        
+        # Find and mark optimal threshold (Youden's J statistic)
+        youden_j = tpr - fpr
+        optimal_idx = np.argmax(youden_j)
+        optimal_threshold = thresholds[optimal_idx]
+        plt.plot(fpr[optimal_idx], tpr[optimal_idx], 
+                'go', markersize=10, 
+                label=f'Optimal threshold ({optimal_threshold:.3f})')
+        
+        # Customize plot
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        
+        if fold_idx is not None:
+            plt.title(f'ROC Curve - Fold {fold_idx + 1}')
+        else:
+            plt.title('Receiver Operating Characteristic (ROC) Curve')
+        
+        plt.legend(loc="lower right")
+        plt.grid(True, alpha=0.3)
+        
+        # Add metrics text box
+        metrics_text = f'Metrics at current threshold ({self.config.threshold:.3f}):\n'
+        
+        # Calculate metrics at current threshold
+        y_pred = (all_probs >= self.config.threshold).astype(int)
+        
+        from sklearn.metrics import (accuracy_score, precision_score, 
+                                    recall_score, f1_score, confusion_matrix)
+        
+        accuracy = accuracy_score(all_labels, y_pred)
+        precision = precision_score(all_labels, y_pred, zero_division=0)
+        recall = recall_score(all_labels, y_pred, zero_division=0)
+        f1 = f1_score(all_labels, y_pred, zero_division=0)
+        
+        # Calculate specificity
+        cm = confusion_matrix(all_labels, y_pred)
+        if cm.shape == (2, 2):
+            tn, fp, fn, tp = cm.ravel()
+            specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+        else:
+            specificity = 0.0
+        
+        metrics_text += f'Accuracy: {accuracy:.3f}\n'
+        metrics_text += f'Precision: {precision:.3f}\n'
+        metrics_text += f'Recall: {recall:.3f}\n'
+        metrics_text += f'Specificity: {specificity:.3f}\n'
+        metrics_text += f'F1 Score: {f1:.3f}'
+        
+        # Add text box
+        props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+        plt.text(0.55, 0.15, metrics_text, transform=plt.gca().transAxes, 
+                fontsize=10, verticalalignment='top', bbox=props)
+        
+        plt.tight_layout()
+        
+        # Save plot
+        if save_path is None:
+            if self.config.plot_location:
+                base_path = os.path.splitext(self.config.plot_location)[0]
+                if fold_idx is not None:
+                    save_path = f"{base_path}_roc_fold{fold_idx+1}.png"
+                else:
+                    save_path = f"{base_path}_roc.png"
+            else:
+                save_path = f"roc_curve_{self.time_str}.png"
+        
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        log.info(f"ROC curve saved to {save_path}")
+        
+        # Also save as PDF for publication quality
+        pdf_path = save_path.rsplit('.', 1)[0] + '.pdf'
+        plt.savefig(pdf_path, dpi=300, bbox_inches='tight')
+        log.info(f"ROC curve saved to {pdf_path}")
+        
+        plt.close()
+        
+        return roc_auc, pAUC
+    
+    def plot_multiple_roc_curves(self, models_data, save_path=None):
+        """
+        Plot multiple ROC curves (e.g., for different folds or models) on the same plot
+        
+        Args:
+            models_data: List of tuples (name, all_labels, all_probs)
+            save_path: Path to save the plot
+        """
+        plt.figure(figsize=(10, 8))
+        
+        colors = ['blue', 'red', 'green', 'purple', 'orange', 'brown', 'pink', 'gray']
+        
+        mean_fpr = np.linspace(0, 1, 100)
+        tprs = []
+        aucs = []
+        
+        for i, (name, all_labels, all_probs) in enumerate(models_data):
+            fpr, tpr, _ = roc_curve(all_labels, all_probs)
+            tprs_interp = np.interp(mean_fpr, fpr, tpr)
+            tprs_interp[0] = 0.0
+            tprs.append(tprs_interp)
+            
+            roc_auc = auc(fpr, tpr)
+            aucs.append(roc_auc)
+            
+            plt.plot(fpr, tpr, color=colors[i % len(colors)], lw=2, 
+                    label=f'{name} (AUC = {roc_auc:.3f})')
+        
+        # Plot mean ROC
+        mean_tpr = np.mean(tprs, axis=0)
+        mean_tpr[-1] = 1.0
+        mean_auc = auc(mean_fpr, mean_tpr)
+        std_auc = np.std(aucs)
+        
+        plt.plot(mean_fpr, mean_tpr, color='navy', lw=3,
+                label=f'Mean ROC (AUC = {mean_auc:.3f} ± {std_auc:.3f})',
+                alpha=0.8)
+        
+        # Plot standard deviation
+        std_tpr = np.std(tprs, axis=0)
+        tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
+        tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+        plt.fill_between(mean_fpr, tprs_lower, tprs_upper, color='grey', 
+                        alpha=0.2, label=r'± 1 std. dev.')
+        
+        # Plot diagonal
+        plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='black', 
+                label='Random Classifier', alpha=0.8)
+        
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title('ROC Curves Comparison')
+        plt.legend(loc="lower right")
+        plt.grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        
+        if save_path is None:
+            save_path = f"multiple_roc_curves_{self.time_str}.png"
+        
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        plt.savefig(save_path.rsplit('.', 1)[0] + '.pdf', dpi=300, bbox_inches='tight')
+        
+        plt.close()
+        
+        log.info(f"Multiple ROC curves saved to {save_path}")
+    
+    # Modified cross-validation method to include ROC plotting
+    def run_cross_validation_with_roc(self, k=5):
+        """
+        Run k-fold cross-validation and plot ROC curves
+        """
+        log.info(f"Starting {k}-fold cross-validation with ROC curves")
+        
+        # Store data for combined ROC plot
+        all_fold_data = []
+        
+        # Get all unique subjects and create folds as before
+        all_subjects = list(set(self.input_df['anonymized_subject_id'].tolist()))
+        
+        # Stratify subjects
+        subjects_with_ald = []
+        subjects_without_ald = []
+        
+        for subject in all_subjects:
+            subject_rows = self.input_df[self.input_df['anonymized_subject_id'] == subject]
+            max_loes = subject_rows['loes-score'].max()
+            if max_loes > self.config.threshold:
+                subjects_with_ald.append(subject)
+            else:
+                subjects_without_ald.append(subject)
+        
+        # Create folds
+        random.shuffle(subjects_with_ald)
+        random.shuffle(subjects_without_ald)
+        
+        ald_folds = self._create_folds(subjects_with_ald, k)
+        no_ald_folds = self._create_folds(subjects_without_ald, k)
+        
+        # Run training for each fold
+        for fold in range(k):
+            log.info(f"\n{'='*40}")
+            log.info(f"FOLD {fold+1}/{k}")
+            log.info(f"{'='*40}")
+            
+            # Set up train/validation split for this fold
+            val_subjects_ald = ald_folds[fold]
+            val_subjects_no_ald = no_ald_folds[fold]
+            
+            train_subjects_ald = [s for i, fold_subjects in enumerate(ald_folds) 
+                                 for s in fold_subjects if i != fold]
+            train_subjects_no_ald = [s for i, fold_subjects in enumerate(no_ald_folds) 
+                                    for s in fold_subjects if i != fold]
+            
+            self.train_subjects = train_subjects_ald + train_subjects_no_ald
+            self.val_subjects = val_subjects_ald + val_subjects_no_ald
+            
+            # Set up dataloaders
+            self.train_dl = self.data_handler.init_dl(self.folder, self.train_subjects)
+            self.val_dl = self.data_handler.init_dl(self.folder, self.val_subjects, is_val_set=True)
+            
+            # Initialize model and train
+            self._setup_model()
+            self._setup_optimizer()
+            self._setup_scheduler()
+            
+            # Train model for this fold
+            fold_results = self._train_fold(fold)
+            
+            # Plot ROC curve for this fold
+            auc_score, pauc_score = self.plot_roc_curve(fold_idx=fold)
+            
+            # Collect predictions for combined plot
+            self.model.eval()
+            all_probs = []
+            all_labels = []
+            
+            with torch.no_grad():
+                for batch_tup in self.val_dl:
+                    if len(batch_tup) == 4:
+                        input_t, label_t, _, _ = batch_tup
+                        labels = [1.0 if l_t.item() > self.config.threshold else 0.0 for l_t in label_t]
+                        all_labels.extend(labels)
+                    elif len(batch_tup) == 5:
+                        input_t, _, has_ald_t, _, _ = batch_tup
+                        all_labels.extend(has_ald_t.float().cpu().numpy())
+                    
+                    input_g = input_t.to(self.device)
+                    probs = self.model(input_g).squeeze().cpu().numpy()
+                    
+                    if np.ndim(probs) == 0:
+                        probs = np.array([probs])
+                    
+                    all_probs.extend(probs)
+            
+            all_fold_data.append((f'Fold {fold+1}', all_labels, all_probs))
+        
+        # Plot combined ROC curves
+        self.plot_multiple_roc_curves(all_fold_data)
+        
+        log.info("Cross-validation with ROC curves completed")
 
 
 if __name__ == "__main__":

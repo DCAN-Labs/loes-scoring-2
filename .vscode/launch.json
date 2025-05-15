@@ -40,7 +40,7 @@
                 "--model-type", "resnet3d", 
                 "--lr", "0.0005", 
                 "--weight-decay", "0.001",
-                "--threshold", "0.3", 
+                "--threshold", "0.3228", 
                 "--augment-minority",
                 "--plot-location", "/users/9/reine097/projects/loes-scoring-2/doc/linear_regression"
             ],
