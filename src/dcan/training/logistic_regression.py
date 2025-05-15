@@ -858,15 +858,16 @@ class LogisticRegressionApp:
             threshold_path = f"{base_path}_threshold_info.json"
         
         self.save_model(save_path)
-        
+
         # Save threshold information
         threshold_info = {
-            'threshold': optimal_threshold,
-            'pauc': current_pauc,
-            'epoch': epoch,
-            'metrics': threshold_metrics
+            'threshold': float(optimal_threshold),  # Convert to Python float
+            'pauc': float(current_pauc),           # Convert to Python float
+            'epoch': int(epoch),                   # Convert to Python int
+            'metrics': {k: float(v) if isinstance(v, np.floating) else v 
+                        for k, v in threshold_metrics.items()}  # Convert numpy floats in metrics
         }
-        
+
         with open(threshold_path, 'w') as f:
             json.dump(threshold_info, f, indent=4)
         
