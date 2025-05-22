@@ -15,10 +15,15 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingLR, OneCycleLR
 from sklearn.metrics import accuracy_score, auc, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, roc_curve
 import logging
+
+# Fix matplotlib backend before importing pyplot
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
+
 from tqdm import tqdm
 
-from dcan.data_sets.dsets import CandidateInfoTuple, LoesScoreDataset
+from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.training.augmented_loes_score_dataset import AugmentedLoesScoreDataset
 from dcan.training.metrics.participant_visible_error import score
 from mri_logistic_regression import get_mri_logistic_regression_model
@@ -76,12 +81,29 @@ class DataHandler:
         except Exception as e:
             log.error(f"Error creating dataset: {e}")
             raise
-        
+    
         batch_size = self.batch_size
         if self.use_cuda:
             batch_size *= torch.cuda.device_count()
 
-        return DataLoader(dataset, batch_size=batch_size, num_workers=self.num_workers, pin_memory=self.use_cuda)
+        # Reduce num_workers and add persistent_workers for stability
+        num_workers = min(self.num_workers, 2)  # Limit to 2 workers max
+        
+        # Create dataloader kwargs
+        dataloader_kwargs = {
+            'dataset': dataset,
+            'batch_size': batch_size,
+            'num_workers': num_workers,
+            'pin_memory': self.use_cuda,
+            'drop_last': False,  # Don't drop incomplete batches
+        }
+        
+        # Only add these parameters if num_workers > 0
+        if num_workers > 0:
+            dataloader_kwargs['persistent_workers'] = True
+            dataloader_kwargs['timeout'] = 30
+        
+        return DataLoader(**dataloader_kwargs)
 
 
 # Metrics indices
@@ -1748,16 +1770,389 @@ class LogisticRegressionApp:
         
         log.info("Cross-validation with ROC curves completed")
 
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from sklearn.metrics import roc_curve, auc
+
+    def _get_fold_predictions(self):
+        """
+        Get predictions and true labels for the current fold's validation set.
+        """
+        self.model.eval()
+        y_true = []
+        y_prob = []
+        
+        with torch.no_grad():
+            for batch_tup in self.val_dl:
+                if len(batch_tup) == 4:
+                    input_t, label_t, _, _ = batch_tup
+                    labels = [1.0 if l_t.item() > self.config.threshold else 0.0 for l_t in label_t]
+                    y_true.extend(labels)
+                elif len(batch_tup) == 5:
+                    input_t, _, has_ald_t, _, _ = batch_tup
+                    y_true.extend(has_ald_t.float().cpu().numpy())
+                
+                input_g = input_t.to(self.device)
+                probs = self.model(input_g).squeeze().cpu().numpy()
+                
+                # Handle single sample case
+                if np.ndim(probs) == 0:
+                    probs = np.array([probs])
+                
+                y_prob.extend(probs)
+        
+        return np.array(y_true), np.array(y_prob)
+    
+    def run_cross_validation_with_combined_roc(self, k=5):
+        """
+        Run k-fold cross-validation and plot combined ROC curves.
+        """
+        log.info(f"Starting {k}-fold cross-validation with combined ROC analysis")
+        
+        # Get all unique subjects
+        all_subjects = list(set(self.input_df['anonymized_subject_id'].tolist()))
+        
+        # Stratify subjects based on whether they have ALD
+        subjects_with_ald = []
+        subjects_without_ald = []
+        
+        for subject in all_subjects:
+            subject_rows = self.input_df[self.input_df['anonymized_subject_id'] == subject]
+            max_loes = subject_rows['loes-score'].max()
+            if max_loes > self.config.threshold:
+                subjects_with_ald.append(subject)
+            else:
+                subjects_without_ald.append(subject)
+        
+        log.info(f"Total subjects: {len(all_subjects)} ({len(subjects_with_ald)} with ALD, {len(subjects_without_ald)} without ALD)")
+
+        # Create stratified folds
+        import random
+        random.shuffle(subjects_with_ald)
+        random.shuffle(subjects_without_ald)
+    
+        ald_folds = self._create_folds(subjects_with_ald, k)
+        no_ald_folds = self._create_folds(subjects_without_ald, k)
+
+        # Storage for ROC data from all folds - FIXED STRUCTURE
+        fold_roc_data = {
+            'original_fprs': [],    # Store original FPR arrays
+            'original_tprs': [],    # Store original TPR arrays
+            'interp_tprs': [],      # Store interpolated TPR arrays separately
+            'aucs': [],
+            'thresholds': [],
+            'y_true_all': [],
+            'y_prob_all': []
+        }
+        
+        # Common FPR points for interpolation
+        mean_fpr = np.linspace(0, 1, 100)
+        
+        # Metrics to track across folds
+        fold_metrics = {
+            'accuracy': [],
+            'precision': [],
+            'ppv': [],
+            'recall': [],
+            'f1': [],
+            'auc': [],
+            'sensitivity': [],
+            'specificity': [],
+            'pAUC': []
+        }
+
+        # Run training for each fold
+        for fold in range(k):
+            log.info(f"\n{'='*40}")
+            log.info(f"FOLD {fold+1}/{k}")
+            log.info(f"{'='*40}")
+            
+            # Create train/validation split for this fold
+            val_subjects_ald = ald_folds[fold]
+            val_subjects_no_ald = no_ald_folds[fold]
+            
+            train_subjects_ald = [s for i, fold_subjects in enumerate(ald_folds) for s in fold_subjects if i != fold]
+            train_subjects_no_ald = [s for i, fold_subjects in enumerate(no_ald_folds) for s in fold_subjects if i != fold]
+            
+            self.train_subjects = train_subjects_ald + train_subjects_no_ald
+            self.val_subjects = val_subjects_ald + val_subjects_no_ald
+        
+            log.info(f"Train set: {len(self.train_subjects)} subjects")
+            log.info(f"Val set: {len(self.val_subjects)} subjects")
+            
+            # Set up dataloaders for this fold
+            self.train_dl = self.data_handler.init_dl(self.folder, self.train_subjects)
+            self.val_dl = self.data_handler.init_dl(self.folder, self.val_subjects, is_val_set=True)
+            
+            # Initialize a new model for this fold
+            self._setup_model()
+            self._setup_optimizer()
+            self._setup_scheduler()
+        
+            # Train model for this fold
+            fold_results = self._train_fold(fold)
+            
+            # Collect predictions for ROC analysis
+            fold_y_true, fold_y_prob = self._get_fold_predictions()
+            
+            # Skip fold if we don't have both classes
+            if len(np.unique(fold_y_true)) < 2:
+                log.warning(f"Fold {fold+1} has only one class, skipping ROC calculation")
+                continue
+            
+            # Calculate ROC curve for this fold
+            fpr, tpr, thresholds = roc_curve(fold_y_true, fold_y_prob)
+            fold_auc = auc(fpr, tpr)
+            
+            # Store fold data - FIXED: separate original and interpolated data
+            fold_roc_data['original_fprs'].append(fpr)
+            fold_roc_data['original_tprs'].append(tpr)
+            fold_roc_data['aucs'].append(fold_auc)
+            fold_roc_data['thresholds'].append(thresholds)
+            fold_roc_data['y_true_all'].extend(fold_y_true)
+            fold_roc_data['y_prob_all'].extend(fold_y_prob)
+            
+            # Interpolate TPR at common FPR points for averaging
+            interp_tpr = np.interp(mean_fpr, fpr, tpr)
+            interp_tpr[0] = 0.0  # Ensure it starts at (0,0)
+            fold_roc_data['interp_tprs'].append(interp_tpr)  # Store separately
+            
+            # Track other metrics
+            for metric in fold_metrics:
+                if metric in fold_results:
+                    fold_metrics[metric].append(fold_results[metric])
+            
+            log.info(f"Fold {fold+1} AUC: {fold_auc:.4f}")
+    
+        # Plot combined ROC curves
+        self._plot_combined_roc_curves(fold_roc_data, mean_fpr, k)
+        
+        # Print cross-validation summary
+        self._print_cv_summary(fold_metrics, fold_roc_data['aucs'])
+        
+        return fold_metrics, fold_roc_data
+
+    def _plot_combined_roc_curves(self, fold_roc_data, mean_fpr, k):
+        """
+        Plot individual fold ROC curves and their average.
+        """
+        plt.figure(figsize=(12, 10))
+
+        # Check if we have any valid folds
+        if not fold_roc_data['original_fprs']:
+            log.error("No valid folds with ROC data to plot")
+            return
+        
+        # Plot individual fold ROC curves - FIXED: use correct arrays
+        colors = plt.cm.Set1(np.linspace(0, 1, len(fold_roc_data['original_fprs'])))
+        for i in range(len(fold_roc_data['original_fprs'])):
+            fpr = fold_roc_data['original_fprs'][i]
+            tpr = fold_roc_data['original_tprs'][i]
+            auc_score = fold_roc_data['aucs'][i]
+            
+            plt.plot(fpr, tpr, color=colors[i], alpha=0.6, lw=1.5,
+                    label=f'Fold {i+1} (AUC = {auc_score:.3f})')
+    
+        # Calculate mean and std of TPR across folds using interpolated data
+        if fold_roc_data['interp_tprs']:
+            mean_tpr = np.mean(fold_roc_data['interp_tprs'], axis=0)
+            mean_tpr[-1] = 1.0  # Ensure it ends at (1,1)
+            mean_auc = auc(mean_fpr, mean_tpr)
+            std_auc = np.std(fold_roc_data['aucs'])
+            
+            # Plot mean ROC curve
+            plt.plot(mean_fpr, mean_tpr, color='blue', lw=3,
+                    label=f'Mean ROC (AUC = {mean_auc:.3f} ± {std_auc:.3f})')
+            
+            # Add confidence interval
+            std_tpr = np.std(fold_roc_data['interp_tprs'], axis=0)
+            tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
+            tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+            plt.fill_between(mean_fpr, tprs_lower, tprs_upper, color='blue', alpha=0.2,
+                            label='± 1 std. dev.')
+
+        # Plot diagonal (random classifier)
+        plt.plot([0, 1], [0, 1], 'k--', lw=2, alpha=0.8, label='Random Classifier')
+        
+        # Formatting
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel('False Positive Rate', fontsize=14)
+        plt.ylabel('True Positive Rate', fontsize=14)
+        plt.title(f'{len(fold_roc_data["original_fprs"])}-Fold Cross-Validation ROC Curves', fontsize=16)
+        plt.legend(loc="lower right", fontsize=10)
+        plt.grid(True, alpha=0.3)
+
+        # Save the plot
+        if hasattr(self.config, 'plot_location') and self.config.plot_location:
+            log.info(f"Plot location config: {self.config.plot_location}")
+            
+            if os.path.isdir(self.config.plot_location):
+                plot_path = os.path.join(self.config.plot_location, f"combined_roc_cv_{self.time_str}.png")
+            else:
+                base_path = os.path.splitext(self.config.plot_location)[0]
+                plot_path = f"{base_path}_combined_roc_cv.png"
+            
+            # Create directory if it doesn't exist
+            os.makedirs(os.path.dirname(plot_path), exist_ok=True)
+            
+            log.info(f"Attempting to save plot to: {plot_path}")
+            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+            
+            # Verify the file was created
+            if os.path.exists(plot_path):
+                log.info(f"\u2713 Combined ROC curve successfully saved to {plot_path}")
+            else:
+                log.error(f"\u2717 Failed to save plot to {plot_path}")
+        else:
+            log.warning("No plot location configured, using fallback")
+            plot_path = f"combined_roc_cv_{self.time_str}.png"
+            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+            log.info(f"Combined ROC curve saved to {plot_path}")
+        
+        plt.close()  # Close the figure to free memory
+        
+        # Also create a plot showing overall performance across all folds
+        self._plot_overall_roc_curve(fold_roc_data)
+
+    def _plot_overall_roc_curve(self, fold_roc_data):
+        """
+        Plot ROC curve using all predictions from all folds combined.
+        """
+        plt.figure(figsize=(10, 8))
+        
+        # Calculate overall ROC using all predictions
+        overall_fpr, overall_tpr, overall_thresholds = roc_curve(
+            fold_roc_data['y_true_all'], 
+            fold_roc_data['y_prob_all']
+        )
+        overall_auc = auc(overall_fpr, overall_tpr)
+        
+        # Plot overall ROC curve
+        plt.plot(overall_fpr, overall_tpr, color='red', lw=3,
+                label=f'Overall ROC (AUC = {overall_auc:.3f})')
+
+        # Plot diagonal
+        plt.plot([0, 1], [0, 1], 'k--', lw=2, alpha=0.8, label='Random Classifier')
+        
+        # Mark some key thresholds
+        key_thresholds = [0.1, 0.3, 0.5, 0.7, 0.9]
+        for threshold in key_thresholds:
+            if len(overall_thresholds) > 0:
+                closest_idx = np.argmin(np.abs(overall_thresholds - threshold))
+                if closest_idx < len(overall_fpr):
+                    plt.scatter(overall_fpr[closest_idx], overall_tpr[closest_idx], 
+                            s=80, alpha=0.8, label=f'T={threshold:.1f}')
+        
+        # Formatting
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel('False Positive Rate', fontsize=14)
+        plt.ylabel('True Positive Rate', fontsize=14)
+        plt.title('Overall ROC Curve (All Folds Combined)', fontsize=16)
+        plt.legend(loc="lower right", fontsize=10)
+        plt.grid(True, alpha=0.3)
+        
+        # Save plot
+        if hasattr(self.config, 'plot_location') and self.config.plot_location:
+            base_path = os.path.splitext(self.config.plot_location)[0]
+            plot_path = f"{base_path}_overall_roc_cv.png"
+            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+            log.info(f"Overall ROC curve saved to {plot_path}")
+            
+            # Also save as PDF
+            pdf_path = f"{base_path}_overall_roc_cv.pdf"
+            plt.savefig(pdf_path, dpi=300, bbox_inches='tight')
+            log.info(f"Overall ROC curve saved to {pdf_path}")
+        else:
+            # Fallback save location
+            plot_path = f"overall_roc_cv_{self.time_str}.png"
+            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+            log.info(f"Overall ROC curve saved to {plot_path}")
+        
+        plt.close()  # Close the figure to free memory
+        
+        return overall_auc
+
+    def _print_cv_summary(self, fold_metrics, fold_aucs):
+        """
+        Print comprehensive cross-validation summary including ROC statistics.
+        """
+        log.info("\n" + "="*80)
+        log.info("CROSS-VALIDATION RESULTS WITH ROC ANALYSIS")
+        log.info("="*80)
+
+        # Standard metrics
+        for metric, values in fold_metrics.items():
+            if values:
+                mean_value = np.mean(values)
+                std_value = np.std(values)
+                log.info(f"{metric.capitalize()}: {mean_value:.4f} ± {std_value:.4f}")
+        
+        # ROC-specific statistics
+        log.info(f"\nROC CURVE STATISTICS:")
+        log.info(f"AUC per fold: {[f'{auc:.4f}' for auc in fold_aucs]}")
+        log.info(f"Mean AUC: {np.mean(fold_aucs):.4f} ± {np.std(fold_aucs):.4f}")
+        log.info(f"Min AUC: {np.min(fold_aucs):.4f}")
+        log.info(f"Max AUC: {np.max(fold_aucs):.4f}")
+        
+        log.info("="*80)
+
+    def plot_comprehensive_roc_analysis(app, k=5):
+        """
+        Run comprehensive ROC analysis with cross-validation.
+        
+        Args:
+            app: LogisticRegressionApp instance
+            k: Number of folds for cross-validation
+        """
+        # Run cross-validation with ROC analysis
+        fold_metrics, fold_roc_data = app.run_cross_validation_with_combined_roc(k=k)
+
+        # Create additional analysis plots
+        fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+        
+        # ... existing plotting code ...
+        
+        plt.tight_layout()
+        
+        # Save comprehensive analysis
+        if hasattr(app.config, 'plot_location') and app.config.plot_location:
+            base_path = os.path.splitext(app.config.plot_location)[0]
+            plot_path = f"{base_path}_comprehensive_cv_analysis.png"
+            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+            log.info(f"Comprehensive analysis saved to {plot_path}")
+            
+            # Also save as PDF
+            pdf_path = f"{base_path}_comprehensive_cv_analysis.pdf"
+            plt.savefig(pdf_path, dpi=300, bbox_inches='tight')
+            log.info(f"Comprehensive analysis saved to {pdf_path}")
+        else:
+            # Fallback save location
+            plot_path = f"comprehensive_cv_analysis_{app.time_str}.png"
+            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+            log.info(f"Comprehensive analysis saved to {plot_path}")
+        
+        plt.close()  # Close the figure to free memory
+        
+        return fold_metrics, fold_roc_data
+
 
 if __name__ == "__main__":
     try:
-        # Create app with threshold optimization enabled
+        # Create app
         log_reg_app = LogisticRegressionApp()
         
-        # Run cross-validation
-        log_reg_app.run_cross_validation(k=5)
+        # Run the enhanced cross-validation with combined ROC (even in debug mode)
+        if log_reg_app.config.DEBUG:
+            log.info("Running in DEBUG mode - using combined ROC cross-validation")
+            fold_metrics, fold_roc_data = log_reg_app.run_cross_validation_with_combined_roc(k=5)
+        else:
+            # Run the enhanced cross-validation with combined ROC
+            fold_metrics, fold_roc_data = log_reg_app.run_cross_validation_with_combined_roc(k=5)
         
-        log.info("Training completed successfully")
+        log.info("Training and analysis completed successfully")
+        
     except Exception as e:
         log.error(f"Error in main: {e}")
         import traceback
