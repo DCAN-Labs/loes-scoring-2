@@ -42,7 +42,7 @@
                 "--weight-decay", "0.001",
                 "--threshold", "0.3228", 
                 "--augment-minority",
-                "--plot-location", "/users/9/reine097/projects/loes-scoring-2/doc/logistic_regression",
+                "--plot-location", "/users/9/reine097/projects/loes-scoring-2/doc/logistic_regression/img",
                 "--num-workers", "0"
             ],
             "env": {"PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"}

@@ -927,8 +927,7 @@ class LogisticRegressionApp:
         }
         
         return return_metrics
-        
-    
+
     def plot_threshold_optimization_results(self, epoch_metrics, fold_idx=None):
         """Plot threshold optimization results over epochs"""
         import matplotlib.pyplot as plt
@@ -943,7 +942,7 @@ class LogisticRegressionApp:
         axes[0, 0].set_ylabel('Optimal Threshold')
         axes[0, 0].set_title('Threshold Evolution')
         axes[0, 0].grid(True)
-    
+
         # Plot pAUC evolution
         axes[0, 1].plot(epochs, epoch_metrics['paucs'], 'r-', marker='o')
         axes[0, 1].set_xlabel('Epoch')
@@ -974,9 +973,14 @@ class LogisticRegressionApp:
                 plot_path = f"{base_plot_path}_threshold_optimization_fold{fold_idx+1}.png"
             else:
                 plot_path = f"{base_plot_path}_threshold_optimization.png"
-        
+            
+            # CREATE THE DIRECTORY IF IT DOESN'T EXIST
+            os.makedirs(os.path.dirname(plot_path), exist_ok=True)
+            
             plt.savefig(plot_path)
             log.info(f"Threshold optimization plot saved to {plot_path}")
+        
+        plt.close()  # Close the figure to free memory
 
     def _setup_scheduler(self):
         """
@@ -1511,11 +1515,6 @@ class LogisticRegressionApp:
         plt.plot(fpr, tpr, color='darkorange', lw=2, 
                 label=f'ROC curve (AUC = {roc_auc:.4f})')
         
-        # Highlight pAUC region
-        plt.fill_between(limited_fpr, 0, limited_tpr, 
-                        alpha=0.2, color='blue', 
-                        label=f'pAUC region (pAUC = {pAUC:.4f})')
-        
         # Plot diagonal line
         plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--', 
                 label='Random Classifier')
@@ -1923,7 +1922,7 @@ class LogisticRegressionApp:
                     fold_metrics[metric].append(fold_results[metric])
             
             log.info(f"Fold {fold+1} AUC: {fold_auc:.4f}")
-    
+
         # Plot combined ROC curves
         self._plot_combined_roc_curves(fold_roc_data, mean_fpr, k)
         
@@ -1934,44 +1933,27 @@ class LogisticRegressionApp:
 
     def _plot_combined_roc_curves(self, fold_roc_data, mean_fpr, k):
         """
-        Plot individual fold ROC curves and their average.
+        Plot simplified ROC curve showing only mean performance and random classifier.
         """
-        plt.figure(figsize=(12, 10))
+        plt.figure(figsize=(10, 8))
 
         # Check if we have any valid folds
         if not fold_roc_data['original_fprs']:
             log.error("No valid folds with ROC data to plot")
             return
         
-        # Plot individual fold ROC curves - FIXED: use correct arrays
-        colors = plt.cm.Set1(np.linspace(0, 1, len(fold_roc_data['original_fprs'])))
-        for i in range(len(fold_roc_data['original_fprs'])):
-            fpr = fold_roc_data['original_fprs'][i]
-            tpr = fold_roc_data['original_tprs'][i]
-            auc_score = fold_roc_data['aucs'][i]
-            
-            plt.plot(fpr, tpr, color=colors[i], alpha=0.6, lw=1.5,
-                    label=f'Fold {i+1} (AUC = {auc_score:.3f})')
-    
-        # Calculate mean and std of TPR across folds using interpolated data
+        # Calculate mean TPR across folds using interpolated data
         if fold_roc_data['interp_tprs']:
             mean_tpr = np.mean(fold_roc_data['interp_tprs'], axis=0)
             mean_tpr[-1] = 1.0  # Ensure it ends at (1,1)
             mean_auc = auc(mean_fpr, mean_tpr)
             std_auc = np.std(fold_roc_data['aucs'])
             
-            # Plot mean ROC curve
+            # Plot only the mean ROC curve (blue line)
             plt.plot(mean_fpr, mean_tpr, color='blue', lw=3,
                     label=f'Mean ROC (AUC = {mean_auc:.3f} ± {std_auc:.3f})')
-            
-            # Add confidence interval
-            std_tpr = np.std(fold_roc_data['interp_tprs'], axis=0)
-            tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
-            tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
-            plt.fill_between(mean_fpr, tprs_lower, tprs_upper, color='blue', alpha=0.2,
-                            label='± 1 std. dev.')
 
-        # Plot diagonal (random classifier)
+        # Plot diagonal (random classifier - dotted line)
         plt.plot([0, 1], [0, 1], 'k--', lw=2, alpha=0.8, label='Random Classifier')
         
         # Formatting
@@ -1979,8 +1961,8 @@ class LogisticRegressionApp:
         plt.ylim([0.0, 1.05])
         plt.xlabel('False Positive Rate', fontsize=14)
         plt.ylabel('True Positive Rate', fontsize=14)
-        plt.title(f'{len(fold_roc_data["original_fprs"])}-Fold Cross-Validation ROC Curves', fontsize=16)
-        plt.legend(loc="lower right", fontsize=10)
+        plt.title(f'CA-MEDS Performance', fontsize=16)
+        plt.legend(loc="lower right", fontsize=12)
         plt.grid(True, alpha=0.3)
 
         # Save the plot
@@ -2011,13 +1993,10 @@ class LogisticRegressionApp:
             log.info(f"Combined ROC curve saved to {plot_path}")
         
         plt.close()  # Close the figure to free memory
-        
-        # Also create a plot showing overall performance across all folds
-        self._plot_overall_roc_curve(fold_roc_data)
 
     def _plot_overall_roc_curve(self, fold_roc_data):
         """
-        Plot ROC curve using all predictions from all folds combined.
+        Plot simplified overall ROC curve using all predictions from all folds combined.
         """
         plt.figure(figsize=(10, 8))
         
@@ -2028,29 +2007,20 @@ class LogisticRegressionApp:
         )
         overall_auc = auc(overall_fpr, overall_tpr)
         
-        # Plot overall ROC curve
+        # Plot overall ROC curve (clean, no threshold markers)
         plt.plot(overall_fpr, overall_tpr, color='red', lw=3,
                 label=f'Overall ROC (AUC = {overall_auc:.3f})')
 
         # Plot diagonal
         plt.plot([0, 1], [0, 1], 'k--', lw=2, alpha=0.8, label='Random Classifier')
         
-        # Mark some key thresholds
-        key_thresholds = [0.1, 0.3, 0.5, 0.7, 0.9]
-        for threshold in key_thresholds:
-            if len(overall_thresholds) > 0:
-                closest_idx = np.argmin(np.abs(overall_thresholds - threshold))
-                if closest_idx < len(overall_fpr):
-                    plt.scatter(overall_fpr[closest_idx], overall_tpr[closest_idx], 
-                            s=80, alpha=0.8, label=f'T={threshold:.1f}')
-        
         # Formatting
         plt.xlim([0.0, 1.0])
         plt.ylim([0.0, 1.05])
         plt.xlabel('False Positive Rate', fontsize=14)
         plt.ylabel('True Positive Rate', fontsize=14)
-        plt.title('Overall ROC Curve (All Folds Combined)', fontsize=16)
-        plt.legend(loc="lower right", fontsize=10)
+        plt.title('CA-MEDS', fontsize=16)
+        plt.legend(loc="lower right", fontsize=12)
         plt.grid(True, alpha=0.3)
         
         # Save plot
