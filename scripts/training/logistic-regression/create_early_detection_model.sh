@@ -27,7 +27,7 @@ export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src:/use
     --model-type "resnet3d" \
     --lr "0.01" \
     --weight-decay "0.001" \
-    --threshold "0.3228" \
+    --threshold "0.795" \
     --augment-minority \
     --num-augmentations 3 \
     --plot-location "/users/9/reine097/projects/loes-scoring-2/doc/linear_regression"

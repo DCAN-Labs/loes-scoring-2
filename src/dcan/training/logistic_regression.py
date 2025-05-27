@@ -2096,45 +2096,6 @@ class LogisticRegressionApp:
         
         log.info("="*80)
 
-    def plot_comprehensive_roc_analysis(app, k=5):
-        """
-        Run comprehensive ROC analysis with cross-validation.
-        
-        Args:
-            app: LogisticRegressionApp instance
-            k: Number of folds for cross-validation
-        """
-        # Run cross-validation with ROC analysis
-        fold_metrics, fold_roc_data = app.run_cross_validation_with_combined_roc(k=k)
-
-        # Create additional analysis plots
-        fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-        
-        # ... existing plotting code ...
-        
-        plt.tight_layout()
-        
-        # Save comprehensive analysis
-        if hasattr(app.config, 'plot_location') and app.config.plot_location:
-            base_path = os.path.splitext(app.config.plot_location)[0]
-            plot_path = f"{base_path}_comprehensive_cv_analysis.png"
-            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
-            log.info(f"Comprehensive analysis saved to {plot_path}")
-            
-            # Also save as PDF
-            pdf_path = f"{base_path}_comprehensive_cv_analysis.pdf"
-            plt.savefig(pdf_path, dpi=300, bbox_inches='tight')
-            log.info(f"Comprehensive analysis saved to {pdf_path}")
-        else:
-            # Fallback save location
-            plot_path = f"comprehensive_cv_analysis_{app.time_str}.png"
-            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
-            log.info(f"Comprehensive analysis saved to {plot_path}")
-        
-        plt.close()  # Close the figure to free memory
-        
-        return fold_metrics, fold_roc_data
-
 
 if __name__ == "__main__":
     try:
