@@ -1931,9 +1931,10 @@ class LogisticRegressionApp:
         
         return fold_metrics, fold_roc_data
 
+
     def _plot_combined_roc_curves(self, fold_roc_data, mean_fpr, k):
         """
-        Plot simplified ROC curve showing only mean performance and random classifier.
+        Plot combined ROC curve showing mean performance, random classifier, and optimal threshold.
         """
         plt.figure(figsize=(10, 8))
 
@@ -1949,9 +1950,35 @@ class LogisticRegressionApp:
             mean_auc = auc(mean_fpr, mean_tpr)
             std_auc = np.std(fold_roc_data['aucs'])
             
-            # Plot only the mean ROC curve (blue line)
+            # Plot the mean ROC curve (blue line)
             plt.plot(mean_fpr, mean_tpr, color='blue', lw=3,
                     label=f'Mean ROC (AUC = {mean_auc:.3f} ± {std_auc:.3f})')
+            
+            # Calculate and plot optimal threshold point on mean curve
+            # Use Youden's J statistic to find optimal threshold
+            youden_j = mean_tpr - mean_fpr
+            optimal_idx = np.argmax(youden_j)
+            optimal_fpr = mean_fpr[optimal_idx]
+            optimal_tpr = mean_tpr[optimal_idx]
+        
+            # Calculate what threshold this corresponds to by using overall data
+            if fold_roc_data['y_true_all'] and fold_roc_data['y_prob_all']:
+                overall_fpr, overall_tpr, overall_thresholds = roc_curve(
+                    fold_roc_data['y_true_all'], 
+                    fold_roc_data['y_prob_all']
+                )
+                # Find closest point on overall curve to our optimal point
+                distances = np.sqrt((overall_fpr - optimal_fpr)**2 + (overall_tpr - optimal_tpr)**2)
+                closest_idx = np.argmin(distances)
+                optimal_threshold = overall_thresholds[closest_idx]
+                
+                # Plot the optimal threshold point
+                plt.plot(optimal_fpr, optimal_tpr, 'ro', markersize=10,
+                        label=f'Optimal Threshold ({optimal_threshold:.3f})', zorder=5)
+            else:
+                # Fallback: just show the optimal point without threshold value
+                plt.plot(optimal_fpr, optimal_tpr, 'ro', markersize=10,
+                        label='Optimal Point (Youden\'s J)', zorder=5)
 
         # Plot diagonal (random classifier - dotted line)
         plt.plot([0, 1], [0, 1], 'k--', lw=2, alpha=0.8, label='Random Classifier')
@@ -1993,6 +2020,7 @@ class LogisticRegressionApp:
             log.info(f"Combined ROC curve saved to {plot_path}")
         
         plt.close()  # Close the figure to free memory
+
 
     def _plot_overall_roc_curve(self, fold_roc_data):
         """
