@@ -29,6 +29,7 @@ from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.training.augmented_loes_score_dataset import AugmentedLoesScoreDataset
 from dcan.training.metrics.participant_visible_error import score
 from mri_logistic_regression import get_mri_logistic_regression_model
+from config.training_config import ConfigurationManager
 
 
 # Configure logging
