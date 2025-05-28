@@ -242,3 +242,8 @@ src/dcan/training/model_test_fold3_threshold_info.json
 src/dcan/training/model_test_fold4_threshold_info.json
 src/dcan/training/model_test_fold5_threshold_info.json
 doc/linear_regression/combined_roc_cv_2025-05-27_13.07.20.png
+logistic_model-*_fold*_threshold_info.json
+doc/logistic_regression/img_roc_fold*.*
+doc/logistic_regression/img_threshold_optimization_fold*.png
+doc/linear_regression/combined_roc_cv_*.png
+doc/logistic_regression/img/combined_roc_cv_*.png
