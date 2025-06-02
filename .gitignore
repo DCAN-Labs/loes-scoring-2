@@ -247,3 +247,7 @@ doc/logistic_regression/img_roc_fold*.*
 doc/logistic_regression/img_threshold_optimization_fold*.png
 doc/linear_regression/combined_roc_cv_*.png
 doc/logistic_regression/img/combined_roc_cv_*.png
+doc/linear_regression_overall_roc_cv.pdf
+doc/linear_regression_overall_roc_cv.png
+doc/logistic_regression/img_overall_roc_cv.pdf
+doc/logistic_regression/img_overall_roc_cv.png
