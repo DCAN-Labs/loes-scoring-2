@@ -6,5 +6,8 @@ Code for automated Loes scoring.
 See [jfortin1 / RAVEL](https://github.com/Jfortin1/RAVEL) for information on RAVEL.
 See [SOP.md](doc/SOP.md) for useage.
 
-## Logistic regression
+## Automated Loes scoring
 See [regression](/doc/regression.md).
+
+## Early detection of cerebral ALD
+See ["Dearly Detection"](/doc/early_detection.md).
