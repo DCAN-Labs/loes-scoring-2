@@ -9,8 +9,10 @@
             "console": "integratedTerminal",
             "args": ["--csv-input-file", "data/anon_train_scans_and_loes_training_test_non_gd.csv",
                      "--folder",  "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/",
-                     "--DEBUG"]
+                     "--DEBUG",
+                     "--epochs", "4"]
         },
+        
         {
             "type": "bashdb",
             "request": "launch",

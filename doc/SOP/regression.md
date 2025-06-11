@@ -87,6 +87,10 @@ Here is a sample VS Code run target:
 
 The output will consist of the following
 
+#### Model
+
+The model will be saved with as a .pt file.  The name will include a time-stamp.
+
 #### CSV output
 
 A CSV output file will be the same as the input CSV file except for a *predicted_loes_score* for the validation rows.  Here are the first few lines of a sample output:
@@ -101,7 +105,7 @@ A CSV output file will be the same as the input CSV file except for a *predicted
 
 Also a plot will be produced showing the actual versus predicted Loes scores.
 
-![Loes score prediction](doc/img/sample_output/sample_loes_score_predictions.png)
+![Loes score prediction](sample_loes_score_predictions.png)
 
 #### Statistics
 

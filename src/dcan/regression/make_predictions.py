@@ -29,7 +29,7 @@ def load_model(model_name, model_save_location, device='cpu'):
         log.info("Using AlexNet3D")
     model.to(device)
 
-    model.load_state_dict(torch.load(model_save_location, map_location=device))
+    model.load_state_dict(torch.load(model_save_location, map_location=device, weights_only=False))
     model.eval()
 
     return model
