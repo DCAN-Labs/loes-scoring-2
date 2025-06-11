@@ -10,7 +10,7 @@
 import pandas as pd
 import sys
 
-from dcan.training.training import get_subject_from_file_name
+from dcan.training.regression.training import get_subject_from_file_name
 
 
 def generate_ccald_cutoff(csv_file_path):

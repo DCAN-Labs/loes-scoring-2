@@ -68,8 +68,8 @@ def compute_rmse(predictions, actuals):
     return torch.sqrt(mse).item()
 
 
-def get_validation_info(model_type, model_save_location, input_csv_location, val_subjects):
-    model = load_model(model_type, model_save_location, device='cpu')
+def get_validation_info(model_type, model_save_location, input_csv_location, val_subjects, device):
+    model = load_model(model_type, model_save_location, device=device)
 
     df = pd.read_csv(input_csv_location)
     validation_rows = df[df['anonymized_subject_id'].isin(val_subjects)]

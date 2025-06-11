@@ -6,8 +6,8 @@ import sys
 import torch
 from torch.utils.data import DataLoader
 
-from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.training.augmented_loes_score_dataset import AugmentedLoesScoreDataset
+from dcan.regression.dsets import LoesScoreDataset
 
 
 # Configure logging
@@ -43,17 +43,12 @@ class DataHandler:
         
         # Store configuration settings directly
         self.folder = config.folder
-        self.augment_minority = config.augment_minority
-        self.num_augmentations = config.num_augmentations
-        self.split_ratio = config.split_ratio
-        self.threshold = config.threshold
-        
-        # Initialize subject lists
-        self.train_subjects = []
-        self.val_subjects = []
+        self.augment_minority = config.use_weighted_loss
+        if self.augment_minority:
+            self.num_augmentations = config.num_augmentations
         
         # Create the train/validation split
-        self._setup_dataset_split()
+        self.train_subjects, self.val_subjects = self._create_stratified_split()
 
     def _setup_dataset_split(self):
         """
@@ -77,37 +72,30 @@ class DataHandler:
     
     def _create_stratified_split(self):
         """
-        Create a stratified split of subjects based on their ALD status.
+        Create a stratified split of subjects based on their Loes scores.
         
         Returns:
             tuple: (train_subjects, val_subjects)
         """
-        # Get all unique subjects
-        all_subjects = list(set(self.input_df['anonymized_subject_id'].tolist()))
-        
-        # Stratify subjects based on whether they have ALD
-        subjects_with_ald = []
-        subjects_without_ald = []
-        
-        for subject in all_subjects:
-            subject_rows = self.input_df[self.input_df['anonymized_subject_id'] == subject]
-            max_loes = subject_rows['loes-score'].max()
-            if max_loes > self.threshold:
-                subjects_with_ald.append(subject)
-            else:
-                subjects_without_ald.append(subject)
+        grouped_data = self.input_df.groupby('anonymized_subject_id')
+        mean_values = grouped_data['loes-score'].mean()
+        sorted_df = mean_values.sort_values(ascending=True)
+
+        n = len(sorted_df)
+        training_count = int(round(self.config.train_size * n))
+        # select every nth element
+        if training_count > 0:
+            step = max(1, n // training_count)  # Calculate step size
+            train_indices = list(range(0, n, step))[:training_count]  # Limit to training_count
+            train_subjects = [sorted_df.index[i] for i in train_indices]
+            val_subjects = [sorted_df.index[i] for i in range(n) if i not in train_indices]
+        else:
+            train_subjects = []
+            val_subjects = sorted_df.index.tolist()
         
         # Shuffle to randomize
-        random.shuffle(subjects_with_ald)
-        random.shuffle(subjects_without_ald)
-        
-        # Calculate split indices
-        ald_split_idx = int(len(subjects_with_ald) * self.split_ratio)
-        no_ald_split_idx = int(len(subjects_without_ald) * self.split_ratio)
-        
-        # Create train and validation lists
-        train_subjects = subjects_with_ald[:ald_split_idx] + subjects_without_ald[:no_ald_split_idx]
-        val_subjects = subjects_with_ald[ald_split_idx:] + subjects_without_ald[no_ald_split_idx:]
+        random.shuffle(train_subjects)
+        random.shuffle(val_subjects)
         
         return train_subjects, val_subjects
     

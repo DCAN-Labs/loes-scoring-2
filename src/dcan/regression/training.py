@@ -15,9 +15,9 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingLR, OneCycleLR
 
 from dcan.data_sets.dsets import LoesScoreDataset
-from dcan.inference.make_predictions import add_predicted_values, compute_standardized_rmse, create_correlation_coefficient, create_scatter_plot, get_validation_info
 from dcan.models.ResNet import get_resnet_model
-from dcan.training.data_handler import DataHandler
+from dcan.regression.data_handler import DataHandler
+from dcan.regression.make_predictions import add_predicted_values, compute_standardized_rmse, create_correlation_coefficient, create_scatter_plot, get_validation_info
 from util.logconf import logging
 from util.util import enumerateWithEstimate
 
@@ -40,6 +40,7 @@ METRICS_SIZE = 3
 class Config:
     def __init__(self):
         self.parser = argparse.ArgumentParser()
+        self.parser.add_argument('--DEBUG', action='store_true')
 
         self.parser.add_argument('--tb-prefix', default='loes_scoring', help="Tensorboard data prefix.")
         self.parser.add_argument('--csv-input-file', help="CSV data file.")
@@ -65,6 +66,13 @@ class Config:
         self.parser.add_argument(
             '--model', default='resnet', 
             choices=['resnet', 'alexnet'], help='Model architecture')
+        self.parser.add_argument('--augment-minority', action='store_false')
+        self.parser.add_argument(
+            '--test-size', type=float, default=0.25, 
+            help='Should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split')
+        self.parser.add_argument(
+            '--train-size', type=float, default=0.75, 
+            help='Should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the train split')
 
     def parse_args(self, sys_argv: list[str]) -> argparse.Namespace:
         return self.parser.parse_args(sys_argv)
@@ -80,7 +88,7 @@ class ModelHandler:
 
     def _init_model(self):
         model = get_resnet_model()
-        if torch.cuda.is_available():
+        if self.use_cuda and torch.cuda.is_available():  # Respects the DEBUG flag
             model.cuda()
         log.info("Using ResNet")
 
@@ -137,13 +145,13 @@ def normalize_dictionary(data):
 
 # Training/Validation Loop Handler
 class TrainingLoop:
-    def __init__(self, model_handler, optimizer, device, df, config):
+    def __init__(self, model_handler, optimizer, device, df, config, train_subjects):
         self.model_handler = model_handler
         self.optimizer = optimizer
         self.device = device
         self.total_samples = 0
         self.df = df
-        training_df = df[df['training'] == 1]
+        training_df = df[df['anonymized_subject_id'].isin(train_subjects)]
         loes_scores = list(training_df['loes-score'])
         item_counts = count_items(loes_scores)
         weighted_counts = {
@@ -287,8 +295,8 @@ def get_folder_name(file_path):
 class LoesScoringTrainingApp:        
     def __init__(self, sys_argv=None):
         self.config = Config().parse_args(sys_argv)
-        self.use_cuda = torch.cuda.is_available()
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.use_cuda = not self.config.DEBUG and torch.cuda.is_available()
+        self.device = torch.device("cuda" if not self.config.DEBUG and torch.cuda.is_available() else "cpu")
         self.model_handler = ModelHandler(self.config.model, self.use_cuda, self.device)
         self.optimizer = self._init_optimizer()
 
@@ -298,7 +306,11 @@ class LoesScoringTrainingApp:
         self.time_str = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
         self.tb_logger = TensorBoardLogger(self.config.tb_prefix, self.time_str, self.config.comment)
 
-        self.data_handler = DataHandler(self.input_df, self.output_df, self.use_cuda, self.config.batch_size, self.config.num_workers)
+        self.data_handler = \
+            DataHandler(
+                self.input_df, self.output_df, self.use_cuda, 
+                self.config.batch_size, self.config.num_workers, 
+                self.config)
         self.folder = self.config.folder
 
     def _init_optimizer(self):
@@ -332,21 +344,16 @@ class LoesScoringTrainingApp:
         if self.config.gd == 0:
             self.input_df = self.input_df[~self.input_df['scan'].str.contains('Gd')]
 
-        if self.config.use_train_validation_cols:
-            training_rows = self.input_df.loc[self.input_df['training'] == 1]
-            train_subjects = list(training_rows['anonymized_subject_id'])
-            validation_rows = self.input_df.loc[self.input_df['validation'] == 1]
-            val_subjects = list(validation_rows['anonymized_subject_id'])
-        else:
-            train_subjects, val_subjects = self.split_train_validation()
+        self.train_subjects = self.data_handler.train_subjects
+        self.val_subjects = self.data_handler.val_subjects
 
-        self.train_dl = self.data_handler.init_dl(self.folder, train_subjects)
-        val_dl = self.data_handler.init_dl(self.folder, val_subjects, is_val_set=True)
+        self.train_dl = self.data_handler.get_train_dataloader()
+        val_dl = self.data_handler.get_val_dataloader()
         
-        # Add scheduler initialization
+        # Scheduler initialization
         self.scheduler = self._init_scheduler(self.train_dl)
         
-        loop_handler = TrainingLoop(self.model_handler, self.optimizer, self.device, self.input_df, self.config)
+        loop_handler = TrainingLoop(self.model_handler, self.optimizer, self.device, self.input_df, self.config, self.train_subjects)
         
         best_val_loss = float('inf')
         
@@ -378,8 +385,12 @@ class LoesScoringTrainingApp:
 
         input_csv_location = self.config.csv_input_file
         subjects, sessions, actual_scores, predict_vals = \
-            get_validation_info(self.config.model, self.config.model_save_location, input_csv_location)
-        output_csv_location = self.config.csv_output_file
+            get_validation_info(self.config.model, self.config.model_save_location, input_csv_location, self.val_subjects, self.device)
+        if self.config.csv_output_file is None:
+            root, ext = os.path.splitext(input_csv_location)
+            output_csv_location = f'{root}_out.{ext}'
+        else:
+            output_csv_location = self.config.csv_output_file
         output_df = add_predicted_values(subjects, sessions, predict_vals, input_csv_location)
         output_csv_folder_name = get_folder_name(output_csv_location)
         if not os.path.exists(output_csv_folder_name):
@@ -388,7 +399,11 @@ class LoesScoringTrainingApp:
         standardized_rmse = \
             compute_standardized_rmse(actual_scores, predict_vals)
         log.info(f'standardized_rmse: {standardized_rmse}')
-        create_scatter_plot(actual_scores, predict_vals, self.config.plot_location)
+        plot_location = self.config.plot_location
+        if self.config.plot_location is None:
+            root, ext = os.path.splitext(input_csv_location)
+            plot_location = f'{root}_out.png'
+        create_scatter_plot(actual_scores, predict_vals, plot_location)
         correlation_coefficient = create_correlation_coefficient(actual_scores, predict_vals)
         log.info(f'correlation_coefficient: {correlation_coefficient}')
 

@@ -33,7 +33,7 @@ print_config()
 IMAGE_SIZE = (197, 233, 189)
 
 def get_file_name(row):
-   return f"{row['subject_id']}_{row['session_id']}_space-MNI_brain_mprage_RAVEL.nii.gz"
+   return f"{row['anonymized_subject_id']}_{row['anonymized_session_id']}_space-MNI_brain_mprage_RAVEL.nii.gz"
 
 def load_data(loes_scoring_folder):
     """Loads and processes the data from the provided folder."""
