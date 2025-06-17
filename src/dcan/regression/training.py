@@ -46,7 +46,7 @@ class Config:
         self.parser.add_argument('--csv-input-file', help="CSV data file.")
         self.parser.add_argument('--num-workers', default=8, type=int, help='Number of worker processes')
         self.parser.add_argument('--batch-size', default=32, type=int, help='Batch size for training')
-        self.parser.add_argument('--epochs', default=1, type=int, help='Number of epochs to train')
+        self.parser.add_argument('--epochs', default=20, type=int, help='Number of epochs to train')
         self.parser.add_argument('--file-path-column-index', type=int, help='Index of the file path in CSV file')
         self.parser.add_argument('--loes-score-column-index', type=int, help='Index of the Loes score in CSV file')
         self.parser.add_argument('--model-save-location', default=f'./model-{datetime.datetime.now().strftime("%Y-%m-%d_%H.%M.%S")}.pt')
@@ -404,9 +404,11 @@ class LoesScoringTrainingApp:
         else:
             output_csv_location = self.config.csv_output_file
         output_df = add_predicted_values(subjects, sessions, predict_vals, input_csv_location)
-        output_csv_folder_name = get_folder_name(output_csv_location)
-        if not os.path.exists(output_csv_folder_name):
-            os.makedirs(output_csv_folder_name)
+
+        output_csv_folder_path = os.path.dirname(output_csv_location)
+        if output_csv_folder_path and not os.path.exists(output_csv_folder_path):
+            os.makedirs(output_csv_folder_path, exist_ok=True)
+
         output_df.to_csv(output_csv_location, index=False)
         standardized_rmse = \
             compute_standardized_rmse(actual_scores, predict_vals)
