@@ -72,6 +72,8 @@ Here are the command-line options:
     --model {resnet,alexnet}
                             Model architecture
 
+You will usually train a model using a SLURM script.  Here is an example.
+
 Here is a sample VS Code run target:
 
         {

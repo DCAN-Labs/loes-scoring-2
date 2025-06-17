@@ -169,6 +169,11 @@ class TrainingLoop:
             loss_var = self._compute_batch_loss(batch_ndx, batch_tup, train_dl.batch_size, trn_metrics_g)
             loss_var.backward()
             self.optimizer.step()
+            
+            # Step OneCycleLR after each batch
+            if hasattr(self, 'scheduler') and isinstance(self.scheduler, OneCycleLR):
+                self.scheduler.step()
+                
         self.total_samples += len(train_dl.dataset)
         return trn_metrics_g.to('cpu')
 
@@ -369,8 +374,15 @@ class LoesScoringTrainingApp:
             # Calculate validation loss
             val_loss = val_metrics[METRICS_LOSS_NDX].mean().item()
             
-            # Step the scheduler based on validation loss
-            self.scheduler.step(val_loss)
+            if isinstance(self.scheduler, ReduceLROnPlateau):
+                # Step the scheduler based on validation loss
+                self.scheduler.step(val_loss)
+            elif isinstance(self.scheduler, OneCycleLR):
+                # OneCycleLR is stepped per batch, not per epoch
+                pass  
+            else:
+                # For other schedulers like StepLR, CosineAnnealingLR
+                self.scheduler.step()
             
             # Track best model (optional)
             if val_loss < best_val_loss:

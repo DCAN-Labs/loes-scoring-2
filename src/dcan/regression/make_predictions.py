@@ -67,7 +67,7 @@ def compute_rmse(predictions, actuals):
     mse = F.mse_loss(predictions_tensor, actuals_tensor)
     return torch.sqrt(mse).item()
 
-
+    
 def get_validation_info(model_type, model_save_location, input_csv_location, val_subjects, device):
     model = load_model(model_type, model_save_location, device=device)
 
@@ -77,9 +77,13 @@ def get_validation_info(model_type, model_save_location, input_csv_location, val
     subjects = list(output_df['anonymized_subject_id'])
     sessions = list(output_df['anonymized_session_id'])
     actual_scores = list(output_df['loes-score'])
+    
     with torch.no_grad():
         inputs = list(output_df.apply(predict, axis=1))
-
+        
+        # Move inputs to the same device as the model
+        inputs = [input_tensor.to(device) for input_tensor in inputs]  # \u2190 Add this line
+        
         predictions = [model(input) for input in inputs]
         predict_vals = [p[0].item() for p in predictions]
 
