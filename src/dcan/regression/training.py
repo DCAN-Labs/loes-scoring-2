@@ -190,6 +190,58 @@ class TrainingLoop:
         self.weights = weighted_counts
         self.config = config
 
+        self.calibration_params = None  # Store calibration parameters
+    
+    def fit_calibration(self, val_dl):
+        """Fit calibration parameters on validation set"""
+        self.model_handler.model.eval()
+        all_predictions = []
+        all_targets = []
+        
+        with torch.no_grad():
+            for batch_ndx, batch_tup in enumerate(val_dl):
+                input_t, label_t, _, _ = batch_tup
+                input_g = input_t.to(self.device, non_blocking=True)
+                label_g = label_t.to(self.device, non_blocking=True)
+                
+                outputs_g = self.model_handler.model(input_g)
+                if isinstance(outputs_g, (list, tuple)):
+                    outputs_g = outputs_g[0]
+                outputs_g = outputs_g.squeeze(dim=-1)
+                
+                all_predictions.extend(outputs_g.cpu().numpy())
+                all_targets.extend(label_g.cpu().numpy())
+        
+        # Fit linear calibration
+        from sklearn.linear_model import LinearRegression
+        lr = LinearRegression()
+        predictions_array = np.array(all_predictions).reshape(-1, 1)
+        targets_array = np.array(all_targets)
+        
+        lr.fit(predictions_array, targets_array)
+        
+        self.calibration_params = {
+            'slope': lr.coef_[0],
+            'intercept': lr.intercept_
+        }
+        
+        log.info(f"Calibration fitted: slope={lr.coef_[0]:.4f}, intercept={lr.intercept_:.4f}")
+        return self.calibration_params
+    
+    def apply_calibration(self, predictions):
+        """Apply calibration to predictions"""
+        if self.calibration_params is None:
+            return predictions
+        
+        if isinstance(predictions, torch.Tensor):
+            predictions_np = predictions.cpu().numpy()
+            calibrated = (predictions_np * self.calibration_params['slope'] + 
+                         self.calibration_params['intercept'])
+            return torch.tensor(calibrated, device=predictions.device)
+        else:
+            return (predictions * self.calibration_params['slope'] + 
+                   self.calibration_params['intercept'])
+
     def train_epoch(self, epoch, train_dl):
         self.model_handler.model.train()
         trn_metrics_g = torch.zeros(METRICS_SIZE, len(train_dl.dataset), device=self.device)
@@ -325,6 +377,15 @@ def get_folder_name(file_path):
   except Exception as e:
     print(f"An error occurred: {e}")
     return None
+
+
+# Add this after training, before evaluation
+def apply_calibration(predictions, validation_preds, validation_actuals):
+    from sklearn.linear_model import LinearRegression
+    lr = LinearRegression()
+    lr.fit(validation_preds.reshape(-1, 1), validation_actuals)
+    return lr.predict(predictions.reshape(-1, 1))
+
 
 # Main Application Class
 class LoesScoringTrainingApp:        
@@ -470,7 +531,6 @@ class LoesScoringTrainingApp:
         
         return True
 
-
     def main(self):
         log.info("Starting training...")
         self.output_df["prediction"] = np.nan
@@ -501,7 +561,7 @@ class LoesScoringTrainingApp:
         early_stopping = EarlyStopping(patience=15, min_delta=0.1)
     
         best_val_loss = float('inf')
-        
+
         for epoch in range(1, self.config.epochs + 1):
             log.info(f"Epoch {epoch}/{self.config.epochs}")
 
@@ -535,33 +595,14 @@ class LoesScoringTrainingApp:
                 early_stopping.restore_best_model(self.model_handler.model)
                 break
             
-            # Calculate validation loss
-            val_loss = val_metrics[METRICS_LOSS_NDX].mean().item()
-            
-            if isinstance(self.scheduler, ReduceLROnPlateau):
-                # Step the scheduler based on validation loss
-                self.scheduler.step(val_loss)
-            elif isinstance(self.scheduler, OneCycleLR):
-                # OneCycleLR is stepped per batch, not per epoch
-                pass  
-            else:
-                # For other schedulers like StepLR, CosineAnnealingLR
-                self.scheduler.step()
-            
-            # Track best model (optional)
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                log.info(f"New best validation loss: {best_val_loss}")
-                # Save the best model here
-                self.model_handler.save_model(self.config.model_save_location)
-            
-            # Log current learning rate
-            current_lr = self.optimizer.param_groups[0]['lr']
-            log.info(f"Current learning rate: {current_lr}")
+            # Fit calibration every 10 epochs or at the end
+            if epoch % 10 == 0 or epoch == self.config.epochs:
+                loop_handler.fit_calibration(val_dl)
 
         input_csv_location = self.config.csv_input_file
         subjects, sessions, actual_scores, predict_vals = \
             get_validation_info(self.config.model, self.config.model_save_location, input_csv_location, self.val_subjects, self.device)
+
         if self.config.csv_output_file is None:
             root, ext = os.path.splitext(input_csv_location)
             output_csv_location = f'{root}_out.{ext}'

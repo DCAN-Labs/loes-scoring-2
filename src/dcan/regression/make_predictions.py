@@ -68,7 +68,7 @@ def compute_rmse(predictions, actuals):
     return torch.sqrt(mse).item()
 
     
-def get_validation_info(model_type, model_save_location, input_csv_location, val_subjects, device):
+def get_validation_info(model_type, model_save_location, input_csv_location, val_subjects, device, calibration_params=None):
     model = load_model(model_type, model_save_location, device=device)
 
     df = pd.read_csv(input_csv_location)
@@ -80,15 +80,19 @@ def get_validation_info(model_type, model_save_location, input_csv_location, val
     
     with torch.no_grad():
         inputs = list(output_df.apply(predict, axis=1))
-        
-        # Move inputs to the same device as the model
-        inputs = [input_tensor.to(device) for input_tensor in inputs]  # \u2190 Add this line
-        
+        inputs = [input_tensor.to(device) for input_tensor in inputs]
         predictions = [model(input) for input in inputs]
         predict_vals = [p[0].item() for p in predictions]
+        
+        # Apply calibration if available
+        if calibration_params is not None:
+            predict_vals = [
+                val * calibration_params['slope'] + calibration_params['intercept'] 
+                for val in predict_vals
+            ]
+            log.info("Applied calibration to predictions")
 
-        return subjects, sessions, actual_scores, predict_vals
-
+    return subjects, sessions, actual_scores, predict_vals
 
 
 def compute_standardized_rmse(actual_scores, predict_vals):
