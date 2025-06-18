@@ -53,13 +53,11 @@ class Config:
         self.parser.add_argument('--plot-location', help='Location to save plot')
         self.parser.add_argument('--optimizer', default='Adam', help="Optimizer type.")
         self.parser.add_argument('comment', nargs='?', default='dcan', help="Comment for Tensorboard run")
-        self.parser.add_argument('--lr', default=0.001, type=float, help='Learning rate')
         self.parser.add_argument('--gd', type=int, help="Use Gd-enhanced scans.")
         self.parser.add_argument('--use-train-validation-cols', action='store_true')
         self.parser.add_argument('-k', type=int, default=0, help='Index for 5-fold validation')
         self.parser.add_argument('--folder', help='Folder where MRIs are stored')
         self.parser.add_argument('--csv-output-file', help="CSV output file.")
-        self.parser.add_argument('--use-weighted-loss', action='store_true')
         self.parser.add_argument(
             '--scheduler', default='plateau', 
             choices=['plateau', 'step', 'cosine', 'onecycle'], help='Learning rate scheduler')
@@ -73,6 +71,11 @@ class Config:
         self.parser.add_argument(
             '--train-size', type=float, default=0.75, 
             help='Should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the train split')
+        self.parser.add_argument('--augment', action='store_true', help='Enable data augmentation')
+        self.parser.add_argument('--augment-prob', default=0.5, type=float, help='Probability of applying augmentation')
+        self.parser.add_argument('--use-weighted-loss', action='store_false')  # Disable by default
+        self.parser.add_argument('--lr', default=0.0001, type=float)  # Lower learning rate
+        self.parser.add_argument('--num-augmentations', default=3, type=int, help='Number of augmentations per minority sample')
 
     def parse_args(self, sys_argv: list[str]) -> argparse.Namespace:
         return self.parser.parse_args(sys_argv)
@@ -142,6 +145,32 @@ def normalize_dictionary(data):
         for key, value in data.items()
     }
     return normalized_data
+
+
+class EarlyStopping:
+    def __init__(self, patience=10, min_delta=0.001, restore_best_weights=True):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.restore_best_weights = restore_best_weights
+        self.best_loss = float('inf')
+        self.counter = 0
+        self.best_weights = None
+        
+    def __call__(self, val_loss, model):
+        if val_loss < self.best_loss - self.min_delta:
+            self.best_loss = val_loss
+            self.counter = 0
+            if self.restore_best_weights:
+                self.best_weights = model.state_dict().copy()
+            return False
+        else:
+            self.counter += 1
+            return self.counter >= self.patience
+    
+    def restore_best_model(self, model):
+        if self.best_weights is not None:
+            model.load_state_dict(self.best_weights)
+
 
 # Training/Validation Loop Handler
 class TrainingLoop:
@@ -320,8 +349,18 @@ class LoesScoringTrainingApp:
 
     def _init_optimizer(self):
         optimizer_type = self.config.optimizer.lower()
-        optimizer_cls = Adam if optimizer_type == 'adam' else SGD
-        return optimizer_cls(self.model_handler.model.parameters(), lr=self.config.lr)
+        if optimizer_type == 'adam':
+            return Adam(
+                self.model_handler.model.parameters(), 
+                lr=self.config.lr,
+                weight_decay=1e-4  # Add L2 regularization
+            )
+        else:
+            return SGD(
+                self.model_handler.model.parameters(), 
+                lr=self.config.lr,
+                weight_decay=1e-4  # Add L2 regularization
+            )
         
     def _init_scheduler(self, train_dl):
         # '--scheduler', default='plateau', 
@@ -342,6 +381,95 @@ class LoesScoringTrainingApp:
         
         return scheduler
 
+    def validate_data_quality(self):
+        """Comprehensive data validation and analysis"""
+        
+        # 1. Check data distribution
+        log.info("=== DATA QUALITY ANALYSIS ===")
+        
+        # Check Loes score distribution
+        loes_scores = self.input_df['loes-score'].values
+        log.info(f"Loes score range: {loes_scores.min():.2f} - {loes_scores.max():.2f}")
+        log.info(f"Loes score mean: {loes_scores.mean():.2f} ± {loes_scores.std():.2f}")
+        
+        # Check for missing files
+        missing_files = 0
+        for _, row in self.input_df.iterrows():
+            subject = row['anonymized_subject_id']
+            session = row['anonymized_session_id']
+            file_path = os.path.join(self.folder, f"{subject}_{session}_space-MNI_brain_mprage_RAVEL.nii.gz")
+            if not os.path.exists(file_path):
+                missing_files += 1
+                log.warning(f"Missing file: {file_path}")
+        
+        log.info(f"Missing files: {missing_files}/{len(self.input_df)}")
+        
+        # Check train/val split
+        train_scores = self.input_df[self.input_df['anonymized_subject_id'].isin(self.train_subjects)]['loes-score']
+        val_scores = self.input_df[self.input_df['anonymized_subject_id'].isin(self.val_subjects)]['loes-score']
+        
+        log.info(f"Train scores: {train_scores.mean():.2f} ± {train_scores.std():.2f} (n={len(train_scores)})")
+        log.info(f"Val scores: {val_scores.mean():.2f} ± {val_scores.std():.2f} (n={len(val_scores)})")
+        
+        # Check if distributions are similar
+        from scipy.stats import ks_2samp
+        ks_stat, ks_p = ks_2samp(train_scores, val_scores)
+        log.info(f"Train/Val distribution similarity (KS test p-value): {ks_p:.4f}")
+        if ks_p < 0.05:
+            log.warning("Train and validation distributions are significantly different!")
+        
+        # Sample a few batches to check data loading
+        log.info("=== CHECKING DATA LOADING ===")
+        train_dl = self.data_handler.get_train_dataloader()
+        for i, (inputs, labels, subjects, sessions) in enumerate(train_dl):
+            log.info(f"Batch {i}: Input shape: {inputs.shape}, Input range: [{inputs.min():.3f}, {inputs.max():.3f}]")
+            log.info(f"Batch {i}: Labels: {labels.tolist()}")
+            log.info(f"Batch {i}: Subjects: {subjects}")
+            if i >= 2:  # Check first 3 batches
+                break
+        
+        return missing_files == 0
+
+    def check_data_leakage(self):
+        """Check for subject overlap between train and validation sets"""
+        
+        log.info("=== DATA LEAKAGE ANALYSIS ===")
+        
+        # Check for subject overlap
+        train_subjects_set = set(self.train_subjects)
+        val_subjects_set = set(self.val_subjects)
+        overlap = train_subjects_set.intersection(val_subjects_set)
+        
+        if overlap:
+            log.error(f"DATA LEAKAGE DETECTED! {len(overlap)} subjects appear in both train and validation:")
+            for subject in overlap:
+                log.error(f"  - {subject}")
+            return False
+        
+        log.info("No subject overlap between train and validation sets \u2713")
+        
+        # Check samples per subject
+        subject_counts = self.input_df['anonymized_subject_id'].value_counts()
+        multi_scan_subjects = subject_counts[subject_counts > 1]
+        
+        if len(multi_scan_subjects) > 0:
+            log.info(f"Subjects with multiple scans: {len(multi_scan_subjects)}")
+            log.info(f"Max scans per subject: {subject_counts.max()}")
+            log.info(f"Subjects with >1 scan: {list(multi_scan_subjects.head(10).index)}")
+        
+        # Check score distribution by split
+        train_df = self.input_df[self.input_df['anonymized_subject_id'].isin(self.train_subjects)]
+        val_df = self.input_df[self.input_df['anonymized_subject_id'].isin(self.val_subjects)]
+        
+        train_zeros = (train_df['loes-score'] == 0.0).sum()
+        val_zeros = (val_df['loes-score'] == 0.0).sum()
+        
+        log.info(f"Training set: {train_zeros}/{len(train_df)} ({train_zeros/len(train_df)*100:.1f}%) zero scores")
+        log.info(f"Validation set: {val_zeros}/{len(val_df)} ({val_zeros/len(val_df)*100:.1f}%) zero scores")
+        
+        return True
+
+
     def main(self):
         log.info("Starting training...")
         self.output_df["prediction"] = np.nan
@@ -354,12 +482,23 @@ class LoesScoringTrainingApp:
 
         self.train_dl = self.data_handler.get_train_dataloader()
         val_dl = self.data_handler.get_val_dataloader()
-        
+
+        self.validate_data_quality()
+
+        log.info(f"Training samples: {len(self.train_dl.dataset)}")
+        log.info(f"Validation samples: {len(val_dl.dataset)}")
+        log.info(f"Training subjects: {len(self.train_subjects)}")
+        log.info(f"Validation subjects: {len(self.val_subjects)}")
+
+        self.check_data_leakage()
+
         # Scheduler initialization
         self.scheduler = self._init_scheduler(self.train_dl)
         
         loop_handler = TrainingLoop(self.model_handler, self.optimizer, self.device, self.input_df, self.config, self.train_subjects)
         
+        early_stopping = EarlyStopping(patience=15, min_delta=0.1)
+    
         best_val_loss = float('inf')
         
         for epoch in range(1, self.config.epochs + 1):
@@ -368,8 +507,35 @@ class LoesScoringTrainingApp:
             trn_metrics = loop_handler.train_epoch(epoch, self.train_dl)
             val_metrics = loop_handler.validate_epoch(epoch, val_dl)
 
+            train_loss = trn_metrics[METRICS_LOSS_NDX].mean().item()
+            val_loss = val_metrics[METRICS_LOSS_NDX].mean().item()
+            current_lr = self.optimizer.param_groups[0]['lr']
+            
+            log.info(f"Epoch {epoch:3d}: Train Loss: {train_loss:.6f}, Val Loss: {val_loss:.6f}, LR: {current_lr:.2e}")
+
             self.tb_logger.log_metrics('trn', epoch, trn_metrics, loop_handler.total_samples)
             self.tb_logger.log_metrics('val', epoch, val_metrics, loop_handler.total_samples)
+            
+            # Step scheduler
+            if isinstance(self.scheduler, ReduceLROnPlateau):
+                self.scheduler.step(val_loss)
+            else:
+                self.scheduler.step()
+            
+            # Track best model
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                log.info(f"New best validation loss: {best_val_loss:.6f}")
+                self.model_handler.save_model(self.config.model_save_location)
+            
+            # Check early stopping
+            if early_stopping(val_loss, self.model_handler.model):
+                log.info(f"Early stopping at epoch {epoch}. Best val loss: {early_stopping.best_loss:.6f}")
+                early_stopping.restore_best_model(self.model_handler.model)
+                break
+            
+            current_lr = self.optimizer.param_groups[0]['lr']
+            log.info(f"Current learning rate: {current_lr}")
             
             # Calculate validation loss
             val_loss = val_metrics[METRICS_LOSS_NDX].mean().item()

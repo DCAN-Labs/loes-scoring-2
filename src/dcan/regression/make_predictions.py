@@ -111,7 +111,7 @@ def create_correlation_coefficient(actual_vals, predicted_vals):
 
 def create_scatter_plot(actual_vals, predicted_vals, output_file):
     _, ax = plt.subplots()
-    ax.scatter(actual_vals, predicted_vals, s=25, c='blue', cmap=plt.cm.coolwarm, zorder=10)
+    ax.scatter(actual_vals, predicted_vals, s=25, c='blue', zorder=10)
 
     lims = [
         np.min([ax.get_xlim(), ax.get_ylim()]),  # min of both axes

@@ -44,8 +44,9 @@ class DataHandler:
         # Store configuration settings directly
         self.folder = config.folder
         self.augment_minority = config.use_weighted_loss
+        self.augment_minority = getattr(config, 'augment_minority', False)
         if self.augment_minority:
-            self.num_augmentations = config.num_augmentations
+            self.num_augmentations = getattr(config, 'num_augmentations', 3)
         
         # Create the train/validation split
         self.train_subjects, self.val_subjects = self._create_stratified_split()
@@ -69,36 +70,82 @@ class DataHandler:
         # Log the split information
         logging.info(f"Train set: {len(self.train_subjects)} subjects")
         logging.info(f"Val set: {len(self.val_subjects)} subjects")
-    
+
+
     def _create_stratified_split(self):
         """
-        Create a stratified split of subjects based on their Loes scores.
-        
-        Returns:
-            tuple: (train_subjects, val_subjects)
+        Create a stratified split that ensures both train and validation sets 
+        have similar score distributions, including zero scores.
         """
-        grouped_data = self.input_df.groupby('anonymized_subject_id')
-        mean_values = grouped_data['loes-score'].mean()
-        sorted_df = mean_values.sort_values(ascending=True)
+        from sklearn.model_selection import train_test_split
+        import numpy as np
+        
+        # Get unique subjects and their score characteristics
+        subject_stats = []
+        for subject in self.input_df['anonymized_subject_id'].unique():
+            subject_data = self.input_df[self.input_df['anonymized_subject_id'] == subject]
+            
+            # Get subject's score characteristics
+            scores = subject_data['loes-score'].values
+            has_zero = (scores == 0).any()
+            max_score = scores.max()
+            mean_score = scores.mean()
+            
+            subject_stats.append({
+                'subject': subject,
+                'has_zero': has_zero,
+                'max_score': max_score,
+                'mean_score': mean_score,
+                'score_category': 'zero' if has_zero else ('low' if max_score <= 3 else ('medium' if max_score <= 8 else 'high'))
+            })
+        
+        # Convert to DataFrame for easier manipulation
+        import pandas as pd
+        subject_df = pd.DataFrame(subject_stats)
+        
+        log.info("=== SUBJECT DISTRIBUTION ANALYSIS ===")
+        category_counts = subject_df['score_category'].value_counts()
+        log.info(f"Subject categories: {dict(category_counts)}")
+        
+        # Stratified split by score category to ensure balanced distribution
+        try:
+            train_subjects, val_subjects = train_test_split(
+                subject_df['subject'].values,
+                test_size=1 - self.config.train_size,
+                stratify=subject_df['score_category'].values,
+                random_state=42  # For reproducibility
+            )
+        except ValueError as e:
+            log.warning(f"Stratified split failed: {e}")
+            log.warning("Falling back to score-based split...")
+            
+            # Fallback: split by mean score
+            train_subjects, val_subjects = train_test_split(
+                subject_df['subject'].values,
+                test_size=1 - self.config.train_size,
+                random_state=42
+            )
+        
+        # Verify the split maintains distribution
+        train_subjects_list = train_subjects.tolist()
+        val_subjects_list = val_subjects.tolist()
+        
+        # Check distribution in splits
+        train_df = self.input_df[self.input_df['anonymized_subject_id'].isin(train_subjects_list)]
+        val_df = self.input_df[self.input_df['anonymized_subject_id'].isin(val_subjects_list)]
+        
+        train_zeros = (train_df['loes-score'] == 0).sum()
+        val_zeros = (val_df['loes-score'] == 0).sum()
+        
+        log.info("=== NEW SPLIT VERIFICATION ===")
+        log.info(f"Train set: {train_zeros}/{len(train_df)} ({train_zeros/len(train_df)*100:.1f}%) zero scores")
+        log.info(f"Val set: {val_zeros}/{len(val_df)} ({val_zeros/len(val_df)*100:.1f}%) zero scores")
+        log.info(f"Train scores: mean={train_df['loes-score'].mean():.2f}, std={train_df['loes-score'].std():.2f}")
+        log.info(f"Val scores: mean={val_df['loes-score'].mean():.2f}, std={val_df['loes-score'].std():.2f}")
+        
+        return train_subjects_list, val_subjects_list
 
-        n = len(sorted_df)
-        training_count = int(round(self.config.train_size * n))
-        # select every nth element
-        if training_count > 0:
-            step = max(1, n // training_count)  # Calculate step size
-            train_indices = list(range(0, n, step))[:training_count]  # Limit to training_count
-            train_subjects = [sorted_df.index[i] for i in train_indices]
-            val_subjects = [sorted_df.index[i] for i in range(n) if i not in train_indices]
-        else:
-            train_subjects = []
-            val_subjects = sorted_df.index.tolist()
-        
-        # Shuffle to randomize
-        random.shuffle(train_subjects)
-        random.shuffle(val_subjects)
-        
-        return train_subjects, val_subjects
-    
+
     def setup_cross_validation_split(self, fold_idx, k_folds):
         """
         Set up dataset split for a specific cross-validation fold.
@@ -158,23 +205,46 @@ class DataHandler:
         return folds
 
     def get_train_dataloader(self):
-        """
-        Get the training data loader.
-        
-        Returns:
-            DataLoader: Training data loader
-        """
-        return self._create_dataloader(self.train_subjects, is_val_set=False)
+        """Returns training dataloader"""
+        # Use your existing LoesScoreDataset constructor with correct parameters
+        train_dataset = LoesScoreDataset(
+            folder=self.folder,              # folder path where MRI files are stored
+            subjects=self.train_subjects,    # list of training subject IDs
+            df=self.input_df,               # input dataframe
+            output_df=self.output_df,       # output dataframe
+            is_val_set_bool=False,          # this is training data (enables augmentation)
+            sortby_str='random'             # randomize order
+        )
     
+        return DataLoader(
+            train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,      # Always shuffle training data
+            num_workers=self.num_workers,
+            pin_memory=self.use_cuda,
+            drop_last=True     # Drop incomplete batches for consistent training
+        )
+
     def get_val_dataloader(self):
-        """
-        Get the validation data loader.
+        """Returns validation dataloader"""
+        # Use your existing LoesScoreDataset constructor with correct parameters
+        val_dataset = LoesScoreDataset(
+            folder=self.folder,              # folder path where MRI files are stored
+            subjects=self.val_subjects,      # list of validation subject IDs
+            df=self.input_df,               # input dataframe
+            output_df=self.output_df,       # output dataframe
+            is_val_set_bool=True,           # this is validation data (no augmentation)
+            sortby_str='loes_score'         # sort by loes score for consistent validation
+        )
         
-        Returns:
-            DataLoader: Validation data loader
-        """
-        return self._create_dataloader(self.val_subjects, is_val_set=True)
-    
+        return DataLoader(
+            val_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,     # Don't shuffle validation data
+            num_workers=self.num_workers,
+            pin_memory=self.use_cuda
+        )
+
     def _create_dataloader(self, subjects, is_val_set=False):
         """
         Create a DataLoader for the given subjects.
