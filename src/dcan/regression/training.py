@@ -275,7 +275,8 @@ class TrainingLoop:
             loss_g = self.weighted_mse_loss(outputs_g, label_g)
             loss_mean = loss_g.mean()  # Get mean for backpropagation
         else:
-            loss_func = nn.MSELoss(reduction='none')
+            loss_func = nn.HuberLoss(delta=1.0)  # More robust to outliers
+
             loss_g = loss_func(outputs_g, label_g)
             loss_mean = loss_g.mean()
 
@@ -533,9 +534,6 @@ class LoesScoringTrainingApp:
                 log.info(f"Early stopping at epoch {epoch}. Best val loss: {early_stopping.best_loss:.6f}")
                 early_stopping.restore_best_model(self.model_handler.model)
                 break
-            
-            current_lr = self.optimizer.param_groups[0]['lr']
-            log.info(f"Current learning rate: {current_lr}")
             
             # Calculate validation loss
             val_loss = val_metrics[METRICS_LOSS_NDX].mean().item()
