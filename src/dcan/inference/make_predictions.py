@@ -21,7 +21,7 @@ log.setLevel(logging.INFO)
 
 
 def load_model(model_name, model_save_location, device='cpu'):
-    if model_name == 'resnet':
+    if model_name.lower() == 'resnet':
         model = get_resnet_model()
         log.info("Using ResNet")
     else:

@@ -15,9 +15,9 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingLR, OneCycleLR
 
 from dcan.data_sets.dsets import LoesScoreDataset
+from dcan.inference.make_predictions import add_predicted_values, compute_standardized_rmse, create_correlation_coefficient, create_scatter_plot, get_validation_info
+from dcan.inference.models import AlexNet3D
 from dcan.models.ResNet import get_resnet_model
-from dcan.regression.data_handler import DataHandler
-from dcan.regression.make_predictions import add_predicted_values, compute_standardized_rmse, create_correlation_coefficient, create_scatter_plot, get_validation_info
 from util.logconf import logging
 from util.util import enumerateWithEstimate
 
@@ -40,46 +40,50 @@ METRICS_SIZE = 3
 class Config:
     def __init__(self):
         self.parser = argparse.ArgumentParser()
-        self.parser.add_argument('--DEBUG', action='store_true')
 
         self.parser.add_argument('--tb-prefix', default='loes_scoring', help="Tensorboard data prefix.")
         self.parser.add_argument('--csv-input-file', help="CSV data file.")
         self.parser.add_argument('--num-workers', default=8, type=int, help='Number of worker processes')
         self.parser.add_argument('--batch-size', default=32, type=int, help='Batch size for training')
-        self.parser.add_argument('--epochs', default=20, type=int, help='Number of epochs to train')
+        self.parser.add_argument('--epochs', default=1, type=int, help='Number of epochs to train')
         self.parser.add_argument('--file-path-column-index', type=int, help='Index of the file path in CSV file')
         self.parser.add_argument('--loes-score-column-index', type=int, help='Index of the Loes score in CSV file')
         self.parser.add_argument('--model-save-location', default=f'./model-{datetime.datetime.now().strftime("%Y-%m-%d_%H.%M.%S")}.pt')
         self.parser.add_argument('--plot-location', help='Location to save plot')
         self.parser.add_argument('--optimizer', default='Adam', help="Optimizer type.")
+        self.parser.add_argument('--model', default='ResNet', help="Model type", choices={'AlexNet', 'ResNet'})
         self.parser.add_argument('comment', nargs='?', default='dcan', help="Comment for Tensorboard run")
+        self.parser.add_argument('--lr', default=0.001, type=float, help='Learning rate')
         self.parser.add_argument('--gd', type=int, help="Use Gd-enhanced scans.")
         self.parser.add_argument('--use-train-validation-cols', action='store_true')
         self.parser.add_argument('-k', type=int, default=0, help='Index for 5-fold validation')
         self.parser.add_argument('--folder', help='Folder where MRIs are stored')
         self.parser.add_argument('--csv-output-file', help="CSV output file.")
+        self.parser.add_argument('--use-weighted-loss', action='store_true')
         self.parser.add_argument(
             '--scheduler', default='plateau', 
             choices=['plateau', 'step', 'cosine', 'onecycle'], help='Learning rate scheduler')
-        self.parser.add_argument(
-            '--model', default='resnet', 
-            choices=['resnet', 'alexnet'], help='Model architecture')
-        self.parser.add_argument('--augment-minority', action='store_false')
-        self.parser.add_argument(
-            '--test-size', type=float, default=0.25, 
-            help='Should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split')
-        self.parser.add_argument(
-            '--train-size', type=float, default=0.75, 
-            help='Should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the train split')
-        self.parser.add_argument('--augment', action='store_true', help='Enable data augmentation')
-        self.parser.add_argument('--augment-prob', default=0.5, type=float, help='Probability of applying augmentation')
-        self.parser.add_argument('--use-weighted-loss', action='store_false')  # Disable by default
-        self.parser.add_argument('--lr', default=0.0001, type=float)  # Lower learning rate
-        self.parser.add_argument('--num-augmentations', default=3, type=int, help='Number of augmentations per minority sample')
 
     def parse_args(self, sys_argv: list[str]) -> argparse.Namespace:
         return self.parser.parse_args(sys_argv)
 
+
+# Data Handler Class to manage dataset operations
+class DataHandler:
+    def __init__(self, df, output_df, use_cuda, batch_size, num_workers):
+        self.df = df
+        self.output_df = output_df
+        self.use_cuda = use_cuda
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+
+    def init_dl(self, folder, subjects, is_val_set: bool = False):
+        dataset = LoesScoreDataset(folder, subjects, self.df, self.output_df, is_val_set_bool=is_val_set)
+        batch_size = self.batch_size
+        if self.use_cuda:
+            batch_size *= torch.cuda.device_count()
+
+        return DataLoader(dataset, batch_size=batch_size, num_workers=self.num_workers, pin_memory=self.use_cuda)
 
 # Model Handler Class to manage model operations
 class ModelHandler:
@@ -90,10 +94,14 @@ class ModelHandler:
         self.model = self._init_model()
 
     def _init_model(self):
-        model = get_resnet_model()
-        if self.use_cuda and torch.cuda.is_available():  # Respects the DEBUG flag
-            model.cuda()
-        log.info("Using ResNet")
+        if self.model_name == 'ResNet':
+            model = get_resnet_model()
+            if torch.cuda.is_available():
+                model.cuda()
+            log.info("Using ResNet")
+        else:
+            model = AlexNet3D(4608).to(self.device)
+            log.info("Using AlexNet3D")
 
         if self.use_cuda and torch.cuda.device_count() > 1:
             log.info("Using CUDA with {} devices.".format(torch.cuda.device_count()))
@@ -146,41 +154,16 @@ def normalize_dictionary(data):
     }
     return normalized_data
 
-
-class EarlyStopping:
-    def __init__(self, patience=10, min_delta=0.001, restore_best_weights=True):
-        self.patience = patience
-        self.min_delta = min_delta
-        self.restore_best_weights = restore_best_weights
-        self.best_loss = float('inf')
-        self.counter = 0
-        self.best_weights = None
-        
-    def __call__(self, val_loss, model):
-        if val_loss < self.best_loss - self.min_delta:
-            self.best_loss = val_loss
-            self.counter = 0
-            if self.restore_best_weights:
-                self.best_weights = model.state_dict().copy()
-            return False
-        else:
-            self.counter += 1
-            return self.counter >= self.patience
-    
-    def restore_best_model(self, model):
-        if self.best_weights is not None:
-            model.load_state_dict(self.best_weights)
-
-
 # Training/Validation Loop Handler
 class TrainingLoop:
-    def __init__(self, model_handler, optimizer, device, df, config, train_subjects):
+    def __init__(self, model_handler, optimizer, device, df, config, scheduler=None):
         self.model_handler = model_handler
         self.optimizer = optimizer
         self.device = device
         self.total_samples = 0
         self.df = df
-        training_df = df[df['anonymized_subject_id'].isin(train_subjects)]
+        self.scheduler = scheduler  # Add scheduler to the training loop
+        training_df = df[df['training'] == 1]
         loes_scores = list(training_df['loes-score'])
         item_counts = count_items(loes_scores)
         weighted_counts = {
@@ -189,58 +172,6 @@ class TrainingLoop:
         }
         self.weights = weighted_counts
         self.config = config
-
-        self.calibration_params = None  # Store calibration parameters
-    
-    def fit_calibration(self, val_dl):
-        """Fit calibration parameters on validation set"""
-        self.model_handler.model.eval()
-        all_predictions = []
-        all_targets = []
-        
-        with torch.no_grad():
-            for batch_ndx, batch_tup in enumerate(val_dl):
-                input_t, label_t, _, _ = batch_tup
-                input_g = input_t.to(self.device, non_blocking=True)
-                label_g = label_t.to(self.device, non_blocking=True)
-                
-                outputs_g = self.model_handler.model(input_g)
-                if isinstance(outputs_g, (list, tuple)):
-                    outputs_g = outputs_g[0]
-                outputs_g = outputs_g.squeeze(dim=-1)
-                
-                all_predictions.extend(outputs_g.cpu().numpy())
-                all_targets.extend(label_g.cpu().numpy())
-        
-        # Fit linear calibration
-        from sklearn.linear_model import LinearRegression
-        lr = LinearRegression()
-        predictions_array = np.array(all_predictions).reshape(-1, 1)
-        targets_array = np.array(all_targets)
-        
-        lr.fit(predictions_array, targets_array)
-        
-        self.calibration_params = {
-            'slope': lr.coef_[0],
-            'intercept': lr.intercept_
-        }
-        
-        log.info(f"Calibration fitted: slope={lr.coef_[0]:.4f}, intercept={lr.intercept_:.4f}")
-        return self.calibration_params
-    
-    def apply_calibration(self, predictions):
-        """Apply calibration to predictions"""
-        if self.calibration_params is None:
-            return predictions
-        
-        if isinstance(predictions, torch.Tensor):
-            predictions_np = predictions.cpu().numpy()
-            calibrated = (predictions_np * self.calibration_params['slope'] + 
-                         self.calibration_params['intercept'])
-            return torch.tensor(calibrated, device=predictions.device)
-        else:
-            return (predictions * self.calibration_params['slope'] + 
-                   self.calibration_params['intercept'])
 
     def train_epoch(self, epoch, train_dl):
         self.model_handler.model.train()
@@ -251,13 +182,13 @@ class TrainingLoop:
             loss_var.backward()
             self.optimizer.step()
             
-            # Step OneCycleLR after each batch
-            if hasattr(self, 'scheduler') and isinstance(self.scheduler, OneCycleLR):
+            # Step OneCycleLR scheduler after each batch
+            if self.scheduler and isinstance(self.scheduler, OneCycleLR):
                 self.scheduler.step()
                 
         self.total_samples += len(train_dl.dataset)
         return trn_metrics_g.to('cpu')
-
+    
     def validate_epoch(self, epoch, val_dl):
         with torch.no_grad():
             self.model_handler.model.eval()
@@ -327,8 +258,7 @@ class TrainingLoop:
             loss_g = self.weighted_mse_loss(outputs_g, label_g)
             loss_mean = loss_g.mean()  # Get mean for backpropagation
         else:
-            loss_func = nn.HuberLoss(delta=1.0)  # More robust to outliers
-
+            loss_func = nn.MSELoss(reduction='none')
             loss_g = loss_func(outputs_g, label_g)
             loss_mean = loss_g.mean()
 
@@ -378,21 +308,12 @@ def get_folder_name(file_path):
     print(f"An error occurred: {e}")
     return None
 
-
-# Add this after training, before evaluation
-def apply_calibration(predictions, validation_preds, validation_actuals):
-    from sklearn.linear_model import LinearRegression
-    lr = LinearRegression()
-    lr.fit(validation_preds.reshape(-1, 1), validation_actuals)
-    return lr.predict(predictions.reshape(-1, 1))
-
-
 # Main Application Class
 class LoesScoringTrainingApp:        
     def __init__(self, sys_argv=None):
         self.config = Config().parse_args(sys_argv)
-        self.use_cuda = not self.config.DEBUG and torch.cuda.is_available()
-        self.device = torch.device("cuda" if not self.config.DEBUG and torch.cuda.is_available() else "cpu")
+        self.use_cuda = torch.cuda.is_available()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model_handler = ModelHandler(self.config.model, self.use_cuda, self.device)
         self.optimizer = self._init_optimizer()
 
@@ -402,27 +323,13 @@ class LoesScoringTrainingApp:
         self.time_str = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
         self.tb_logger = TensorBoardLogger(self.config.tb_prefix, self.time_str, self.config.comment)
 
-        self.data_handler = \
-            DataHandler(
-                self.input_df, self.output_df, self.use_cuda, 
-                self.config.batch_size, self.config.num_workers, 
-                self.config)
+        self.data_handler = DataHandler(self.input_df, self.output_df, self.use_cuda, self.config.batch_size, self.config.num_workers)
         self.folder = self.config.folder
 
     def _init_optimizer(self):
         optimizer_type = self.config.optimizer.lower()
-        if optimizer_type == 'adam':
-            return Adam(
-                self.model_handler.model.parameters(), 
-                lr=self.config.lr,
-                weight_decay=1e-4  # Add L2 regularization
-            )
-        else:
-            return SGD(
-                self.model_handler.model.parameters(), 
-                lr=self.config.lr,
-                weight_decay=1e-4  # Add L2 regularization
-            )
+        optimizer_cls = Adam if optimizer_type == 'adam' else SGD
+        return optimizer_cls(self.model_handler.model.parameters(), lr=self.config.lr)
         
     def _init_scheduler(self, train_dl):
         # '--scheduler', default='plateau', 
@@ -442,94 +349,7 @@ class LoesScoringTrainingApp:
             scheduler = ReduceLROnPlateau(self.optimizer, mode='min', factor=0.1, patience=10)
         
         return scheduler
-
-    def validate_data_quality(self):
-        """Comprehensive data validation and analysis"""
-        
-        # 1. Check data distribution
-        log.info("=== DATA QUALITY ANALYSIS ===")
-        
-        # Check Loes score distribution
-        loes_scores = self.input_df['loes-score'].values
-        log.info(f"Loes score range: {loes_scores.min():.2f} - {loes_scores.max():.2f}")
-        log.info(f"Loes score mean: {loes_scores.mean():.2f} ± {loes_scores.std():.2f}")
-        
-        # Check for missing files
-        missing_files = 0
-        for _, row in self.input_df.iterrows():
-            subject = row['anonymized_subject_id']
-            session = row['anonymized_session_id']
-            file_path = os.path.join(self.folder, f"{subject}_{session}_space-MNI_brain_mprage_RAVEL.nii.gz")
-            if not os.path.exists(file_path):
-                missing_files += 1
-                log.warning(f"Missing file: {file_path}")
-        
-        log.info(f"Missing files: {missing_files}/{len(self.input_df)}")
-        
-        # Check train/val split
-        train_scores = self.input_df[self.input_df['anonymized_subject_id'].isin(self.train_subjects)]['loes-score']
-        val_scores = self.input_df[self.input_df['anonymized_subject_id'].isin(self.val_subjects)]['loes-score']
-        
-        log.info(f"Train scores: {train_scores.mean():.2f} ± {train_scores.std():.2f} (n={len(train_scores)})")
-        log.info(f"Val scores: {val_scores.mean():.2f} ± {val_scores.std():.2f} (n={len(val_scores)})")
-        
-        # Check if distributions are similar
-        from scipy.stats import ks_2samp
-        ks_stat, ks_p = ks_2samp(train_scores, val_scores)
-        log.info(f"Train/Val distribution similarity (KS test p-value): {ks_p:.4f}")
-        if ks_p < 0.05:
-            log.warning("Train and validation distributions are significantly different!")
-        
-        # Sample a few batches to check data loading
-        log.info("=== CHECKING DATA LOADING ===")
-        train_dl = self.data_handler.get_train_dataloader()
-        for i, (inputs, labels, subjects, sessions) in enumerate(train_dl):
-            log.info(f"Batch {i}: Input shape: {inputs.shape}, Input range: [{inputs.min():.3f}, {inputs.max():.3f}]")
-            log.info(f"Batch {i}: Labels: {labels.tolist()}")
-            log.info(f"Batch {i}: Subjects: {subjects}")
-            if i >= 2:  # Check first 3 batches
-                break
-        
-        return missing_files == 0
-
-    def check_data_leakage(self):
-        """Check for subject overlap between train and validation sets"""
-        
-        log.info("=== DATA LEAKAGE ANALYSIS ===")
-        
-        # Check for subject overlap
-        train_subjects_set = set(self.train_subjects)
-        val_subjects_set = set(self.val_subjects)
-        overlap = train_subjects_set.intersection(val_subjects_set)
-        
-        if overlap:
-            log.error(f"DATA LEAKAGE DETECTED! {len(overlap)} subjects appear in both train and validation:")
-            for subject in overlap:
-                log.error(f"  - {subject}")
-            return False
-        
-        log.info("No subject overlap between train and validation sets \u2713")
-        
-        # Check samples per subject
-        subject_counts = self.input_df['anonymized_subject_id'].value_counts()
-        multi_scan_subjects = subject_counts[subject_counts > 1]
-        
-        if len(multi_scan_subjects) > 0:
-            log.info(f"Subjects with multiple scans: {len(multi_scan_subjects)}")
-            log.info(f"Max scans per subject: {subject_counts.max()}")
-            log.info(f"Subjects with >1 scan: {list(multi_scan_subjects.head(10).index)}")
-        
-        # Check score distribution by split
-        train_df = self.input_df[self.input_df['anonymized_subject_id'].isin(self.train_subjects)]
-        val_df = self.input_df[self.input_df['anonymized_subject_id'].isin(self.val_subjects)]
-        
-        train_zeros = (train_df['loes-score'] == 0.0).sum()
-        val_zeros = (val_df['loes-score'] == 0.0).sum()
-        
-        log.info(f"Training set: {train_zeros}/{len(train_df)} ({train_zeros/len(train_df)*100:.1f}%) zero scores")
-        log.info(f"Validation set: {val_zeros}/{len(val_df)} ({val_zeros/len(val_df)*100:.1f}%) zero scores")
-        
-        return True
+    
 
     def main(self):
         log.info("Starting training...")
@@ -538,91 +358,75 @@ class LoesScoringTrainingApp:
         if self.config.gd == 0:
             self.input_df = self.input_df[~self.input_df['scan'].str.contains('Gd')]
 
-        self.train_subjects = self.data_handler.train_subjects
-        self.val_subjects = self.data_handler.val_subjects
+        if self.config.use_train_validation_cols:
+            training_rows = self.input_df.loc[self.input_df['training'] == 1]
+            train_subjects = list(training_rows['anonymized_subject_id'])
+            validation_rows = self.input_df.loc[self.input_df['validation'] == 1]
+            val_subjects = list(validation_rows['anonymized_subject_id'])
+        else:
+            train_subjects, val_subjects = self.split_train_validation()
 
-        self.train_dl = self.data_handler.get_train_dataloader()
-        val_dl = self.data_handler.get_val_dataloader()
+        # Store val_subjects as instance variable to use later
+        self.val_subjects = val_subjects
 
-        self.validate_data_quality()
-
-        log.info(f"Training samples: {len(self.train_dl.dataset)}")
-        log.info(f"Validation samples: {len(val_dl.dataset)}")
-        log.info(f"Training subjects: {len(self.train_subjects)}")
-        log.info(f"Validation subjects: {len(self.val_subjects)}")
-
-        self.check_data_leakage()
-
-        # Scheduler initialization
+        self.train_dl = self.data_handler.init_dl(self.folder, train_subjects)
+        val_dl = self.data_handler.init_dl(self.folder, val_subjects, is_val_set=True)
+        
+        # Add scheduler initialization
         self.scheduler = self._init_scheduler(self.train_dl)
         
-        loop_handler = TrainingLoop(self.model_handler, self.optimizer, self.device, self.input_df, self.config, self.train_subjects)
+        loop_handler = TrainingLoop(self.model_handler, self.optimizer, self.device, self.input_df, self.config, self.scheduler)
         
-        early_stopping = EarlyStopping(patience=15, min_delta=0.1)
-    
         best_val_loss = float('inf')
-
+        
         for epoch in range(1, self.config.epochs + 1):
             log.info(f"Epoch {epoch}/{self.config.epochs}")
 
             trn_metrics = loop_handler.train_epoch(epoch, self.train_dl)
             val_metrics = loop_handler.validate_epoch(epoch, val_dl)
 
-            train_loss = trn_metrics[METRICS_LOSS_NDX].mean().item()
-            val_loss = val_metrics[METRICS_LOSS_NDX].mean().item()
-            current_lr = self.optimizer.param_groups[0]['lr']
-            
-            log.info(f"Epoch {epoch:3d}: Train Loss: {train_loss:.6f}, Val Loss: {val_loss:.6f}, LR: {current_lr:.2e}")
-
             self.tb_logger.log_metrics('trn', epoch, trn_metrics, loop_handler.total_samples)
             self.tb_logger.log_metrics('val', epoch, val_metrics, loop_handler.total_samples)
             
-            # Step scheduler
+            # Calculate validation loss
+            val_loss = val_metrics[METRICS_LOSS_NDX].mean().item()
+            
+            # Step the scheduler based on its type
             if isinstance(self.scheduler, ReduceLROnPlateau):
                 self.scheduler.step(val_loss)
+            elif isinstance(self.scheduler, OneCycleLR):
+                # OneCycleLR is stepped in the training loop after each batch
+                # Don't step it here
+                pass
             else:
+                # For StepLR, CosineAnnealingLR
                 self.scheduler.step()
             
-            # Track best model
+            # Track best model (optional)
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
-                log.info(f"New best validation loss: {best_val_loss:.6f}")
+                log.info(f"New best validation loss: {best_val_loss}")
+                # Save the best model here
                 self.model_handler.save_model(self.config.model_save_location)
             
-            # Check early stopping
-            if early_stopping(val_loss, self.model_handler.model):
-                log.info(f"Early stopping at epoch {epoch}. Best val loss: {early_stopping.best_loss:.6f}")
-                early_stopping.restore_best_model(self.model_handler.model)
-                break
-            
-            # Fit calibration every 10 epochs or at the end
-            if epoch % 10 == 0 or epoch == self.config.epochs:
-                loop_handler.fit_calibration(val_dl)
+            # Log current learning rate
+            current_lr = self.optimizer.param_groups[0]['lr']
+            log.info(f"Current learning rate: {current_lr}")
 
         input_csv_location = self.config.csv_input_file
         subjects, sessions, actual_scores, predict_vals = \
-            get_validation_info(self.config.model, self.config.model_save_location, input_csv_location, self.val_subjects, self.device)
-
-        if self.config.csv_output_file is None:
-            root, ext = os.path.splitext(input_csv_location)
-            output_csv_location = f'{root}_out.{ext}'
-        else:
-            output_csv_location = self.config.csv_output_file
+            get_validation_info(self.config.model, self.config.model_save_location, input_csv_location, self.val_subjects)
+        
+        output_csv_location = self.config.csv_output_file
         output_df = add_predicted_values(subjects, sessions, predict_vals, input_csv_location)
-
-        output_csv_folder_path = os.path.dirname(output_csv_location)
-        if output_csv_folder_path and not os.path.exists(output_csv_folder_path):
-            os.makedirs(output_csv_folder_path, exist_ok=True)
-
+        output_csv_folder_name = get_folder_name(output_csv_location)
+        if not os.path.exists(output_csv_folder_name):
+            os.makedirs(output_csv_folder_name)
         output_df.to_csv(output_csv_location, index=False)
         standardized_rmse = \
             compute_standardized_rmse(actual_scores, predict_vals)
         log.info(f'standardized_rmse: {standardized_rmse}')
-        plot_location = self.config.plot_location
-        if self.config.plot_location is None:
-            root, ext = os.path.splitext(input_csv_location)
-            plot_location = f'{root}_out.png'
-        create_scatter_plot(actual_scores, predict_vals, plot_location)
+        create_scatter_plot(actual_scores, predict_vals, self.config.plot_location)
         correlation_coefficient = create_correlation_coefficient(actual_scores, predict_vals)
         log.info(f'correlation_coefficient: {correlation_coefficient}')
 
@@ -631,6 +435,7 @@ class LoesScoringTrainingApp:
 
         _, p_value = stats.spearmanr(actual_scores, predict_vals)
         log.info(f"Spearman correlation p-value: {p_value}")
+
 
     def get_files_with_wildcard(self, directory, pattern):
         """

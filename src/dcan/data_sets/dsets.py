@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 # log.setLevel(logging.INFO)
 log.setLevel(logging.DEBUG)
 
-raw_cache = getCache('loes_score-4')
+raw_cache = getCache('loes_score-3')
 
 
 @dataclass(order=True)
@@ -27,7 +27,6 @@ class CandidateInfoTuple:
     file_path: str
     subject_str: str
     session_str: str
-    has_ald: int
     augmentation_index: int = None
     sort_index: float = field(init=False, repr=False)
 
@@ -83,8 +82,7 @@ def append_candidate(folder, candidate_info_list, row):
         loes_score_float,
         file_path,
         subject_str,
-        session_str,
-        row['has_ald']
+        session_str
     ))
 
 
@@ -145,97 +143,50 @@ def get_mri_raw_candidate(subject_session_uid, is_val_set_bool):
     return mprage_image_tensor
 
 
-# Add these imports to your dataset file
-import torchio as tio
-import torch
+class LoesScoreDataset(Dataset):
+    def __init__(self,
+                 folder,
+                 subjects: List[str], df, output_df,
+                 is_val_set_bool=None,
+                 subject=None,
+                 sortby_str='random'
+                 ):
+        self.is_val_set_bool = is_val_set_bool
+        self.candidateInfo_list = copy.copy(get_candidate_info_list(folder, df, subjects))
 
-# Create augmentation transforms for training
-def get_training_transforms():
-    """Returns TorchIO transforms for training data augmentation"""
-    return tio.Compose([
-        # Spatial transforms
-        tio.RandomAffine(
-            scales=(0.9, 1.1),           # Scale by 90-110%
-            degrees=(-10, 10),           # Rotate by ±10 degrees
-            translation=(-5, 5),         # Translate by ±5mm
-            p=0.5                        # Apply 50% of the time
-        ),
-        tio.RandomElasticDeformation(
-            num_control_points=7,        # Control points for deformation
-            max_displacement=7.5,        # Maximum displacement in mm
-            p=0.3                        # Apply 30% of the time
-        ),
-        tio.RandomFlip(
-            axes=('LR',),                # Only flip left-right (anatomically safe)
-            p=0.5                        # Apply 50% of the time
-        ),
-        
-        # Intensity transforms
-        tio.RandomNoise(
-            std=(0, 0.1),               # Add Gaussian noise
-            p=0.3                       # Apply 30% of the time
-        ),
-        tio.RandomGamma(
-            log_gamma=(-0.3, 0.3),      # Gamma correction
-            p=0.3                       # Apply 30% of the time
-        ),
-        tio.RandomBiasField(
-            coefficients=0.5,           # Simulate MRI bias field
-            p=0.3                       # Apply 30% of the time
-        ),
-        tio.RandomBlur(
-            std=(0, 1),                 # Gaussian blur
-            p=0.2                       # Apply 20% of the time
-        ),
-        
-        # Always apply normalization at the end
-        tio.ZNormalization(masking_method=tio.ZNormalization.mean),
-    ])
+        if subject:
+            self.candidateInfo_list = [
+                x for x in self.candidateInfo_list if x.subject_str == subject
+            ]
 
-def get_validation_transforms():
-    """Returns transforms for validation (no augmentation)"""
-    return tio.Compose([
-        tio.ZNormalization(masking_method=tio.ZNormalization.mean),
-    ])
-
-# Modify your LoesScoreDataset class to use augmentation
-class LoesScoreDataset(torch.utils.data.Dataset):
-    def __init__(self, df, transform=None, augment=False):
-        self.df = df
-        self.transform = transform
-        self.augment = augment
-        
-        # Set up transforms based on whether this is training or validation
-        if augment:
-            self.tio_transform = get_training_transforms()
+        if sortby_str == 'random':
+            random.shuffle(self.candidateInfo_list)
+        elif sortby_str == 'loes_score':
+            pass
         else:
-            self.tio_transform = get_validation_transforms()
-    
-    def __getitem__(self, idx):
-        row = self.df.iloc[idx]
-        
-        # Load your image (adapt this to your current loading method)
-        image_path = self.get_image_path(row)  # Your existing method
-        
-        # Load with TorchIO
-        subject = tio.Subject(
-            image=tio.ScalarImage(image_path),
-            label=row['loes-score']  # Store label in subject
-        )
-        
-        # Apply transforms
-        transformed_subject = self.tio_transform(subject)
-        
-        # Extract tensor and label
-        image_tensor = transformed_subject.image.data
-        label = transformed_subject.label
-        
-        return image_tensor, torch.tensor(label, dtype=torch.float32), row['anonymized_subject_id'], row['anonymized_session_id']
-    
+            raise Exception("Unknown sort: " + repr(sortby_str))
+
+        log.info("{!r}: {} {} samples".format(
+            self,
+            len(self.candidateInfo_list),
+            "validation" if is_val_set_bool else "training",
+        ))
+        if output_df is not None:
+            for candidate_info in self.candidateInfo_list:
+                row_location = (df["anonymized_subject_id"] == candidate_info.subject) & (df["anonymized_session_id"] == candidate_info.session_str)
+                output_df.loc[row_location, 'training'] = 0 if is_val_set_bool else 1
+                output_df.loc[row_location, 'validation'] = 1 if is_val_set_bool else 0
+
     def __len__(self):
-        return len(self.df)
-    
-    def get_image_path(self, row):
-        subject = row['anonymized_subject_id']
-        session = row['anonymized_session_id']
-        return f'/path/to/images/{subject}_{session}_space-MNI_brain_mprage_RAVEL.nii.gz'
+        return len(self.candidateInfo_list)
+
+    def __getitem__(self, ndx):
+        candidate_info = self.candidateInfo_list[ndx]
+        # TODO Possibly handle other file types such as diffusion-weighted sequences
+        candidate_a = get_mri_raw_candidate(candidate_info, self.is_val_set_bool)
+        candidate_t = candidate_a.to(torch.float32)
+
+        loes_score = candidate_info.loes_score_float
+        loes_score_t = torch.tensor(loes_score, dtype=torch.float32)
+
+        return candidate_t, loes_score_t, candidate_info.subject_str, candidate_info.session_str
