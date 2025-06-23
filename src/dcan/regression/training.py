@@ -59,6 +59,11 @@ class Config:
         self.parser.add_argument(
             '--scheduler', default='plateau', 
             choices=['plateau', 'step', 'cosine', 'onecycle'], help='Learning rate scheduler')
+        self.parser.add_argument('--train-split', default=0.8, type=float, help='Training split ratio (default: 0.8)')
+        self.parser.add_argument('--split-strategy', default='random', 
+                                choices=['random', 'stratified', 'sequential'], 
+                                help='Strategy for train/validation split')
+        self.parser.add_argument('--random-seed', default=42, type=int, help='Random seed for reproducible splits')
 
     def parse_args(self, sys_argv: list[str]) -> argparse.Namespace:
         return self.parser.parse_args(sys_argv)
@@ -405,12 +410,109 @@ class LoesScoringTrainingApp:
         _, p_value = stats.spearmanr(actual_scores, predict_vals)
         log.info(f"Spearman correlation p-value: {p_value}")
 
-
     def split_train_validation(self):
-        training_rows = self.input_df.loc[self.input_df['training'] == 1]
-        validation_rows = self.input_df.loc[self.input_df['validation'] == 1]
-        validation_users = list(set(validation_rows['anonymized_subject_id'].to_list()))
-        training_users = list(set(training_rows['anonymized_subject_id'].to_list()))
+        """
+        Split subjects into training and validation sets at runtime with multiple strategies.
+        If training/validation columns exist, use them.
+        Otherwise, create a split based on the specified strategy.
+        """
+        # Check if training and validation columns exist and have valid data
+        if ('training' in self.input_df.columns and 'validation' in self.input_df.columns and
+            self.input_df['training'].notna().any() and self.input_df['validation'].notna().any()):
+            
+            # Use existing columns
+            training_rows = self.input_df.loc[self.input_df['training'] == 1]
+            validation_rows = self.input_df.loc[self.input_df['validation'] == 1]
+            validation_users = list(set(validation_rows['anonymized_subject_id'].to_list()))
+            training_users = list(set(training_rows['anonymized_subject_id'].to_list()))
+            
+            log.info(f"Using existing train/validation columns: {len(training_users)} train, {len(validation_users)} validation subjects")
+            return training_users, validation_users
+        
+        else:
+            # Create train/validation split at runtime
+            log.info(f"Train/validation columns not found or empty. Creating runtime {self.config.split_strategy} split...")
+            
+            # Set random seed for reproducibility
+            np.random.seed(self.config.random_seed)
+            
+            # Get unique subjects
+            all_subjects = list(set(self.input_df['anonymized_subject_id'].to_list()))
+            n_subjects = len(all_subjects)
+            
+            if self.config.split_strategy == 'random':
+                training_users, validation_users = self._random_split(all_subjects)
+            
+            elif self.config.split_strategy == 'stratified':
+                training_users, validation_users = self._stratified_split(all_subjects)
+            
+            elif self.config.split_strategy == 'sequential':
+                training_users, validation_users = self._sequential_split(all_subjects)
+            
+            # Create the columns in the dataframe for consistency and future reference
+            self.input_df['training'] = self.input_df['anonymized_subject_id'].apply(
+                lambda x: 1 if x in training_users else 0
+            )
+            self.input_df['validation'] = self.input_df['anonymized_subject_id'].apply(
+                lambda x: 1 if x in validation_users else 0
+            )
+            
+            log.info(f"Created {self.config.split_strategy} split: {len(training_users)} train, {len(validation_users)} validation subjects")
+            log.info(f"Train split ratio: {len(training_users)/n_subjects:.2f}")
+            log.info(f"Train subjects: {training_users[:3]}..." if len(training_users) > 3 else f"Train subjects: {training_users}")
+            log.info(f"Validation subjects: {validation_users[:3]}..." if len(validation_users) > 3 else f"Validation subjects: {validation_users}")
+            
+            return training_users, validation_users
+
+
+    def _random_split(self, all_subjects):
+        """Random split of subjects"""
+        shuffled_subjects = np.random.permutation(all_subjects)
+        train_split = int(self.config.train_split * len(all_subjects))
+        
+        training_users = shuffled_subjects[:train_split].tolist()
+        validation_users = shuffled_subjects[train_split:].tolist()
+        
+        return training_users, validation_users
+
+    def _stratified_split(self, all_subjects):
+        """Stratified split based on Loes score distribution"""
+        try:
+            # Get average Loes score per subject
+            subject_scores = self.input_df.groupby('anonymized_subject_id')['loes-score'].mean()
+            
+            # Create bins for stratification (e.g., low, medium, high scores)
+            score_bins = pd.qcut(subject_scores, q=3, labels=['low', 'medium', 'high'], duplicates='drop')
+            
+            training_users = []
+            validation_users = []
+            
+            # Split each stratum
+            for bin_label in score_bins.unique():
+                if pd.isna(bin_label):
+                    continue
+                bin_subjects = score_bins[score_bins == bin_label].index.tolist()
+                shuffled_bin = np.random.permutation(bin_subjects)
+                train_split = int(self.config.train_split * len(bin_subjects))
+                
+                training_users.extend(shuffled_bin[:train_split])
+                validation_users.extend(shuffled_bin[train_split:])
+            
+            log.info("Used stratified split based on Loes score distribution")
+            return training_users, validation_users
+            
+        except Exception as e:
+            log.warning(f"Stratified split failed ({e}), falling back to random split")
+            return self._random_split(all_subjects)
+
+    def _sequential_split(self, all_subjects):
+        """Sequential split (first N subjects for training)"""
+        # Sort subjects for reproducible sequential split
+        sorted_subjects = sorted(all_subjects)
+        train_split = int(self.config.train_split * len(sorted_subjects))
+        
+        training_users = sorted_subjects[:train_split]
+        validation_users = sorted_subjects[train_split:]
         
         return training_users, validation_users
 

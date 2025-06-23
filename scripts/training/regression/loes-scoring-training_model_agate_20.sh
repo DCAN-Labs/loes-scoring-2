@@ -21,9 +21,10 @@ export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src:/use
                         --model-save-location "/home/feczk001/shared/data/LoesScoring/loes_scoring_20.pt" \
                         --gd  0 \
                         --folder "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/" \
-                        --use-train-validation-cols \
                         --csv-output-file "/users/9/reine097/projects/loes-scoring-2/doc/models/model20/model20.csv" \
                         --plot-location "/users/9/reine097/projects/loes-scoring-2/doc/models/model20/model20.png"  \
                         --model "ResNet" \
                         --lr 0.0001 \
-                        --scheduler 'onecycle'
+                        --scheduler 'onecycle' \
+                         --train-split 0.7 --split-strategy stratified
+                         
