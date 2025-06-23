@@ -9,6 +9,26 @@ The code trains a ResNet model to automatically predict Loes scores from MRI ima
 
 ## How to run it:
 
+### First simple run
+
+1. `ssh -Y agate`
+2. Change directory to the *scripts/training/regression* folder.  For example:
+    
+        cd /users/9/reine097/projects/loes-scoring-2/scripts/training/regression/
+
+3. You will be running the [loes-scoring-training_model_agate_20.sh](../scripts/training/regression/loes-scoring-training_model_agate_20.sh) file.  This generates the best model found so far.
+
+        sbatch 
+
+4. You should get results similar to this:
+
+        standardized_rmse: 0.4945931960918837
+        correlation_coefficient: 0.8798527874279112
+        Pearson correlation p-value: 3.3864976150791956e-12
+        Spearman correlation p-value: 6.972813235748796e-07
+
+![Actual versus predicted Loes scores](../doc/models/model20/model20.png)
+
 Inputs:
 
 * Spreadsheet (CSV file).  Must contain the following columns:
