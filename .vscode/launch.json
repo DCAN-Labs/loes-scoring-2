@@ -35,6 +35,18 @@
             }
         },
         {
+            "name": "regression unit test",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "test/dcan/regression/test_training.py",
+            "console": "integratedTerminal",
+            "args": [
+            ],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${workspaceFolder}$/test{pathSeparator}${env:PYTHONPATH}"
+            }
+        },
+        {
             "name": "logistic_regression: test",
             "type": "debugpy",
             "request": "launch",

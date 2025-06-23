@@ -1,6 +1,5 @@
 import argparse
 import datetime
-import glob
 import os
 import sys
 
@@ -46,8 +45,6 @@ class Config:
         self.parser.add_argument('--num-workers', default=8, type=int, help='Number of worker processes')
         self.parser.add_argument('--batch-size', default=32, type=int, help='Batch size for training')
         self.parser.add_argument('--epochs', default=1, type=int, help='Number of epochs to train')
-        self.parser.add_argument('--file-path-column-index', type=int, help='Index of the file path in CSV file')
-        self.parser.add_argument('--loes-score-column-index', type=int, help='Index of the Loes score in CSV file')
         self.parser.add_argument('--model-save-location', default=f'./model-{datetime.datetime.now().strftime("%Y-%m-%d_%H.%M.%S")}.pt')
         self.parser.add_argument('--plot-location', help='Location to save plot')
         self.parser.add_argument('--optimizer', default='Adam', help="Optimizer type.")
@@ -56,7 +53,6 @@ class Config:
         self.parser.add_argument('--lr', default=0.001, type=float, help='Learning rate')
         self.parser.add_argument('--gd', type=int, help="Use Gd-enhanced scans.")
         self.parser.add_argument('--use-train-validation-cols', action='store_true')
-        self.parser.add_argument('-k', type=int, default=0, help='Index for 5-fold validation')
         self.parser.add_argument('--folder', help='Folder where MRIs are stored')
         self.parser.add_argument('--csv-output-file', help="CSV output file.")
         self.parser.add_argument('--use-weighted-loss', action='store_true')
@@ -126,33 +122,6 @@ def count_items(input_list):
             counts[item] = 1
     return counts
 
-def normalize_list(data):
-    min_val = min(data)
-    max_val = max(data)
-    normalized_data = [(x - min_val) / (max_val - min_val) for x in data]
-    return normalized_data
-
-def normalize_dictionary(data):
-    """
-    Normalizes the values in a dictionary to a range between 0 and 1.
-
-    Args:
-        data (dict): A dictionary with numerical values.
-
-    Returns:
-        dict: A new dictionary with normalized values.
-    """
-    min_val = min(data.values())
-    max_val = max(data.values())
-    
-    if max_val - min_val == 0:
-      return {key: 0.0 for key in data}
-    
-    normalized_data = {
-        key: (value - min_val) / (max_val - min_val)
-        for key, value in data.items()
-    }
-    return normalized_data
 
 # Training/Validation Loop Handler
 class TrainingLoop:
@@ -436,21 +405,6 @@ class LoesScoringTrainingApp:
         _, p_value = stats.spearmanr(actual_scores, predict_vals)
         log.info(f"Spearman correlation p-value: {p_value}")
 
-
-    def get_files_with_wildcard(self, directory, pattern):
-        """
-        Gets a list of files in a directory that match a wildcard pattern.
-
-        Args:
-            directory: The directory to search in.
-            pattern: The wildcard pattern to match (e.g., "*.txt", "image*").
-
-        Returns:
-            A list of file paths that match the pattern.
-        """
-        search_path = os.path.join(directory, pattern)
-        files = glob.glob(search_path)
-        return files
 
     def split_train_validation(self):
         training_rows = self.input_df.loc[self.input_df['training'] == 1]
