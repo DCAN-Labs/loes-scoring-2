@@ -7,6 +7,14 @@ This is a comprehensive deep learning pipeline for training a neural network to 
 ## What it does:
 The code trains a ResNet model to automatically predict Loes scores from MRI images, essentially automating a medical scoring process that would normally require expert radiologists.
 
+## How to run it:
+
+Inputs:
+
+* Spreadsheet (CSV file).  Must contain the following columns:
+  
+  *
+
 ## How it works:
 ### 1. Architecture & Organization
 The code is structured using several key classes:
