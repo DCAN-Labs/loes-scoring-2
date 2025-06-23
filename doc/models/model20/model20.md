@@ -29,17 +29,17 @@ These are **excellent results** for a medical prediction model! Let me break dow
 
 ## **Results Analysis**
 
-### \U0001f4ca **Standardized RMSE: 0.495**
+### **Standardized RMSE: 0.495**
 - **What it means**: On average, predictions deviate by ~0.49 standard deviations from actual values
 - **Assessment**: **Very Good** - Values below 0.5 are typically considered strong performance
 - **Context**: For Loes scores (likely ranging 0-34), this suggests precise predictions
 
-### \U0001f4c8 **Correlation Coefficient: 0.880**
+### **Correlation Coefficient: 0.880**
 - **What it means**: 88% linear relationship between predicted and actual values
 - **Assessment**: **Excellent** - This is considered very strong correlation
 - **Interpretation**: Your model captures the underlying patterns very well
 
-### \U0001f52c **Statistical Significance**
+### **Statistical Significance**
 - **Pearson p-value: 3.39e-12** (highly significant, p < 0.001)
 - **Spearman p-value: 6.97e-07** (highly significant, p < 0.001)
 - **Assessment**: **Outstanding** - Results are statistically robust, not due to chance
