@@ -10,4 +10,4 @@ See [SOP.md](doc/SOP.md) for useage.
 See [regression](/doc/regression.md).
 
 ## Early detection of cerebral ALD
-See ["Dearly Detection"](/doc/early_detection.md).
+See ["Early Detection"](/doc/early_detection.md).
