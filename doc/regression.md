@@ -18,7 +18,7 @@ The code trains a ResNet model to automatically predict Loes scores from MRI ima
 
 3. You will be running the [loes-scoring-training_model_agate_20.sh](../scripts/training/regression/loes-scoring-training_model_agate_20.sh) file.  This generates the best model found so far.
 
-        sbatch 
+        sbatch loes-scoring-training_model_agate_20.sh 
 
 4. You should get results similar to this:
 
@@ -29,11 +29,22 @@ The code trains a ResNet model to automatically predict Loes scores from MRI ima
 
 ![Actual versus predicted Loes scores](../doc/models/model20/model20.png)
 
-Inputs:
+### Inputs:
 
 * Spreadsheet (CSV file).  Must contain the following columns:
   
-  *
+  * anonymized_subject_id
+  * anonymized_session_id
+  * scan
+  * loes-score
+  * Gd-enhanced
+  * training
+  * validation
+
+### Outputs:
+* Model (.pt) file
+* Statistics (written to the log file)
+* Plot of actual versus predicted Loes scores for scans in the validation set.
 
 ## How it works:
 ### 1. Architecture & Organization
