@@ -106,26 +106,37 @@ def create_correlation_coefficient(actual_vals, predicted_vals):
 
 
 def create_scatter_plot(actual_vals, predicted_vals, output_file):
-    _, ax = plt.subplots()
-    ax.scatter(actual_vals, predicted_vals, s=25, c='blue', cmap=plt.cm.coolwarm, zorder=10)
-
+    fig, ax = plt.subplots(figsize=(8, 6))
+    
+    # Color by prediction error
+    errors = np.abs(np.array(actual_vals) - np.array(predicted_vals))
+    scatter = ax.scatter(actual_vals, predicted_vals, s=30, c=errors, 
+                        cmap=plt.cm.Reds, alpha=0.7, zorder=10)
+    
+    # Add colorbar
+    cbar = plt.colorbar(scatter, ax=ax)
+    cbar.set_label('Prediction Error', fontsize=11)
+    
+    # Perfect prediction line
     lims = [
-        np.min([ax.get_xlim(), ax.get_ylim()]),  # min of both axes
-        np.max([ax.get_xlim(), ax.get_ylim()]),  # max of both axes
+        np.min([ax.get_xlim(), ax.get_ylim()]),
+        np.max([ax.get_xlim(), ax.get_ylim()]),
     ]
-
-    ax.plot(lims, lims, 'k-', alpha=0.75, zorder=0)
+    ax.plot(lims, lims, 'k--', alpha=0.8, linewidth=2)
+    
     ax.set_aspect('equal')
     ax.set_xlim(lims)
     ax.set_ylim(lims)
+    
+    # Labels
+    ax.set_xlabel("Actual Loes score")
+    ax.set_ylabel("Predicted Loes score")
+    ax.set_title("Loes score prediction")
+    
+    plt.tight_layout()
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    plt.close()
 
-    # Add labels and title
-    plt.xlabel("Actual Loes score")
-    plt.ylabel("Predicted Loes score")
-    plt.title("Loes score prediction")
-
-    # Save the plot to a file
-    plt.savefig(output_file, dpi=300) 
 
 def get_predicted_value(row, subjects, sessions, predict_vals):
     zipped_data = zip(subjects, sessions, predict_vals)
