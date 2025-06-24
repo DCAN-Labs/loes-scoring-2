@@ -29,11 +29,22 @@ def load_model(model_name, model_save_location, device='cpu'):
         log.info("Using AlexNet3D")
     model.to(device)
 
-    model.load_state_dict(torch.load(model_save_location, map_location=device, weights_only=False))
-    model.eval()
-
-    return model
+    # Safe model loading with fallback
+    try:
+        # Try safe loading first (recommended)
+        state_dict = torch.load(model_save_location, map_location=device, weights_only=True)
+        model.load_state_dict(state_dict)
+        log.info("Model loaded safely")
+    except Exception as e:
+        # Fallback for older model files
+        log.warning(f"Safe loading failed: {e}. Using fallback mode.")
+        state_dict = torch.load(model_save_location, map_location=device, weights_only=False)
+        model.load_state_dict(state_dict)
+        log.info("Model loaded with fallback mode")
     
+    model.eval()
+    return model
+
 
 def predict(row):
     subject = row['anonymized_subject_id']
@@ -115,7 +126,10 @@ def create_correlation_coefficient(actual_vals, predicted_vals):
 
 def create_scatter_plot(actual_vals, predicted_vals, output_file):
     _, ax = plt.subplots()
-    ax.scatter(actual_vals, predicted_vals, s=25, c='blue', zorder=10)
+    # Color by prediction error to highlight problematic predictions
+    errors = np.abs(actual_vals - predicted_vals)
+    scatter = ax.scatter(actual_vals, predicted_vals, s=25, c=errors, cmap=plt.cm.Reds, zorder=10)
+    plt.colorbar(scatter, ax=ax, label='Prediction Error')
 
     lims = [
         np.min([ax.get_xlim(), ax.get_ylim()]),  # min of both axes

@@ -258,7 +258,19 @@ class TensorBoardLogger:
 
     def log_metrics(self, mode_str, epoch, metrics, sample_count):
         writer = getattr(self, f'{mode_str}_writer')
-        writer.add_scalar(f'loss/all', metrics[METRICS_LOSS_NDX].mean(), sample_count)
+        
+        # Calculate actual loss from labels and predictions
+        labels = metrics[METRICS_LABEL_NDX]
+        predictions = metrics[METRICS_PRED_NDX]
+        actual_losses = (labels - predictions) ** 2  # MSE per sample
+        actual_mean_loss = actual_losses.mean()
+        
+        writer.add_scalar(f'loss/all', actual_mean_loss, sample_count)
+        
+        # Add correlation tracking
+        correlation = torch.corrcoef(torch.stack([labels, predictions]))[0, 1]
+        if not torch.isnan(correlation):
+            writer.add_scalar('metrics/correlation', correlation, sample_count)
 
     def close(self):
         self.trn_writer.close()
@@ -295,10 +307,34 @@ class LoesScoringTrainingApp:
         self.output_df = self.input_df.copy()
 
         self.time_str = datetime.datetime.now().strftime('%Y-%m-%d_%H.%M.%S')
-        self.tb_logger = TensorBoardLogger(self.config.tb_prefix, self.time_str, self.config.comment)
 
         self.data_handler = DataHandler(self.input_df, self.output_df, self.use_cuda, self.config.batch_size, self.config.num_workers)
         self.folder = self.config.folder
+
+        # Then use it:
+        experiment_name = self.create_experiment_name()
+        self.tb_logger = TensorBoardLogger('', '', experiment_name)
+
+    def create_experiment_name(self):
+        """Create meaningful experiment name from hyperparameters"""
+        parts = [
+            f"model-{self.config.model}",
+            f"lr-{self.config.lr}",
+            f"bs-{self.config.batch_size}",
+            f"epochs-{self.config.epochs}",
+            f"sched-{self.config.scheduler}"
+        ]
+        
+        if hasattr(self.config, 'split_strategy'):
+            parts.append(f"split-{self.config.split_strategy}")
+            parts.append(f"ratio-{self.config.train_split:.1f}")
+        
+        if self.config.use_weighted_loss:
+            parts.append("weighted")
+        
+        parts.append(self.time_str)
+        
+        return "_".join(parts)
 
     def _init_optimizer(self):
         optimizer_type = self.config.optimizer.lower()
