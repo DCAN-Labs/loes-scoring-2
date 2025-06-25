@@ -17,18 +17,18 @@ These results are **excellent and represent a major breakthrough!** This is a dr
 ## Outstanding Improvements:
 
 ### 1. **Correlation Now in Strong Territory**
-- **Previous: 0.69** \u2192 **Current: 0.82** 
+- **Previous: 0.69** &rarr; **Current: 0.82** 
 - This is a **19% improvement** and firmly in the **"strong correlation"** range
 - 0.82 correlation is considered very good for medical imaging regression tasks
 
 ### 2. **RMSE Finally Improved**
-- **Previous: 1.41** \u2192 **Current: 0.92** 
+- **Previous: 1.41** &rarr; **Current: 0.92** 
 - This is a **35% improvement** - the RMSE is now below 1.0!
 - Much better balance between correlation and accuracy
 
 ### 3. **Statistical Significance is Exceptional**
-- **Pearson p-value**: ~10\u207b¹\u2074 (astronomically significant)
-- **Spearman p-value**: ~10\u207b¹\u2074 (astronomically significant)
+- **Pearson p-value**: ~10e-14 (astronomically significant)
+- **Spearman p-value**: ~10e-14 (astronomically significant)
 - These are about as statistically robust as you can get
 
 ### 4. **Dramatically Improved Model Behavior**
