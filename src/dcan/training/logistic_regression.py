@@ -2,6 +2,8 @@ import argparse
 import datetime
 import json
 import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+os.environ['TORCH_USE_CUDA_DSA'] = '1'
 import random
 import sys
 from typing import List
@@ -195,7 +197,7 @@ class SimpleMRIModel(nn.Module):
         # Apply final classification
         logits = self.classifier(features)
         
-        return torch.sigmoid(logits)
+        return logits 
 
 
 # Configuration class to handle CLI arguments
@@ -327,8 +329,8 @@ class LogisticRegressionTrainer:
         self.total_samples = 0
         self.threshold = threshold
         
-        # Set up loss function
         self.loss_fn = nn.BCELoss(reduction='none')
+        self.loss_fn = nn.BCEWithLogitsLoss(reduction='none')
 
     def find_optimal_threshold_for_pauc(self, val_dl, max_fpr=0.1):
         """
@@ -527,10 +529,18 @@ class LogisticRegressionTrainer:
         
         # Ensure label tensor has the right shape
         label_g = label_g.view(-1)  # [batch_size]
-        
+
+        prob_g = torch.clamp(prob_g, 1e-7, 1.0 - 1e-7)
+        label_g = label_g.float()  # Ensure float type
+        label_g = torch.clamp(label_g, 0.0, 1.0)  # Ensure binary
+
         # Compute loss
+        prob_g = torch.clamp(prob_g, 1e-7, 1.0 - 1e-7)
+        label_g = label_g.float()  # Ensure float type
+        label_g = torch.clamp(label_g, 0.0, 1.0)  # Ensure binary
+
         loss_g = self.loss_fn(prob_g, label_g)
-        
+                
         # Calculate batch-specific weights
         batch_pos = (label_g > 0.5).sum().item()
         batch_neg = label_g.size(0) - batch_pos

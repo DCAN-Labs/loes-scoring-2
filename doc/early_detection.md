@@ -8,6 +8,27 @@ This is a comprehensive deep learning pipeline for **binary classification of AL
 
 The system trains neural networks to automatically detect ALD (a rare genetic brain disorder) from MRI scans, essentially automating the diagnostic process that would normally require expert radiologists.
 
+
+## How to run it:
+
+### First simple run
+
+1. `ssh -Y agate`
+2. Change directory to the *scripts/training/regression* folder.  For example:
+    
+        cd /users/9/reine097/projects/loes-scoring-2/scripts/training/logistic-regression
+
+3. You will be running the [create_early_detection_model.sh](../scripts/training/logistic-regression/create_early_detection_model.sh) file.  This generates the best model found so far.
+
+        sbatch create_early_detection_model.sh 
+
+4. You should get results similar to this:
+
+* standardized_rmse: CHANGEME
+* correlation_coefficient: CHANGEME
+* Pearson correlation p-value: CHANGEME
+* Spearman correlation p-value: CHANGEME
+
 ## How it works:
 
 ### **1. Core Architecture & Classes**

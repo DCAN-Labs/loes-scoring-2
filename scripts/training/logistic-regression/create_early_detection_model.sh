@@ -30,4 +30,4 @@ export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src:/use
     --threshold "0.795" \
     --augment-minority \
     --num-augmentations 3 \
-    --plot-location "/users/9/reine097/projects/loes-scoring-2/doc/linear_regression"
+    --plot-location "/users/9/reine097/projects/loes-scoring-2/doc/logistic_regression"
