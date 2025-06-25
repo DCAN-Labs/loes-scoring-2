@@ -1,6 +1,6 @@
-# Logistic regression
+# Regression
 
-This document explains [src/dcan/training/logistic_regression.py](/src/dcan/training/logistic_regression.py).
+This document explains [src/dcan/regression/training.py](/src/dcan/regression/training.py).
 
 This is a comprehensive deep learning pipeline for training a neural network to predict Loes scores from MRI scans. Loes scores are medical assessments used to evaluate brain abnormalities, particularly in conditions like X-linked adrenoleukodystrophy (X-ALD).
 
@@ -16,18 +16,18 @@ The code trains a ResNet model to automatically predict Loes scores from MRI ima
     
         cd /users/9/reine097/projects/loes-scoring-2/scripts/training/regression/
 
-3. You will be running the [loes-scoring-training_model_agate_20.sh](../scripts/training/regression/loes-scoring-training_model_agate_20.sh) file.  This generates the best model found so far.
+3. You will be running the [loes-scoring-training_model_agate_27.sh](../scripts/training/regression/loes-scoring-training_model_agate_27.sh) file.  This generates the best model found so far.
 
-        sbatch loes-scoring-training_model_agate_20.sh 
+        sbatch loes-scoring-training_model_agate_27.sh 
 
 4. You should get results similar to this:
 
-        standardized_rmse: 0.4945931960918837
-        correlation_coefficient: 0.8798527874279112
-        Pearson correlation p-value: 3.3864976150791956e-12
-        Spearman correlation p-value: 6.972813235748796e-07
+* standardized_rmse: 0.6359392229708403
+* correlation_coefficient: 0.8350017989179795
+* Pearson correlation p-value: 6.847451972747865e-16
+* Spearman correlation p-value: 2.416301571229704e-10
 
-![Actual versus predicted Loes scores](../doc/models/model20/model20.png)
+![Actual versus predicted Loes scores](../doc/models/model27/model27.png)
 
 ### Inputs:
 
