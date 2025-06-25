@@ -64,6 +64,7 @@ class Config:
                                 choices=['random', 'stratified', 'sequential'], 
                                 help='Strategy for train/validation split')
         self.parser.add_argument('--random-seed', default=42, type=int, help='Random seed for reproducible splits')
+        self.parser.add_argument('--DEBUG', action='store_true', help='Set this flag to run in debug mode')
 
     def parse_args(self, sys_argv: list[str]) -> argparse.Namespace:
         return self.parser.parse_args(sys_argv)
@@ -97,17 +98,20 @@ class ModelHandler:
     def _init_model(self):
         if self.model_name == 'ResNet':
             model = get_resnet_model()
-            if torch.cuda.is_available():
-                model.cuda()
             log.info("Using ResNet")
         else:
-            model = AlexNet3D(4608).to(self.device)
+            model = AlexNet3D(4608)
             log.info("Using AlexNet3D")
 
+        # Always move to the specified device consistently
+        log.info(f"Moving model to device: {self.device}")
+        model = model.to(self.device)
+        
+        # Apply DataParallel only if using CUDA and multiple GPUs
         if self.use_cuda and torch.cuda.device_count() > 1:
             log.info("Using CUDA with {} devices.".format(torch.cuda.device_count()))
             model = nn.DataParallel(model)
-            model = model.to(self.device)
+        
         return model
 
     def save_model(self, save_location):
@@ -214,6 +218,11 @@ class TrainingLoop:
         input_g = input_t.to(self.device, non_blocking=True)
         label_g = label_t.to(self.device, non_blocking=True)
 
+        if self.config.DEBUG:
+            log.debug(f"Input device: {input_g.device}")
+            log.debug(f"Model device: {next(self.model_handler.model.parameters()).device}")
+            log.debug(f"Expected device: {self.device}")
+
         outputs_g = self.model_handler.model(input_g)
 
         # If outputs_g is a list or tuple, take the first element
@@ -298,8 +307,8 @@ def get_folder_name(file_path):
 class LoesScoringTrainingApp:        
     def __init__(self, sys_argv=None):
         self.config = Config().parse_args(sys_argv)
-        self.use_cuda = torch.cuda.is_available()
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.use_cuda = torch.cuda.is_available() and not self.config.DEBUG
+        self.device = torch.device("cuda" if torch.cuda.is_available() and not self.config.DEBUG else "cpu")
         self.model_handler = ModelHandler(self.config.model, self.use_cuda, self.device)
         self.optimizer = self._init_optimizer()
 
@@ -311,7 +320,6 @@ class LoesScoringTrainingApp:
         self.data_handler = DataHandler(self.input_df, self.output_df, self.use_cuda, self.config.batch_size, self.config.num_workers)
         self.folder = self.config.folder
 
-        # Then use it:
         experiment_name = self.create_experiment_name()
         self.tb_logger = TensorBoardLogger('', '', experiment_name)
 
@@ -515,24 +523,18 @@ class LoesScoringTrainingApp:
         """Stratified split based on Loes score distribution"""
         try:
             # Get average Loes score per subject
-            subject_scores = self.input_df.groupby('anonymized_subject_id')['loes-score'].mean()
-            
-            # Create bins for stratification (e.g., low, medium, high scores)
-            score_bins = pd.qcut(subject_scores, q=3, labels=['low', 'medium', 'high'], duplicates='drop')
-            
+            mean_values = self.input_df.groupby('anonymized_subject_id')['loes-score'].mean()
+            sorted_means = mean_values.sort_values()
+            i = 0
             training_users = []
             validation_users = []
             
-            # Split each stratum
-            for bin_label in score_bins.unique():
-                if pd.isna(bin_label):
-                    continue
-                bin_subjects = score_bins[score_bins == bin_label].index.tolist()
-                shuffled_bin = np.random.permutation(bin_subjects)
-                train_split = int(self.config.train_split * len(bin_subjects))
-                
-                training_users.extend(shuffled_bin[:train_split])
-                validation_users.extend(shuffled_bin[train_split:])
+            for index_label, _ in sorted_means.items():
+                if i % 5 == 0:
+                    validation_users.append(index_label)
+                else:
+                    training_users.append(index_label)
+                i += 1
             
             log.info("Used stratified split based on Loes score distribution")
             return training_users, validation_users
