@@ -329,7 +329,6 @@ class LogisticRegressionTrainer:
         self.total_samples = 0
         self.threshold = threshold
         
-        self.loss_fn = nn.BCELoss(reduction='none')
         self.loss_fn = nn.BCEWithLogitsLoss(reduction='none')
 
     def find_optimal_threshold_for_pauc(self, val_dl, max_fpr=0.1):
@@ -1844,7 +1843,7 @@ class LogisticRegressionApp:
         ald_folds = self._create_folds(subjects_with_ald, k)
         no_ald_folds = self._create_folds(subjects_without_ald, k)
 
-        # Storage for ROC data from all folds - FIXED STRUCTURE
+        # Storage for ROC data from all folds 
         fold_roc_data = {
             'original_fprs': [],    # Store original FPR arrays
             'original_tprs': [],    # Store original TPR arrays
@@ -1889,6 +1888,29 @@ class LogisticRegressionApp:
         
             log.info(f"Train set: {len(self.train_subjects)} subjects")
             log.info(f"Val set: {len(self.val_subjects)} subjects")
+
+            # FOLD 3 PRE-TRAINING ANALYSIS
+            if fold == 2:  # Fold 3 (0-indexed)
+                print(f"\n\U0001f50d INVESTIGATING FOLD 3 (poor performance)")
+                
+                # Check class distribution
+                train_data = self.input_df[self.input_df['anonymized_subject_id'].isin(self.train_subjects)]
+                val_data = self.input_df[self.input_df['anonymized_subject_id'].isin(self.val_subjects)]
+                
+                train_pos = (train_data[self.config.target] == 1).sum()
+                val_pos = (val_data[self.config.target] == 1).sum()
+                
+                print(f"Train: {train_pos}/{len(train_data)} positive ({train_pos/len(train_data)*100:.1f}%)")
+                print(f"Val: {val_pos}/{len(val_data)} positive ({val_pos/len(val_data)*100:.1f}%)")
+                
+                # Check if validation set has extreme class imbalance
+                if val_pos == 0 or val_pos == len(val_data):
+                    print("\u26a0\ufe0f  CRITICAL: Validation set has only one class!")
+                
+                # Check for data quality issues
+                print(f"Train subjects: {len(self.train_subjects)}")
+                print(f"Val subjects: {len(self.val_subjects)}")
+                print(f"Missing values - Train: {train_data.isnull().sum().sum()}, Val: {val_data.isnull().sum().sum()}")
             
             # Set up dataloaders for this fold
             self.train_dl = self.data_handler.init_dl(self.folder, self.train_subjects)
@@ -1901,7 +1923,67 @@ class LogisticRegressionApp:
         
             # Train model for this fold
             fold_results = self._train_fold(fold)
-            
+
+            # FOLD 3 POST-TRAINING ANALYSIS
+            if fold == 2:  # After training fold 3
+                print(f"\n\U0001f50d FOLD 3 PREDICTION ANALYSIS")
+                
+                # Get predictions
+                self.model.eval()
+                val_probs = []
+                val_labels = []
+                
+                with torch.no_grad():
+                    for batch_tup in self.val_dl:
+                        # Handle different batch tuple formats
+                        if len(batch_tup) == 4:
+                            input_t, label_t, _, _ = batch_tup
+                            labels = [1.0 if l_t.item() > self.config.threshold else 0.0 for l_t in label_t]
+                            val_labels.extend(labels)
+                        elif len(batch_tup) == 5:
+                            input_t, _, has_ald_t, _, _ = batch_tup
+                            val_labels.extend(has_ald_t.float().cpu().numpy())
+                        else:
+                            # Handle other formats
+                            input_t = batch_tup[0]
+                            label_t = batch_tup[1]
+                            labels = label_t.float().cpu().numpy()
+                            val_labels.extend(labels)
+                        
+                        # Get model predictions
+                        input_g = input_t.to(self.device)
+                        logits = self.model(input_g).squeeze()
+                        probs = torch.sigmoid(logits).cpu().numpy()  # Convert logits to probabilities
+                        
+                        # Handle single sample case
+                        if np.ndim(probs) == 0:
+                            probs = np.array([probs])
+                        
+                        val_probs.extend(probs)
+                
+                val_probs = np.array(val_probs)
+                val_labels = np.array(val_labels)
+                
+                print(f"Prediction stats:")
+                print(f"  Mean prob: {val_probs.mean():.4f}")
+                print(f"  Std prob: {val_probs.std():.4f}")
+                print(f"  Min prob: {val_probs.min():.4f}")
+                print(f"  Max prob: {val_probs.max():.4f}")
+                
+                # Check if model is predicting mostly one class
+                if val_probs.std() < 0.01:
+                    print("\u26a0\ufe0f  Model predictions have very low variance - possible training failure")
+                
+                # Check prediction distribution by true class
+                if len(np.unique(val_labels)) > 1:
+                    pos_probs = val_probs[val_labels == 1]
+                    neg_probs = val_probs[val_labels == 0]
+                    print(f"  Positive class mean prob: {pos_probs.mean():.4f}")
+                    print(f"  Negative class mean prob: {neg_probs.mean():.4f}")
+                    
+                    if pos_probs.mean() < neg_probs.mean():
+                        print("\u26a0\ufe0f  Model predicts LOWER probabilities for positive class - inverted learning!")
+
             # Collect predictions for ROC analysis
             fold_y_true, fold_y_prob = self._get_fold_predictions()
             
@@ -1914,7 +1996,7 @@ class LogisticRegressionApp:
             fpr, tpr, thresholds = roc_curve(fold_y_true, fold_y_prob)
             fold_auc = auc(fpr, tpr)
             
-            # Store fold data - FIXED: separate original and interpolated data
+            # Store fold data
             fold_roc_data['original_fprs'].append(fpr)
             fold_roc_data['original_tprs'].append(tpr)
             fold_roc_data['aucs'].append(fold_auc)
@@ -1925,7 +2007,7 @@ class LogisticRegressionApp:
             # Interpolate TPR at common FPR points for averaging
             interp_tpr = np.interp(mean_fpr, fpr, tpr)
             interp_tpr[0] = 0.0  # Ensure it starts at (0,0)
-            fold_roc_data['interp_tprs'].append(interp_tpr)  # Store separately
+            fold_roc_data['interp_tprs'].append(interp_tpr)
             
             # Track other metrics
             for metric in fold_metrics:
@@ -1941,6 +2023,7 @@ class LogisticRegressionApp:
         self._print_cv_summary(fold_metrics, fold_roc_data['aucs'])
         
         return fold_metrics, fold_roc_data
+
 
     def _plot_combined_roc_curves(self, fold_roc_data, mean_fpr, k):
         """

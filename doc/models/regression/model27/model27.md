@@ -10,7 +10,6 @@
 * Pearson correlation p-value: 6.847451972747865e-16
 * Spearman correlation p-value: 2.416301571229704e-10
 
-
 ---
 
 These results show **strong recovery** back to excellent performance! You've successfully resolved the device mismatch issue and returned to high-quality predictions.
