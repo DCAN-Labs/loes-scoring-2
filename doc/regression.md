@@ -27,7 +27,7 @@ The code trains a ResNet model to automatically predict Loes scores from MRI ima
 * Pearson correlation p-value: 6.847451972747865e-16
 * Spearman correlation p-value: 2.416301571229704e-10
 
-![Actual versus predicted Loes scores](../doc/models/model27/model27.png)
+![Actual versus predicted Loes scores](../doc/models/regression/model27/model27.png)
 
 ### Inputs:
 
