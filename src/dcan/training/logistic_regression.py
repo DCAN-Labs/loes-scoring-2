@@ -42,6 +42,50 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 
+def calculate_pauc(y_true, y_prob, max_fpr=0.1):
+    """
+    Calculate partial AUC (pAUC) with better error handling.
+    
+    Args:
+        y_true: True binary labels
+        y_prob: Predicted probabilities
+        max_fpr: Maximum false positive rate for pAUC calculation
+    
+    Returns:
+        float: pAUC normalized by max_fpr (0.0 to 1.0)
+    """
+    from sklearn.metrics import roc_curve, auc
+    
+    # Handle edge cases
+    if len(np.unique(y_true)) < 2:
+        return 0.0  # No discrimination possible
+    
+    if len(y_true) == 0:
+        return 0.0
+    
+    try:
+        fpr, tpr, _ = roc_curve(y_true, y_prob)
+        
+        # Find points where FPR <= max_fpr
+        valid_indices = fpr <= max_fpr
+        
+        if valid_indices.sum() < 2:
+            return 0.0  # Not enough points for meaningful pAUC
+        
+        # Extract valid portion
+        fpr_limited = fpr[valid_indices]
+        tpr_limited = tpr[valid_indices]
+        
+        # Calculate pAUC and normalize by max_fpr
+        pauc = auc(fpr_limited, tpr_limited) / max_fpr
+        
+        return pauc
+        
+    except Exception as e:
+        log.warning(f"Error calculating pAUC: {e}")
+        return 0.0
+
+
 class DataHandler:
     def __init__(self, df, output_df, use_cuda, batch_size, num_workers):
         self.df = df
@@ -331,16 +375,19 @@ class LogisticRegressionTrainer:
         
         self.loss_fn = nn.BCEWithLogitsLoss(reduction='none')
 
+
     def find_optimal_threshold_for_pauc(self, val_dl, max_fpr=0.1):
         """
-        Find the optimal threshold that maximizes pAUC (partial AUC) for the validation set.
+        Find the optimal threshold for classification metrics, but note that pAUC itself
+        is threshold-independent. This method finds the threshold that maximizes a 
+        composite score or a specific metric like F1, while also reporting pAUC.
         
         Args:
             val_dl: Validation dataloader
             max_fpr: Maximum false positive rate for pAUC calculation
         
         Returns:
-            tuple: (optimal_threshold, best_pauc, metrics_dict)
+            tuple: (optimal_threshold, pauc_score, metrics_dict)
         """
         from sklearn.metrics import roc_curve, auc
         
@@ -363,11 +410,11 @@ class LogisticRegressionTrainer:
                 probs = self.model(input_g).squeeze().cpu().numpy()
                 
                 # Handle single sample case and 0-d arrays
-                if np.ndim(probs) == 0:  # Check for 0-dimensional array
+                if np.ndim(probs) == 0:
                     probs = np.array([probs])
-                elif np.ndim(probs) == 1:  # Already 1-dimensional, good to go
+                elif np.ndim(probs) == 1:
                     pass
-                else:  # Multi-dimensional, flatten to 1-D
+                else:
                     probs = probs.flatten()
                 
                 all_probs.extend(probs)
@@ -376,43 +423,38 @@ class LogisticRegressionTrainer:
             all_probs = np.array(all_probs)
             all_labels = np.array(all_labels)
             
-            # Calculate ROC curve
+            # Calculate pAUC - this is THRESHOLD INDEPENDENT
+            pauc_score = calculate_pauc(all_labels, all_probs, max_fpr=max_fpr)
+            
+            # Calculate ROC curve to get thresholds
             fpr, tpr, thresholds = roc_curve(all_labels, all_probs)
             
-            # Find indices where FPR <= max_fpr
-            valid_indices = np.where(fpr <= max_fpr)[0]
-        
-            if len(valid_indices) <= 1:
-                log.warning(f"Not enough points to calculate pAUC at max_fpr={max_fpr}")
-                return 0.5, 0.0, {}
-            
-            # Calculate pAUC for each threshold
-            best_pauc = 0
+            # Find optimal threshold for a different metric (e.g., F1 score)
+            # Since pAUC is threshold-independent, we optimize for F1 or balanced accuracy
+            best_f1 = 0
             best_threshold = 0.5
             best_metrics = {}
             
-            for i in valid_indices:
-                if i < len(thresholds):
-                    threshold = thresholds[i]
-                
-                    # Calculate pAUC up to current threshold
-                    current_fpr = fpr[:i+1]
-                    current_tpr = tpr[:i+1]
-                    
-                    if len(current_fpr) > 1:
-                        current_pauc = auc(current_fpr, current_tpr) / max_fpr
-                        
-                        if current_pauc > best_pauc:
-                            best_pauc = current_pauc
-                            best_threshold = threshold
-                            
-                            # Calculate comprehensive metrics at this threshold
-                            y_pred = (all_probs >= threshold).astype(int)
-                            best_metrics = self._calculate_metrics(all_labels, y_pred, all_probs)
-                            best_metrics['threshold'] = threshold
-                            best_metrics['pauc'] = current_pauc
+            # Test different thresholds
+            threshold_candidates = np.linspace(0.1, 0.9, 50)  # Test 50 thresholds
             
-            return best_threshold, best_pauc, best_metrics
+            for threshold in threshold_candidates:
+                y_pred = (all_probs >= threshold).astype(int)
+                
+                # Calculate metrics at this threshold
+                metrics = self._calculate_metrics(all_labels, y_pred, all_probs)
+                f1_score = metrics.get('f1', 0)
+                
+                # Use F1 score to find optimal threshold
+                if f1_score > best_f1:
+                    best_f1 = f1_score
+                    best_threshold = threshold
+                    best_metrics = metrics.copy()
+                    best_metrics['threshold'] = threshold
+                    best_metrics['pauc'] = pauc_score  # pAUC is the same regardless of threshold
+            
+            return best_threshold, pauc_score, best_metrics
+
 
     def _calculate_metrics(self, y_true, y_pred, y_prob):
         """Calculate comprehensive classification metrics"""
@@ -430,6 +472,10 @@ class LogisticRegressionTrainer:
             # Calculate AUC if we have both classes
             if len(np.unique(y_true)) > 1:
                 metrics['auc'] = roc_auc_score(y_true, y_prob)
+                metrics['pauc'] = calculate_pauc(y_true, y_prob, max_fpr=0.1)
+            else:
+                metrics['auc'] = 0.5
+                metrics['pauc'] = 0.0
             
             # Calculate specificity
             cm = confusion_matrix(y_true, y_pred)
@@ -603,8 +649,11 @@ class TensorBoardLogger:
             
             # Only compute AUC if we have both classes
             if len(np.unique(y_true)) > 1:
-                auc = roc_auc_score(y_true, y_prob)
-                writer.add_scalar(f'metrics/auc', auc, sample_count)
+                auc_score = roc_auc_score(y_true, y_prob)
+                pauc_score = calculate_pauc(y_true, y_prob, max_fpr=0.1)  
+                
+                writer.add_scalar(f'metrics/auc', auc_score, sample_count)
+                writer.add_scalar(f'metrics/pauc', pauc_score, sample_count)  
         except Exception as e:
             log.warning(f"Failed to compute some metrics: {e}")
     
@@ -717,9 +766,6 @@ class LogisticRegressionApp:
         else:
             # Use standard training method
             metrics = self._standard_train(fold_idx=fold_idx)
-        
-        # After training completes, plot ROC curve
-        self.plot_roc_curve(fold_idx=fold_idx)
        
         return metrics
 
@@ -820,6 +866,7 @@ class LogisticRegressionApp:
     def train_with_threshold_optimization(self, fold_idx=None):
         """
         Execute the training loop with threshold optimization after each epoch.
+        Note: pAUC is threshold-independent, so we track it separately from threshold optimization.
         """
         log.info("Starting training with threshold optimization...")
         
@@ -828,14 +875,14 @@ class LogisticRegressionApp:
             self.model, 
             self.optimizer, 
             self.device, 
-            threshold=self.config.threshold  # Initial threshold
+            threshold=self.config.threshold
         )
         
-        # Track best model
+        # Track best model based on pAUC (which is threshold-independent)
         best_pauc = 0.0
         best_threshold = self.config.threshold
         best_epoch = 0
-        best_metrics = {}  # Store the best metrics
+        best_metrics = {}
 
         # Arrays to store metrics for plotting
         epoch_metrics = {
@@ -854,40 +901,51 @@ class LogisticRegressionApp:
             # Validation phase  
             val_metrics = trainer.validate_epoch(epoch, self.val_dl)
             
-            # Find optimal threshold for pAUC after validation
-            optimal_threshold, current_pauc, threshold_metrics = trainer.find_optimal_threshold_for_pauc(self.val_dl)
+            # Get model predictions for pAUC calculation
+            fold_y_true, fold_y_prob = self._get_fold_predictions()
             
-            # Update trainer's threshold for next epoch
+            # Calculate pAUC - this is THRESHOLD INDEPENDENT
+            current_pauc = calculate_pauc(fold_y_true, fold_y_prob, max_fpr=0.1)
+            
+            # Find optimal threshold for F1 score (or other classification metrics)
+            # Note: This doesn't change pAUC, but gives us the best threshold for classification
+            optimal_threshold, same_pauc, threshold_metrics = trainer.find_optimal_threshold_for_pauc(self.val_dl)
+            
+            # Verify that pAUC is the same (as it should be)
+            assert abs(current_pauc - same_pauc) < 1e-6, f"pAUC should be threshold-independent! {current_pauc} vs {same_pauc}"
+            
+            # Update trainer's threshold for next epoch's training
             trainer.threshold = optimal_threshold
             
             # Log metrics
             log.info(f"Epoch {epoch} Results:")
-            log.info(f"  Optimal Threshold: {optimal_threshold:.4f}")
-            log.info(f"  pAUC: {current_pauc:.4f}")
-            log.info(f"  Accuracy: {threshold_metrics.get('accuracy', 0):.4f}")
-            log.info(f"  F1 Score: {threshold_metrics.get('f1', 0):.4f}")
+            log.info(f"  pAUC (threshold-independent): {current_pauc:.4f}")
+            log.info(f"  Optimal Threshold for F1: {optimal_threshold:.4f}")
+            log.info(f"  F1 Score at optimal threshold: {threshold_metrics.get('f1', 0):.4f}")
+            log.info(f"  Accuracy at optimal threshold: {threshold_metrics.get('accuracy', 0):.4f}")
             log.info(f"  Sensitivity: {threshold_metrics.get('sensitivity', 0):.4f}")
             log.info(f"  Specificity: {threshold_metrics.get('specificity', 0):.4f}")
         
             # Track metrics
             epoch_metrics['thresholds'].append(optimal_threshold)
-            epoch_metrics['paucs'].append(current_pauc)
+            epoch_metrics['paucs'].append(current_pauc)  # This should vary across epochs as model improves
             epoch_metrics['f1_scores'].append(threshold_metrics.get('f1', 0))
             epoch_metrics['accuracies'].append(threshold_metrics.get('accuracy', 0))
             
-            # Save best model based on pAUC
+            # Save best model based on pAUC (threshold-independent metric)
             if current_pauc > best_pauc:
                 best_pauc = current_pauc
                 best_threshold = optimal_threshold
                 best_epoch = epoch
-                best_metrics = threshold_metrics.copy()  # Save the best metrics
+                best_metrics = threshold_metrics.copy()
                 
-            # Update learning rate scheduler
+            # Update learning rate scheduler based on pAUC
             if self.config.scheduler == 'plateau':
                 self.scheduler.step(-current_pauc)  # Use negative pAUC to maximize
             elif self.config.scheduler != 'onecycle':
                 self.scheduler.step()
                 
+        # Save model and threshold info
         if self.config.model_save_location:
             base_path = os.path.splitext(self.config.model_save_location)[0]
             if fold_idx is not None:
@@ -901,28 +959,29 @@ class LogisticRegressionApp:
 
             # Save threshold information
             threshold_info = {
-                'threshold': float(best_threshold),  # Use best values, not current
-                'pauc': float(best_pauc),           
-                'epoch': int(best_epoch),           
-                'metrics': {k: float(v) if isinstance(v, np.floating) else v 
+                'optimal_threshold_for_f1': float(best_threshold),
+                'pauc_at_best_epoch': float(best_pauc),           
+                'best_epoch': int(best_epoch),           
+                'metrics_at_optimal_threshold': {k: float(v) if isinstance(v, np.floating) else v 
                             for k, v in best_metrics.items()}
             }
 
             with open(threshold_path, 'w') as f:
                 json.dump(threshold_info, f, indent=4)
             
-            log.info(f"New best pAUC: {best_pauc:.4f}, saved to {save_path}")        
+            log.info(f"Best pAUC: {best_pauc:.4f} achieved at epoch {best_epoch}")
+            log.info(f"Model and threshold info saved to {save_path} and {threshold_path}")        
         
         log.info(f"Training completed. Best pAUC: {best_pauc:.4f} at epoch {best_epoch}")
-        log.info(f"Best threshold: {best_threshold:.4f}")
+        log.info(f"Optimal threshold for F1: {best_threshold:.4f}")
 
-        # Plot threshold optimization results with fold-specific name
+        # Plot threshold optimization results
         self.plot_threshold_optimization_results(epoch_metrics, fold_idx=fold_idx)
 
-        # Return all metrics from the best epoch
+        # Return metrics from the best epoch
         return_metrics = {
-            'threshold': best_threshold,
-            'pAUC': best_pauc,
+            'optimal_threshold_for_f1': best_threshold,
+            'pAUC': best_pauc,  # PRIMARY METRIC (threshold-independent)
             'epoch': best_epoch,
             'accuracy': best_metrics.get('accuracy', 0),
             'precision': best_metrics.get('precision', 0),
@@ -932,11 +991,11 @@ class LogisticRegressionApp:
             'specificity': best_metrics.get('specificity', 0),
             'ppv': best_metrics.get('ppv', 0),
             'npv': best_metrics.get('npv', 0),
-            'auc': best_metrics.get('auc', 0)
+            'auc': best_metrics.get('auc', 0),
+            'pauc': best_pauc
         }
         
-        return return_metrics
-        
+        return return_metrics        
     
     def plot_threshold_optimization_results(self, epoch_metrics, fold_idx=None):
         """Plot threshold optimization results over epochs"""
@@ -1402,8 +1461,8 @@ class LogisticRegressionApp:
                     
                     val_probs.extend(probs)
                     val_preds.extend(preds)
-            
-            # Calculate metrics
+
+            # Calculate metrics including pAUC
             acc = accuracy_score(val_labels, val_preds)
             prec = precision_score(val_labels, val_preds, zero_division=0)
             rec = recall_score(val_labels, val_preds, zero_division=0)
@@ -1414,12 +1473,27 @@ class LogisticRegressionApp:
             log.info(f"Recall: {rec:.4f}")
             log.info(f"F1 Score: {f1:.4f}")
         
-            # Compute AUC if we have both classes
+            # Compute AUC and pAUC if we have both classes
             if len(np.unique(val_labels)) > 1:
-                p_auc = score(val_labels, val_probs)
-                log.info(f"pAUC: {p_auc:.4f}")
                 auc_score = roc_auc_score(val_labels, val_probs)
+                pauc_score = calculate_pauc(val_labels, val_probs, max_fpr=0.1)  # ADD pAUC
+                
                 log.info(f"AUC: {auc_score:.4f}")
+                log.info(f"pAUC (FPR \u2264 0.1): {pauc_score:.4f} \u2b50 PRIMARY METRIC")  # HIGHLIGHT pAUC
+                
+                # Add pAUC interpretation
+                if pauc_score >= 0.8:
+                    interpretation = "Excellent"
+                elif pauc_score >= 0.6:
+                    interpretation = "Good"
+                elif pauc_score >= 0.4:
+                    interpretation = "Acceptable"
+                elif pauc_score >= 0.2:
+                    interpretation = "Poor"
+                else:
+                    interpretation = "Failed"
+                
+                log.info(f"pAUC Interpretation: {interpretation}")
             
             # Confusion matrix
             cm = confusion_matrix(val_labels, val_preds)
@@ -1515,7 +1589,30 @@ class LogisticRegressionApp:
         
         # Create the plot
         plt.figure(figsize=(10, 8))
+
+            # Calculate pAUC (FPR \u2264 0.1)
+        pauc_fpr_limit = 0.1
+        pauc_score = calculate_pauc(all_labels, all_probs, max_fpr=pauc_fpr_limit)
         
+        # Create the plot
+        plt.figure(figsize=(10, 8))
+        
+        # Plot ROC curve
+        plt.plot(fpr, tpr, color='darkorange', lw=2, 
+                label=f'ROC curve (AUC = {roc_auc:.4f})')
+        
+        # Highlight pAUC region (MORE PROMINENT)
+        limited_fpr = fpr[fpr <= pauc_fpr_limit]
+        limited_tpr = tpr[:len(limited_fpr)]
+        
+        plt.fill_between(limited_fpr, 0, limited_tpr, 
+                        alpha=0.3, color='blue', 
+                        label=f'pAUC region (pAUC = {pauc_score:.4f})')
+        
+        # Add pAUC boundary line
+        plt.axvline(x=pauc_fpr_limit, color='blue', linestyle=':', alpha=0.7, 
+                    label=f'pAUC boundary (FPR = {pauc_fpr_limit})')
+
         # Plot ROC curve
         plt.plot(fpr, tpr, color='darkorange', lw=2, 
                 label=f'ROC curve (AUC = {roc_auc:.4f})')
@@ -1550,10 +1647,10 @@ class LogisticRegressionApp:
         plt.ylabel('True Positive Rate')
         
         if fold_idx is not None:
-            plt.title(f'ROC Curve - Fold {fold_idx + 1}')
+            plt.title(f'ROC Curve - Fold {fold_idx + 1} (pAUC = {pauc_score:.4f})')
         else:
-            plt.title('Receiver Operating Characteristic (ROC) Curve')
-        
+            plt.title(f'ROC Curve (pAUC = {pauc_score:.4f})')
+
         plt.legend(loc="lower right")
         plt.grid(True, alpha=0.3)
         
@@ -2168,16 +2265,37 @@ class LogisticRegressionApp:
         return overall_auc
 
     def _print_cv_summary(self, fold_metrics, fold_aucs):
-        """
-        Print comprehensive cross-validation summary including ROC statistics.
-        """
+        """Print CV summary with pAUC as primary focus"""
         log.info("\n" + "="*80)
-        log.info("CROSS-VALIDATION RESULTS WITH ROC ANALYSIS")
+        log.info("CROSS-VALIDATION RESULTS WITH pAUC ANALYSIS")
         log.info("="*80)
+
+        # Extract pAUC values
+        pauc_values = fold_metrics.get('pAUC', [])
+        
+        if pauc_values:
+            # PRIMARY METRIC - pAUC
+            mean_pauc = np.mean(pauc_values)
+            std_pauc = np.std(pauc_values)
+            log.info(f"\u2b50 PRIMARY METRIC - pAUC (FPR \u2264 0.1): {mean_pauc:.4f} ± {std_pauc:.4f}")
+            
+            # pAUC interpretation
+            if mean_pauc >= 0.6:
+                interpretation = "GOOD - Clinically promising"
+            elif mean_pauc >= 0.4:
+                interpretation = "ACCEPTABLE - Research quality"
+            elif mean_pauc >= 0.2:
+                interpretation = "POOR - Needs improvement"
+            else:
+                interpretation = "FAILED - Model not learning"
+            
+            log.info(f"pAUC Assessment: {interpretation}")
+            log.info(f"pAUC per fold: {[f'{p:.4f}' for p in pauc_values]}")
+            log.info("")
 
         # Standard metrics
         for metric, values in fold_metrics.items():
-            if values:
+            if values and metric != 'pAUC':  # Already showed pAUC above
                 mean_value = np.mean(values)
                 std_value = np.std(values)
                 log.info(f"{metric.capitalize()}: {mean_value:.4f} ± {std_value:.4f}")
@@ -2186,8 +2304,6 @@ class LogisticRegressionApp:
         log.info(f"\nROC CURVE STATISTICS:")
         log.info(f"AUC per fold: {[f'{auc:.4f}' for auc in fold_aucs]}")
         log.info(f"Mean AUC: {np.mean(fold_aucs):.4f} ± {np.std(fold_aucs):.4f}")
-        log.info(f"Min AUC: {np.min(fold_aucs):.4f}")
-        log.info(f"Max AUC: {np.max(fold_aucs):.4f}")
         
         log.info("="*80)
 
@@ -2230,6 +2346,43 @@ class LogisticRegressionApp:
         
         return fold_metrics, fold_roc_data
 
+class pAUCMonitor:
+    """Monitor pAUC during training for early stopping and progress tracking"""
+    
+    def __init__(self, patience=15, min_improvement=0.01):
+        self.best_pauc = 0.0
+        self.patience = patience
+        self.min_improvement = min_improvement
+        self.epochs_without_improvement = 0
+        self.pauc_history = []
+    
+    def update(self, epoch, y_true, y_prob):
+        """Update with new epoch results"""
+        pauc = calculate_pauc(y_true, y_prob, max_fpr=0.1)
+        self.pauc_history.append(pauc)
+        
+        improvement = pauc - self.best_pauc
+        is_best = improvement > self.min_improvement
+        
+        if is_best:
+            self.best_pauc = pauc
+            self.epochs_without_improvement = 0
+        else:
+            self.epochs_without_improvement += 1
+        
+        # Log with status
+        status = "\U0001f4c8 NEW BEST" if is_best else f"\U0001f4c9 No improvement ({self.epochs_without_improvement}/{self.patience})"
+        log.info(f"Epoch {epoch}: pAUC = {pauc:.4f} {status}")
+        
+        return {
+            'pauc': pauc,
+            'is_best': is_best,
+            'epochs_without_improvement': self.epochs_without_improvement
+        }
+    
+    def should_stop_early(self):
+        """Check if training should stop early"""
+        return self.epochs_without_improvement >= self.patience
 
 if __name__ == "__main__":
     try:

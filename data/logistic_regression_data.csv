@@ -1,4 +1,4 @@
-Unnamed: 0,anonymized_subject_id,anonymized_session_id,scan,loes-score,Gd-enhanced,training,validation,has_ald,test
+Unnamed: 0,anonymized_subject_id,anonymized_session_id,scan,loes-score,Gd-enhanced,training,validation,cald_develops,test
 0,subject-00,session-00,mprage.nii.gz,1.0,0,1,0,1,0
 1,subject-00,session-01,mprage.nii.gz,0.0,0,1,0,0,0
 2,subject-00,session-02,mprage.nii.gz,1.0,0,1,0,1,0

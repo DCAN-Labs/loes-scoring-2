@@ -13,21 +13,20 @@
 cd /users/9/reine097/projects/loes-scoring-2/src/dcan/training || exit
 export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src:/users/9/reine097/projects/AlexNet_Abrol2021/src/"
 
-# Run with Aug=18 configuration
 /users/9/reine097/projects/loes-scoring-2/.venv/bin/python /users/9/reine097/projects/loes-scoring-2/src/dcan/training/logistic_regression.py \
     --csv-input-file  "/users/9/reine097/projects/loes-scoring-2/data/logistic_regression_data.csv" \
     --csv-output-file "/users/9/reine097/projects/loes-scoring-2/doc/models/logistic_regression/model01/predictions.csv" \
-    --model-save-location "./model_test.pt" \
+    --model-save-location "/home/feczk001/shared/data/LoesScoring/logistic_regression/model01.pt" \
     --batch-size "4" \
     --epochs "50" \
     --features "scan" \
-    --target "has_ald" \
+    --target "cald_develops" \
      --folder "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/" \
   --use_train_validation_cols \
     --model-type "resnet3d" \
-    --lr "0.01" \
+    --lr "0.001" \
     --weight-decay "0.001" \
     --threshold "0.795" \
     --augment-minority \
     --num-augmentations 3 \
-    --plot-location "/users/9/reine097/projects/loes-scoring-2/doc/logistic_regression"
+    --plot-location "/users/9/reine097/projects/loes-scoring-2/doc/models/logistic_regression/model01/roc"

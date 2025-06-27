@@ -2,6 +2,81 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "training test: Python Debugger",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/regression/training.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--csv-input-file",
+                "/users/9/reine097/projects/loes-scoring-2/data/regression.csv",
+                "--batch-size",
+                "1",
+                "--num-workers",
+                "1",
+                "--epochs",
+                "1",
+                "--model-save-location",
+                "temp.pt",
+                "--plot-location",
+                "temp.png",
+                "--csv-output-file",
+                "./temp.csv",
+                "--gd",
+                "0",
+                "--folder",
+                "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/",
+                "--scheduler",
+                "onecycle",
+                "--DEBUG",
+                "--split-strategy", "stratified"
+            ],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"
+            }
+        },
+        {
+            "name": "logistic_regression: test",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "src/dcan/training/logistic_regression.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--csv-input-file",
+                "data/logistic_regression_data_test.csv",
+                "--csv-output-file",
+                "predictions.csv",
+                "--batch-size",
+                "4",
+                "--epochs",
+                "2",
+                "--features",
+                "scan",
+                "--target",
+                "has_ald",
+                "--DEBUG",
+                "--folder",
+                "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/",
+                "--use_train_validation_cols",
+                "--model-type",
+                "resnet3d",
+                "--lr",
+                "0.0005",
+                "--weight-decay",
+                "0.001",
+                "--threshold",
+                "0.3228",
+                "--augment-minority",
+                "--plot-location",
+                "/users/9/reine097/projects/loes-scoring-2/doc/logistic_regression/img",
+                "--num-workers",
+                "0"
+            ],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"
+            }
+        },
+        {
             "name": "training",
             "program": "src/dcan/regression/training.py",
             "type": "debugpy",
@@ -44,47 +119,6 @@
             ],
             "env": {
                 "PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${workspaceFolder}$/test{pathSeparator}${env:PYTHONPATH}"
-            }
-        },
-        {
-            "name": "logistic_regression: test",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "src/dcan/training/logistic_regression.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--csv-input-file",
-                "data/logistic_regression_data_test.csv",
-                "--csv-output-file",
-                "predictions.csv",
-                "--batch-size",
-                "4",
-                "--epochs",
-                "2",
-                "--features",
-                "scan",
-                "--target",
-                "has_ald",
-                "--DEBUG",
-                "--folder",
-                "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/",
-                "--use_train_validation_cols",
-                "--model-type",
-                "resnet3d",
-                "--lr",
-                "0.0005",
-                "--weight-decay",
-                "0.001",
-                "--threshold",
-                "0.3228",
-                "--augment-minority",
-                "--plot-location",
-                "/users/9/reine097/projects/loes-scoring-2/doc/logistic_regression/img",
-                "--num-workers",
-                "0"
-            ],
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"
             }
         },
         {
@@ -292,75 +326,6 @@
                 "mni_icbm152_csf_tal_nlin_sym_09a.nii",
                 "mni_icbm152_csf_tal_nlin_sym_09a_int_rounded_0_9.nii",
                 "0.9"
-            ],
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"
-            }
-        },
-        {
-            "name": "training: Python Debugger",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/training/training.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--csv-data-file",
-                "/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes_training_test_non_gd.csv",
-                "--batch-size",
-                "1",
-                "--num-workers",
-                "1",
-                "--epochs",
-                "256",
-                "--model-save-location",
-                "/home/feczk001/shared/data/AlexNet/LoesScoring/loes_scoring.pt",
-                "--output-csv-file",
-                "/users/9/reine097/projects/loes-scoring-2/data/filtered/model_out.csv",
-                "--gd",
-                "0",
-                "--folder",
-                "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/",
-                "--use-train-validation-cols",
-                "--csv-output-file",
-                "/users/9/reine097/projects/loes-scoring-2/doc/models/model12/model.csv",
-                "--plot-location",
-                "/users/9/reine097/projects/loes-scoring-2/doc/models/model12/model.png",
-                "--model",
-                "ResNet"
-            ],
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"
-            }
-        },
-        {
-            "name": "training test: Python Debugger",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/regression/training.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--csv-input-file",
-                "/users/9/reine097/projects/loes-scoring-2/data/regression.csv",
-                "--batch-size",
-                "1",
-                "--num-workers",
-                "1",
-                "--epochs",
-                "1",
-                "--model-save-location",
-                "temp.pt",
-                "--plot-location",
-                "temp.png",
-                "--csv-output-file",
-                "./temp.csv",
-                "--gd",
-                "0",
-                "--folder",
-                "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/",
-                "--scheduler",
-                "onecycle",
-                "--DEBUG",
-                "--split-strategy", "stratified"
             ],
             "env": {
                 "PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"

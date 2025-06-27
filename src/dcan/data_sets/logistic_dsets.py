@@ -28,7 +28,7 @@ class CandidateInfoTuple:
     file_path: str
     subject_str: str
     session_str: str
-    has_ald: int  
+    cald_develops: int  
     augmentation_index: int = None
     sort_index: float = field(init=False, repr=False)
 
@@ -79,13 +79,13 @@ def append_candidate(folder, candidate_info_list, row):
     file_name = f"{subject_str}_{session_str}_space-MNI_brain_mprage_RAVEL.nii.gz"
     file_path = os.path.join(folder, file_name)
     loes_score_float = float(row['loes-score'])
-    has_ald = int(row['has_ald'])
+    cald_develops = int(row['cald_develops'])
     candidate_info_list.append(CandidateInfoTuple(
         loes_score_float,
         file_path,
         subject_str,
         session_str,
-        has_ald
+        cald_develops
     ))
 
 
@@ -185,12 +185,11 @@ class LoesScoreDataset(Dataset):
 
     def __getitem__(self, ndx):
         candidate_info = self.candidateInfo_list[ndx]
-        # TODO Possibly handle other file types such as diffusion-weighted sequences
         candidate_a = get_mri_raw_candidate(candidate_info, self.is_val_set_bool)
         candidate_t = candidate_a.to(torch.float32)
 
         loes_score = candidate_info.loes_score_float
-        has_ald = candidate_info.has_ald
-        has_ald_t = torch.tensor(has_ald, dtype=torch.float32)
+        cald_develops = candidate_info.cald_develops
+        cald_develops_t = torch.tensor(cald_develops, dtype=torch.float32)
 
-        return candidate_t, has_ald_t, candidate_info.subject_str, candidate_info.session_str
+        return candidate_t, cald_develops_t, candidate_info.subject_str, candidate_info.session_str

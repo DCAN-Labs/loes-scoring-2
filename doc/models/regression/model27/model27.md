@@ -4,7 +4,7 @@
 ![Model 27](model27.png "Model 27")
 * SLURM script: [*loes-scoring-training_model_agate_27.sh*](../../../bin/training/loes-scoring-training_model_agate_27.sh)
 * output_csv: [*model27.csv*](model27.csv)
-* model: **/home/feczk001/shared/data/LoesScoring/loes_scoring_27.pt**
+* model: */home/feczk001/shared/data/LoesScoring/loes_scoring_27.pt*
 * standardized_rmse: 0.6359392229708403
 * correlation_coefficient: 0.8350017989179795
 * Pearson correlation p-value: 6.847451972747865e-16

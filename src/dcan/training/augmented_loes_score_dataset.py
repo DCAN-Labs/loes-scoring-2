@@ -33,7 +33,7 @@ class AugmentedLoesScoreDataset(LoesScoreDataset):
             minority_candidates = []
             
             for candidate in self.candidateInfo_list:
-                if not candidate.has_ald:  
+                if not candidate.cald_develops:  
                     minority_candidates.append(candidate)
             
             log.info(f"Found {len(minority_candidates)} minority class samples in dataset")
@@ -80,6 +80,6 @@ class AugmentedLoesScoreDataset(LoesScoreDataset):
             aug_tensor = aug_tensor.to(torch.float32)
             
             # Create label
-            has_ald = torch.tensor(0.0, dtype=torch.float32)  # Always 0 for minority class
+            cald_develops = torch.tensor(0.0, dtype=torch.float32)  # Always 0 for minority class
             
-            return aug_tensor, has_ald, aug_candidate.subject_str, aug_candidate.session_str
+            return aug_tensor, cald_develops, aug_candidate.subject_str, aug_candidate.session_str
