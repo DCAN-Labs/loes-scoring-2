@@ -975,9 +975,6 @@ class LogisticRegressionApp:
         log.info(f"Training completed. Best pAUC: {best_pauc:.4f} at epoch {best_epoch}")
         log.info(f"Optimal threshold for F1: {best_threshold:.4f}")
 
-        # Plot threshold optimization results
-        self.plot_threshold_optimization_results(epoch_metrics, fold_idx=fold_idx)
-
         # Return metrics from the best epoch
         return_metrics = {
             'optimal_threshold_for_f1': best_threshold,
@@ -996,55 +993,6 @@ class LogisticRegressionApp:
         }
         
         return return_metrics        
-    
-    def plot_threshold_optimization_results(self, epoch_metrics, fold_idx=None):
-        """Plot threshold optimization results over epochs"""
-        import matplotlib.pyplot as plt
-        
-        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-        
-        epochs = list(range(1, len(epoch_metrics['thresholds']) + 1))
-        
-        # Plot threshold evolution
-        axes[0, 0].plot(epochs, epoch_metrics['thresholds'], 'b-', marker='o')
-        axes[0, 0].set_xlabel('Epoch')
-        axes[0, 0].set_ylabel('Optimal Threshold')
-        axes[0, 0].set_title('Threshold Evolution')
-        axes[0, 0].grid(True)
-    
-        # Plot pAUC evolution
-        axes[0, 1].plot(epochs, epoch_metrics['paucs'], 'r-', marker='o')
-        axes[0, 1].set_xlabel('Epoch')
-        axes[0, 1].set_ylabel('pAUC')
-        axes[0, 1].set_title('pAUC Evolution')
-        axes[0, 1].grid(True)
-        
-        # Plot F1 score evolution
-        axes[1, 0].plot(epochs, epoch_metrics['f1_scores'], 'g-', marker='o')
-        axes[1, 0].set_xlabel('Epoch')
-        axes[1, 0].set_ylabel('F1 Score')
-        axes[1, 0].set_title('F1 Score Evolution')
-        axes[1, 0].grid(True)
-        
-        # Plot accuracy evolution
-        axes[1, 1].plot(epochs, epoch_metrics['accuracies'], 'm-', marker='o')
-        axes[1, 1].set_xlabel('Epoch')
-        axes[1, 1].set_ylabel('Accuracy')
-        axes[1, 1].set_title('Accuracy Evolution')
-        axes[1, 1].grid(True)
-        
-        plt.tight_layout()
-        
-        # Save plot
-        if self.config.plot_location:
-            base_plot_path = os.path.splitext(self.config.plot_location)[0]
-            if fold_idx is not None:
-                plot_path = f"{base_plot_path}_threshold_optimization_fold{fold_idx+1}.png"
-            else:
-                plot_path = f"{base_plot_path}_threshold_optimization.png"
-        
-            plt.savefig(plot_path)
-            log.info(f"Threshold optimization plot saved to {plot_path}")
 
     def _setup_scheduler(self):
         """
