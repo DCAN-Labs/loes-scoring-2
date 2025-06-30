@@ -11,3 +11,6 @@ See [regression](/doc/regression.md).
 
 ## Early detection of cerebral ALD
 See ["Early Detection"](/doc/early_detection.md).
+
+## Saliency mapping
+See ["Saliency mapping"](/doc/saliency_mapping.md)
