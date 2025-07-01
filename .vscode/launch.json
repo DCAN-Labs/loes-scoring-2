@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "training test: Python Debugger",
+            "name": "regression training test: Python Debugger",
             "type": "debugpy",
             "request": "launch",
             "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/regression/training.py",
@@ -43,7 +43,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--csv-input-file",
-                "data/logistic_regression_data_test.csv",
+                "data/logistic_regression_data.csv",
                 "--csv-output-file",
                 "predictions.csv",
                 "--batch-size",
@@ -53,7 +53,7 @@
                 "--features",
                 "scan",
                 "--target",
-                "has_ald",
+                "cald_develops",
                 "--DEBUG",
                 "--folder",
                 "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/",

@@ -12,6 +12,8 @@ from torch.optim import Adam, SGD
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingLR, OneCycleLR
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
 
 from dcan.data_sets.dsets import LoesScoreDataset
 from dcan.inference.make_predictions import add_predicted_values, compute_standardized_rmse, create_correlation_coefficient, create_scatter_plot, get_validation_info
@@ -85,7 +87,13 @@ class DataHandler:
         if self.use_cuda:
             batch_size *= torch.cuda.device_count()
 
-        return DataLoader(dataset, batch_size=batch_size, num_workers=self.num_workers, pin_memory=self.use_cuda)
+        dataloader = \
+            DataLoader(
+                dataset, batch_size=batch_size, shuffle=True, 
+                num_workers=self.num_workers, pin_memory=self.use_cuda)
+
+        return dataloader
+
 
 # Model Handler Class to manage model operations
 class ModelHandler:
@@ -433,7 +441,9 @@ class LoesScoringTrainingApp:
 
         input_csv_location = self.config.csv_input_file
         subjects, sessions, actual_scores, predict_vals = \
-            get_validation_info(self.config.model, self.config.model_save_location, input_csv_location, self.val_subjects)
+            get_validation_info(
+                self.config.model, self.config.model_save_location, 
+                input_csv_location, self.val_subjects, self.config.folder)
         
         output_csv_location = self.config.csv_output_file
         output_df = add_predicted_values(subjects, sessions, predict_vals, input_csv_location)

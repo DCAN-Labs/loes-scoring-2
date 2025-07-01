@@ -1,12 +1,11 @@
 import copy
 import logging
 import sys
+import numpy as np
 
 import torch
 from dcan.data_sets.logistic_dsets import LoesScoreDataset, get_mri_raw_candidate
 from dcan.training.mri_augmenter import MRIAugmenter
-
-
 
 # Configure logging
 logging.basicConfig(
@@ -17,6 +16,19 @@ logging.basicConfig(
     ]
 )
 log = logging.getLogger(__name__)
+
+
+def ensure_tensor_compatible(array):
+    """
+    Ensure a numpy array is compatible with PyTorch tensor conversion.
+    Fixes negative strides and ensures contiguous memory layout.
+    """
+    if isinstance(array, np.ndarray):
+        # Check if array has negative strides or is not contiguous
+        if not array.flags['C_CONTIGUOUS'] or any(s < 0 for s in array.strides):
+            log.debug("Array has negative strides or is not contiguous, making copy")
+            return np.ascontiguousarray(array)
+    return array
 
 
 class AugmentedLoesScoreDataset(LoesScoreDataset):
@@ -45,18 +57,39 @@ class AugmentedLoesScoreDataset(LoesScoreDataset):
             self.augmented_candidates = []
             
             for candidate in minority_candidates:
-                # Load original MRI
-                mri_tensor = get_mri_raw_candidate(candidate, is_val_set_bool)
-                
-                # Create augmented versions
-                augmented_tensors = self.augmenter.augment(mri_tensor)
-                
-                # Create new candidate info tuples for augmented samples
-                for i, aug_tensor in enumerate(augmented_tensors):
-                    # Create a copy of the original candidate info
-                    aug_candidate = copy.deepcopy(candidate)
-                    aug_candidate.augmentation_index = i
-                    self.augmented_candidates.append((aug_candidate, aug_tensor))
+                try:
+                    # Load original MRI
+                    mri_tensor = get_mri_raw_candidate(candidate, is_val_set_bool)
+                    
+                    # Convert to numpy if it's a tensor, ensuring it's contiguous
+                    if torch.is_tensor(mri_tensor):
+                        mri_numpy = mri_tensor.cpu().numpy()
+                        mri_numpy = ensure_tensor_compatible(mri_numpy)
+                    else:
+                        mri_numpy = ensure_tensor_compatible(mri_tensor)
+                    
+                    # Create augmented versions
+                    augmented_tensors = self.augmenter.augment(mri_numpy)
+                    
+                    # Create new candidate info tuples for augmented samples
+                    for i, aug_tensor in enumerate(augmented_tensors):
+                        # Ensure the augmented tensor is compatible
+                        if isinstance(aug_tensor, np.ndarray):
+                            aug_tensor = ensure_tensor_compatible(aug_tensor)
+                            aug_tensor = torch.from_numpy(aug_tensor)
+                        elif torch.is_tensor(aug_tensor):
+                            # If it's already a tensor, ensure it doesn't have issues
+                            if not aug_tensor.is_contiguous():
+                                aug_tensor = aug_tensor.contiguous()
+                        
+                        # Create a copy of the original candidate info
+                        aug_candidate = copy.deepcopy(candidate)
+                        aug_candidate.augmentation_index = i
+                        self.augmented_candidates.append((aug_candidate, aug_tensor))
+                        
+                except Exception as e:
+                    log.error(f"Failed to create augmented samples for candidate {candidate.subject_str}: {e}")
+                    continue
             
             log.info(f"Created {len(self.augmented_candidates)} augmented minority samples")
     
@@ -76,7 +109,9 @@ class AugmentedLoesScoreDataset(LoesScoreDataset):
             aug_idx = idx - len(self.candidateInfo_list)
             aug_candidate, aug_tensor = self.augmented_candidates[aug_idx]
             
-            # Convert tensor to correct type
+            # Convert tensor to correct type and ensure it's contiguous
+            if not aug_tensor.is_contiguous():
+                aug_tensor = aug_tensor.contiguous()
             aug_tensor = aug_tensor.to(torch.float32)
             
             # Create label

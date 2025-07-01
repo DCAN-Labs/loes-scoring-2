@@ -5,10 +5,14 @@ import os
 import random
 
 import torch
-import torchio as tio
 from dataclasses import dataclass, field
 from torch.utils.data import Dataset
 from typing import List
+from torch.utils.data import DataLoader
+import nibabel as nib
+import numpy as np
+from scipy import ndimage
+
 
 from util.disk import getCache
 
@@ -102,33 +106,81 @@ def get_subject_session_info(row, partial_loes_scores, anatomical_region):
     return session_str, subject_session_uid, subject_str, loes_score
 
 
+def z_normalize(image, mask=None):
+    """Z-normalization (standardization) of image data"""
+    if mask is not None:
+        masked_data = image[mask > 0]
+        mean = np.mean(masked_data)
+        std = np.std(masked_data)
+    else:
+        mean = np.mean(image)
+        std = np.std(image)
+    
+    if std == 0:
+        return image - mean
+    return (image - mean) / std
+
+
+def random_flip_lr(image, prob=0.5):
+    """Random left-right flip"""
+    if np.random.random() < prob:
+        return np.flip(image, axis=0)  # Assuming first axis is left-right
+    return image
+
+
+def random_affine_transform(image, prob=0.8):
+    """Simple random affine transformation using scipy"""
+    if np.random.random() > prob:
+        return image
+    
+    # Small random rotation (in degrees)
+    angle = np.random.uniform(-5, 5)
+    
+    # Small random translation
+    translation = [np.random.uniform(-2, 2) for _ in range(3)]
+    
+    # Apply rotation around center
+    for axis in [(0, 1), (0, 2), (1, 2)]:
+        if np.random.random() < 0.3:  # 30% chance for each axis pair
+            image = ndimage.rotate(image, angle, axes=axis, reshape=False, order=1)
+    
+    # Apply translation
+    image = ndimage.shift(image, translation, order=1)
+    
+    return image
+
+
 class LoesScoreMRIs:
     def __init__(self, candidate_info, is_val_set_bool):
         mprage_path = candidate_info.path_to_file
-        mprage_image = tio.ScalarImage(mprage_path)
-        if is_val_set_bool:
-            transform = tio.Compose([
-                tio.ToCanonical(),
-                tio.ZNormalization(masking_method=tio.ZNormalization.mean),
-            ])
-        else:
-            transform = tio.Compose([
-                tio.ToCanonical(),
-                tio.ZNormalization(masking_method=tio.ZNormalization.mean),
-                tio.RandomFlip(axes='LR'),
-                tio.OneOf({
-                    tio.RandomAffine(): 0.8,
-                    tio.RandomElasticDeformation(): 0.2,
-                })
-            ])
-        transformed_mprage_image = transform(mprage_image)
-        self.mprage_image_tensor = transformed_mprage_image.data
-
+        
+        # Load NIfTI file using nibabel instead of TorchIO
+        nii_img = nib.load(mprage_path)
+        image_data = nii_img.get_fdata()
+        
+        # Convert to float32 and ensure it's a numpy array
+        image_data = np.array(image_data, dtype=np.float32)
+        
+        # Z-normalization (equivalent to tio.ZNormalization)
+        image_data = z_normalize(image_data)
+        
+        # Apply augmentations only for training
+        if not is_val_set_bool:
+            # Random left-right flip (equivalent to tio.RandomFlip(axes='LR'))
+            image_data = random_flip_lr(image_data)
+            
+            # Random affine or elastic deformation (simplified version)
+            if np.random.random() < 0.8:
+                image_data = random_affine_transform(image_data)
+            # Note: Elastic deformation is more complex without TorchIO
+        
+        # Convert to torch tensor and add channel dimension
+        self.mprage_image_tensor = torch.from_numpy(image_data).unsqueeze(0)  # Add channel dim
         self.subject_session_uid = candidate_info
 
     def get_raw_candidate(self):
         return self.mprage_image_tensor
-
+    
 
 @functools.lru_cache(1, typed=True)
 def get_loes_score_mris(candidate_info, is_val_set_bool):
@@ -182,7 +234,6 @@ class LoesScoreDataset(Dataset):
 
     def __getitem__(self, ndx):
         candidate_info = self.candidateInfo_list[ndx]
-        # TODO Possibly handle other file types such as diffusion-weighted sequences
         candidate_a = get_mri_raw_candidate(candidate_info, self.is_val_set_bool)
         candidate_t = candidate_a.to(torch.float32)
 

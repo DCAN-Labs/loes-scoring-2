@@ -46,6 +46,9 @@ The code trains a ResNet model to automatically predict Loes scores from MRI ima
 * Statistics (written to the log file)
 * Plot of actual versus predicted Loes scores for scans in the validation set.
 
+## Predictions:
+See [make_predictions.py](../src/dcan/inference/make_predictions.py).
+
 ## How it works:
 ### 1. Architecture & Organization
 The code is structured using several key classes:

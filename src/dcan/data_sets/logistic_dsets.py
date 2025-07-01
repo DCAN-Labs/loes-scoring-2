@@ -5,7 +5,6 @@ import os
 import random
 
 import torch
-import torchio as tio
 from dataclasses import dataclass, field
 from torch.utils.data import Dataset
 from typing import List

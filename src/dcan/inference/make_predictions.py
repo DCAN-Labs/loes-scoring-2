@@ -4,12 +4,13 @@ import sys
 import pandas as pd
 import statistics
 import torch
-import torchio as tio
 import matplotlib.pyplot as plt
 import numpy as np
 
 import glob
 import os
+import torch.nn.functional as F
+import nibabel as nib
 
 from dcan.inference.models import AlexNet3D
 from dcan.models.ResNet import get_resnet_model
@@ -35,31 +36,49 @@ def load_model(model_name, model_save_location, device='cpu'):
     return model
     
 
-def predict(row):
+def predict(row, data_folder):
     subject = row['anonymized_subject_id']
     session = row['anonymized_session_id']
-    mprage_path = f'/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready/{subject}_{session}_space-MNI_brain_mprage_RAVEL.nii.gz'
+    mprage_path = f'{data_folder}/{subject}_{session}_space-MNI_brain_mprage_RAVEL.nii.gz'
     mprage_image_tensor = get_image_tensor(mprage_path)
     value = mprage_image_tensor.unsqueeze(0)
 
     return value
 
+def z_normalize(image, mask=None):
+    """Z-normalization (standardization) of image data"""
+    if mask is not None:
+        masked_data = image[mask > 0]
+        mean = np.mean(masked_data)
+        std = np.std(masked_data)
+    else:
+        mean = np.mean(image)
+        std = np.std(image)
+    
+    if std == 0:
+        return image - mean
+    return (image - mean) / std
+
+
 def get_image_tensor(mprage_path):
-    mprage_image = tio.ScalarImage(mprage_path)
-    transform = tio.Compose([
-        tio.ToCanonical(),
-        tio.ZNormalization(masking_method=tio.ZNormalization.mean),
-    ])
-    transformed_mprage_image = transform(mprage_image)
-    mprage_image_tensor = transformed_mprage_image.data
+    # Load NIfTI file using nibabel instead of TorchIO
+    nii_img = nib.load(mprage_path)
+    image_data = nii_img.get_fdata()
+    
+    # Convert to float32 and ensure it's a numpy array
+    image_data = np.array(image_data, dtype=np.float32)
+    
+    # Z-normalization (equivalent to tio.ZNormalization with mean masking)
+    image_data = z_normalize(image_data)
+    
+    # Convert to torch tensor and add channel dimension
+    mprage_image_tensor = torch.from_numpy(image_data).unsqueeze(0)  # Add channel dim
+    
+    # Move to CPU (though it's already on CPU)
     input_g = mprage_image_tensor.to('cpu', non_blocking=True)
-    # TODO Fix.  Should not do unsqueeze here. 
-    # batch_tensor = input_g.unsqueeze(0)
     
     return input_g
 
-
-import torch.nn.functional as F
 
 def compute_rmse(predictions, actuals):
     predictions_tensor = torch.tensor(predictions, dtype=torch.float32)
@@ -68,7 +87,7 @@ def compute_rmse(predictions, actuals):
     return torch.sqrt(mse).item()
 
 
-def get_validation_info(model_type, model_save_location, input_csv_location, val_subjects):
+def get_validation_info(model_type, model_save_location, input_csv_location, val_subjects, data_folder):
     model = load_model(model_type, model_save_location, device='cpu')
 
     df = pd.read_csv(input_csv_location)
@@ -78,7 +97,7 @@ def get_validation_info(model_type, model_save_location, input_csv_location, val
     sessions = list(output_df['anonymized_session_id'])
     actual_scores = list(output_df['loes-score'])
     with torch.no_grad():
-        inputs = list(output_df.apply(predict, axis=1))
+        inputs = list(output_df.apply(predict, axis=1, args=(data_folder,)))
 
         predictions = [model(input) for input in inputs]
         predict_vals = [p[0].item() for p in predictions]

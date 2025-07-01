@@ -1,6 +1,12 @@
 # Not deadwood
 
-* dcan/explainability/captum.py
+* dcan/data_sets/dsets.py
+* dcan/eda/create_individual_histograms_of_images.py
+* dcan/inference/make_predictions.py
+* dcan/image_normalization/create_brain_masked_files.py
+* dcan/image_normalization/create_brain_masked_files_from_csv.py
+* dcan/image_normalization/mask_in_csf.py
 * dcan/regression/training.py
-* dcan/tensor_board/class_activation_mapping.py
 * dcan/training/logistic_regression.py
+* util/disk.py
+* util/util.py

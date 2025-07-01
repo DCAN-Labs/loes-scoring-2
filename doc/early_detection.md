@@ -22,12 +22,28 @@ The system trains neural networks to automatically detect ALD (a rare genetic br
 
         sbatch create_early_detection_model.sh 
 
-4. You should get results similar to this:
+4. You should get results similar to this in the log file:
 
-* standardized_rmse: CHANGEME
-* correlation_coefficient: CHANGEME
-* Pearson correlation p-value: CHANGEME
-* Spearman correlation p-value: CHANGEME
+### CROSS-VALIDATION RESULTS WITH ROC ANALYSIS
+* Accuracy: 0.3686 +- 0.1885
+* Precision: 0.7192 +- 0.3600
+* Ppv: 0.7192 +- 0.3600
+* Recall: 0.2033 +- 0.1155
+* F1: 0.3144 +- 0.1706
+* Auc: 0.4845 +- 0.2564
+* Sensitivity: 0.2033 +- 0.1155
+* Specificity: 0.7468 +- 0.3737
+* Pauc: 0.1369 +- 0.0910
+
+### ROC CURVE STATISTICS:
+* AUC per fold: ['0.5000', '0.5000', '0.5000', '0.5000', '0.5000']
+* Mean AUC: 0.5000 +- 0.0000
+* Min AUC: 0.5000
+* Max AUC: 0.5000
+
+You will also find a plot saved if you specified the `--plot` argument.  It should look something like this.
+
+![ROC plot](../doc/models/logistic_regression/model00/combined_roc_cv.png "ROC plot")
 
 ## How it works:
 

@@ -5,7 +5,6 @@ import os
 import random
 
 import torch
-import torchio as tio
 from dataclasses import dataclass, field
 from torch.utils.data import Dataset
 from typing import List
@@ -125,8 +124,14 @@ class LoesScoreMRIs:
         self.mprage_image_tensor = transformed_mprage_image.data
 
         self.subject_session_uid = candidate_info
+                
+        # Extract pure tensor data
+        self.mprage_image_tensor = transformed_mprage_image.data.clone().detach()
+        self.subject_session_uid = candidate_info
+
 
     def get_raw_candidate(self):
+        # Return pure PyTorch tensor, not TorchIO object
         return self.mprage_image_tensor
 
 
@@ -183,7 +188,12 @@ class LoesScoreDataset(Dataset):
     def __getitem__(self, ndx):
         candidate_info = self.candidateInfo_list[ndx]
         candidate_a = get_mri_raw_candidate(candidate_info, self.is_val_set_bool)
-        candidate_t = candidate_a.to(torch.float32)
+    
+        # Safety check: ensure pure tensor
+        if hasattr(candidate_a, 'data'):
+            candidate_t = candidate_a.data.to(torch.float32)
+        else:
+            candidate_t = candidate_a.to(torch.float32)
 
         loes_score = candidate_info.loes_score_float
         loes_score_t = torch.tensor(loes_score, dtype=torch.float32)
