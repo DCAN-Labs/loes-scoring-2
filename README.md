@@ -1,16 +1,16 @@
 # loes-scoring
 Code for automated Loes scoring.
 
-## Preprocessing data
+## 1. Preprocessing data
 
 See [jfortin1 / RAVEL](https://github.com/Jfortin1/RAVEL) for information on RAVEL.
-See [SOP.md](doc/SOP.md) for useage.
+See [SOP.md](doc/SOP/SOP.md) for useage.
 
-## Automated Loes scoring
+## 2. Automated Loes scoring
 See [regression](/doc/regression.md).
 
-## Early detection of cerebral ALD
+## 3. Early detection of cerebral ALD
 See ["Early Detection"](/doc/early_detection.md).
 
-## Saliency mapping
+## 4. Saliency mapping
 See ["Saliency mapping"](/doc/saliency_mapping.md)
