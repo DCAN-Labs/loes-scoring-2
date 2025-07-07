@@ -175,7 +175,7 @@ class LoesScoreMRIs:
             # Note: Elastic deformation is more complex without TorchIO
         
         # Convert to torch tensor and add channel dimension
-        self.mprage_image_tensor = torch.from_numpy(image_data).unsqueeze(0)  # Add channel dim
+        self.mprage_image_tensor = torch.from_numpy(image_data.copy()).unsqueeze(0)  # Add channel dim
         self.subject_session_uid = candidate_info
 
     def get_raw_candidate(self):
