@@ -49,6 +49,10 @@ The code trains a ResNet model to automatically predict Loes scores from MRI ima
 ## Predictions:
 See [make_predictions.py](../src/dcan/inference/make_predictions.py).
 
+## TensorBoard
+You might want to run TensorBoard.  There is a [script](../scripts/run_tensorboard.sh) available to run it.  The `--logdir` argument must be set for TensorBoard and the `--tb-run-dir` should be set to
+the same value when calling training.
+
 ## How it works:
 ### 1. Architecture & Organization
 The code is structured using several key classes:
