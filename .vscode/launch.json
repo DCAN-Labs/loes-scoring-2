@@ -15,7 +15,7 @@
                 "--num-workers",
                 "1",
                 "--epochs",
-                "1",
+                "8",
                 "--model-save-location",
                 "temp.pt",
                 "--plot-location",
@@ -29,7 +29,8 @@
                 "--scheduler",
                 "onecycle",
                 "--DEBUG",
-                "--split-strategy", "stratified"
+                "--split-strategy", "stratified",
+                "--tb-run-dir", "/users/9/reine097/projects/loes-scoring-2/runs/loes_scoring"
             ],
             "env": {
                 "PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"

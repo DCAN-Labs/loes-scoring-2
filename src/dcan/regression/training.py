@@ -67,6 +67,7 @@ class Config:
                                 help='Strategy for train/validation split')
         self.parser.add_argument('--random-seed', default=42, type=int, help='Random seed for reproducible splits')
         self.parser.add_argument('--DEBUG', action='store_true', help='Set this flag to run in debug mode')
+        self.parser.add_argument('--tb-run-dir', default='runs', help="Tensorboard log directory.")
 
     def parse_args(self, sys_argv: list[str]) -> argparse.Namespace:
         return self.parser.parse_args(sys_argv)
@@ -319,6 +320,7 @@ class LoesScoringTrainingApp:
         self.device = torch.device("cuda" if torch.cuda.is_available() and not self.config.DEBUG else "cpu")
         self.model_handler = ModelHandler(self.config.model, self.use_cuda, self.device)
         self.optimizer = self._init_optimizer()
+        self.tb_run_dir = self.config.tb_run_dir
 
         self.input_df = pd.read_csv(self.config.csv_input_file)
         self.output_df = self.input_df.copy()
@@ -329,7 +331,7 @@ class LoesScoringTrainingApp:
         self.folder = self.config.folder
 
         experiment_name = self.create_experiment_name()
-        self.tb_logger = TensorBoardLogger('', '', experiment_name)
+        self.tb_logger = TensorBoardLogger(self.tb_run_dir, self.time_str, experiment_name)
 
     def create_experiment_name(self):
         """Create meaningful experiment name from hyperparameters"""
