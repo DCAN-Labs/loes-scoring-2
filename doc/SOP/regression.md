@@ -15,6 +15,8 @@ Read ["Quick Start Guide"](loes_quick_start_guide.md) for details.
 - Preprocessing requirements
 - Directory structure
 
+See ["Data Preparation Guide"](data_preparation_guide.md) for details.
+
 ## Training Configuration
 - Model selection guide
 - Hyperparameter recommendations
