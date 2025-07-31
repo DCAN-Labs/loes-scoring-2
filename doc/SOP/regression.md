@@ -8,6 +8,8 @@ See ["Loes Score: Medical Context and Clinical Significance"](./loes_score_medic
 2. Run training with minimal configuration
 3. Evaluate results
 
+Read ["Quick Start Guide"](loes_quick_start_guide.md) for details.
+
 ## Data Preparation
 - Expected file formats
 - Preprocessing requirements
