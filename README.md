@@ -1,6 +1,8 @@
 # loes-scoring
 Code for automated Loes scoring.
 
+This is a sophisticated medical AI system designed for clinical research in pediatric neurology, specifically for quantifying white matter disease progression in ALD patients.
+
 ## 1. Preprocessing data
 
 See [jfortin1 / RAVEL](https://github.com/Jfortin1/RAVEL) for information on RAVEL.
