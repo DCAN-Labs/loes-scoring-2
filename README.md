@@ -141,6 +141,11 @@ loes-scoring-2/
 4. **Brain Masking**: Include CSF regions for complete analysis
 5. **Quality Control**: Automated checks for artifacts
 
+#### Automated Preprocessing Scripts
+- **`transform_study_dir_files.sh`**: Batch processes entire study directories, automatically handling all subjects and sessions
+- **`transform_session_files.sh`**: Processes individual subject sessions, applying the full preprocessing pipeline to all NIfTI files
+- Both scripts automatically skip already processed files and handle the complete skull stripping → registration → masking workflow
+
 ### Model Architectures
 
 #### Primary Models
@@ -235,9 +240,14 @@ tensorboard >= 2.14.0
 
 ### 1. Data Preparation
 ```bash
-# Preprocess MRI scans
+# Individual preprocessing steps
 ./scripts/mri_modification/skull_stripping.sh <input_dir>
 ./scripts/mri_modification/affine_registration_wrapper.sh <input> <output>
+
+# Automated batch processing (recommended)
+./scripts/mri_modification/transform_study_dir_files.sh <study_dir> <output_dir>
+# or for single session
+./scripts/mri_modification/transform_session_files.sh <study_dir> <subject> <session> <output_dir>
 ```
 
 ### 2. Model Training
