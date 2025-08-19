@@ -334,7 +334,9 @@ class TestMetricsTracking(unittest.TestCase):
         total_samples = sum(batch_sizes)
         epoch_loss = total_loss / total_samples
         
-        self.assertAlmostEqual(epoch_loss, 0.4133, places=3)
+        # Correct calculation: (0.5*32 + 0.4*32 + 0.6*32 + 0.3*32 + 0.2*16) / 144 = 60.8 / 144 = 0.4222222
+        expected_loss = (0.5*32 + 0.4*32 + 0.6*32 + 0.3*32 + 0.2*16) / 144
+        self.assertAlmostEqual(epoch_loss, expected_loss, places=6)
     
     def test_metrics_logging(self):
         """Test metrics logging structure."""

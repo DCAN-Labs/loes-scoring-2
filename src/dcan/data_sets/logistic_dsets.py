@@ -5,6 +5,7 @@ import os
 import random
 
 import torch
+import torchio as tio
 from dataclasses import dataclass, field
 from torch.utils.data import Dataset
 from typing import List
@@ -16,18 +17,20 @@ log = logging.getLogger(__name__)
 # log.setLevel(logging.INFO)
 log.setLevel(logging.DEBUG)
 
-raw_cache = getCache('loes_score-4')
+raw_cache = getCache("loes_score-4")
 
 THRESHOLD = 0.1
+
 
 @dataclass(order=True)
 class CandidateInfoTuple:
     """Class for keeping track subject/session info."""
+
     loes_score_float: float
     file_path: str
     subject_str: str
     session_str: str
-    cald_develops: int  
+    cald_develops: int
     augmentation_index: int = None
     sort_index: float = field(init=False, repr=False)
 
@@ -46,6 +49,7 @@ class CandidateInfoTuple:
     def path_to_file(self) -> str:
         return self.file_path
 
+
 def get_subject(p):
     return os.path.split(os.path.split(os.path.split(p)[0])[0])[1][4:]
 
@@ -55,7 +59,7 @@ def get_session(p):
 
 
 def get_uid(p):
-    return f'{get_subject(p)}_{get_session(p)}'
+    return f"{get_subject(p)}_{get_session(p)}"
 
 
 def get_candidate_info_list(folder, df, candidates: List[str]):
@@ -63,7 +67,7 @@ def get_candidate_info_list(folder, df, candidates: List[str]):
     df = df.reset_index()  # make sure indexes pair with number of rows
 
     for _, row in df.iterrows():
-        candidate = row['anonymized_subject_id']
+        candidate = row["anonymized_subject_id"]
         if candidate in candidates:
             append_candidate(folder, candidate_info_list, row)
 
@@ -73,30 +77,28 @@ def get_candidate_info_list(folder, df, candidates: List[str]):
 
 
 def append_candidate(folder, candidate_info_list, row):
-    subject_str = row['anonymized_subject_id']
-    session_str = row['anonymized_session_id']
+    subject_str = row["anonymized_subject_id"]
+    session_str = row["anonymized_session_id"]
     file_name = f"{subject_str}_{session_str}_space-MNI_brain_mprage_RAVEL.nii.gz"
     file_path = os.path.join(folder, file_name)
-    loes_score_float = float(row['loes-score'])
-    cald_develops = int(row['cald_develops'])
-    candidate_info_list.append(CandidateInfoTuple(
-        loes_score_float,
-        file_path,
-        subject_str,
-        session_str,
-        cald_develops
-    ))
+    loes_score_float = float(row["loes-score"])
+    cald_develops = int(row["cald_develops"])
+    candidate_info_list.append(
+        CandidateInfoTuple(
+            loes_score_float, file_path, subject_str, session_str, cald_develops
+        )
+    )
 
 
 def get_subject_session_info(row, partial_loes_scores, anatomical_region):
     subject_session_uid = row[1].strip()
-    pos = subject_session_uid.index('_')
-    session_str = subject_session_uid[pos + 1:]
+    pos = subject_session_uid.index("_")
+    session_str = subject_session_uid[pos + 1 :]
     subject_str = row[0]
     session = partial_loes_scores[subject_str][subject_session_uid]
-    if anatomical_region == 'ParietoOccipitalWhiteMatter':
+    if anatomical_region == "ParietoOccipitalWhiteMatter":
         loes_score = session.parieto_occipital_white_matter.get_score()
-    elif anatomical_region == 'all':
+    elif anatomical_region == "all":
         loes_score = session.loes_score
     else:
         assert False
@@ -109,20 +111,26 @@ class LoesScoreMRIs:
         mprage_path = candidate_info.path_to_file
         mprage_image = tio.ScalarImage(mprage_path)
         if is_val_set_bool:
-            transform = tio.Compose([
-                tio.ToCanonical(),
-                tio.ZNormalization(masking_method=tio.ZNormalization.mean),
-            ])
+            transform = tio.Compose(
+                [
+                    tio.ToCanonical(),
+                    tio.ZNormalization(masking_method=tio.ZNormalization.mean),
+                ]
+            )
         else:
-            transform = tio.Compose([
-                tio.ToCanonical(),
-                tio.ZNormalization(masking_method=tio.ZNormalization.mean),
-                tio.RandomFlip(axes='LR'),
-                tio.OneOf({
-                    tio.RandomAffine(): 0.8,
-                    tio.RandomElasticDeformation(): 0.2,
-                })
-            ])
+            transform = tio.Compose(
+                [
+                    tio.ToCanonical(),
+                    tio.ZNormalization(masking_method=tio.ZNormalization.mean),
+                    tio.RandomFlip(axes="LR"),
+                    tio.OneOf(
+                        {
+                            tio.RandomAffine(): 0.8,
+                            tio.RandomElasticDeformation(): 0.2,
+                        }
+                    ),
+                ]
+            )
         transformed_mprage_image = transform(mprage_image)
         self.mprage_image_tensor = transformed_mprage_image.data
 
@@ -146,38 +154,47 @@ def get_mri_raw_candidate(subject_session_uid, is_val_set_bool):
 
 
 class LoesScoreDataset(Dataset):
-    def __init__(self,
-                 folder,
-                 subjects: List[str], df, output_df,
-                 is_val_set_bool=None,
-                 subject=None,
-                 sortby_str='random'
-                 ):
+    def __init__(
+        self,
+        folder,
+        subjects: List[str],
+        df,
+        output_df,
+        is_val_set_bool=None,
+        subject=None,
+        sortby_str="random",
+    ):
         self.is_val_set_bool = is_val_set_bool
-        self.candidateInfo_list = copy.copy(get_candidate_info_list(folder, df, subjects))
+        self.candidateInfo_list = copy.copy(
+            get_candidate_info_list(folder, df, subjects)
+        )
 
         if subject:
             self.candidateInfo_list = [
                 x for x in self.candidateInfo_list if x.subject_str == subject
             ]
 
-        if sortby_str == 'random':
+        if sortby_str == "random":
             random.shuffle(self.candidateInfo_list)
-        elif sortby_str == 'loes_score':
+        elif sortby_str == "loes_score":
             pass
         else:
             raise Exception("Unknown sort: " + repr(sortby_str))
 
-        log.info("{!r}: {} {} samples".format(
-            self,
-            len(self.candidateInfo_list),
-            "validation" if is_val_set_bool else "training",
-        ))
+        log.info(
+            "{!r}: {} {} samples".format(
+                self,
+                len(self.candidateInfo_list),
+                "validation" if is_val_set_bool else "training",
+            )
+        )
         if output_df is not None:
             for candidate_info in self.candidateInfo_list:
-                row_location = (df["anonymized_subject_id"] == candidate_info.subject) & (df["anonymized_session_id"] == candidate_info.session_str)
-                output_df.loc[row_location, 'training'] = 0 if is_val_set_bool else 1
-                output_df.loc[row_location, 'validation'] = 1 if is_val_set_bool else 0
+                row_location = (
+                    df["anonymized_subject_id"] == candidate_info.subject
+                ) & (df["anonymized_session_id"] == candidate_info.session_str)
+                output_df.loc[row_location, "training"] = 0 if is_val_set_bool else 1
+                output_df.loc[row_location, "validation"] = 1 if is_val_set_bool else 0
 
     def __len__(self):
         return len(self.candidateInfo_list)
@@ -191,4 +208,9 @@ class LoesScoreDataset(Dataset):
         cald_develops = candidate_info.cald_develops
         cald_develops_t = torch.tensor(cald_develops, dtype=torch.float32)
 
-        return candidate_t, cald_develops_t, candidate_info.subject_str, candidate_info.session_str
+        return (
+            candidate_t,
+            cald_develops_t,
+            candidate_info.subject_str,
+            candidate_info.session_str,
+        )

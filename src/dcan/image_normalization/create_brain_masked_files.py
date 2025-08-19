@@ -13,7 +13,9 @@ def load_nifti(file_path: Path) -> tuple[nib.Nifti1Image, np.ndarray]:
         raise RuntimeError(f"Error loading NIfTI file: {file_path}. Error: {e}")
 
 
-def apply_mask(image_data: np.ndarray, mask_data: np.ndarray, mask_value: float = 1.0) -> np.ndarray:
+def apply_mask(
+    image_data: np.ndarray, mask_data: np.ndarray, mask_value: float = 1.0
+) -> np.ndarray:
     """Apply a binary mask to the image data."""
     return np.where(np.isclose(mask_data, mask_value, rtol=1e-2), image_data, 0)
 
@@ -21,7 +23,9 @@ def apply_mask(image_data: np.ndarray, mask_data: np.ndarray, mask_value: float 
 def save_nifti(data: np.ndarray, affine: np.ndarray, output_path: Path):
     """Save the NIfTI data to the specified output path."""
     try:
-        output_path.parent.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
+        output_path.parent.mkdir(
+            parents=True, exist_ok=True
+        )  # Ensure the directory exists
         nib.save(nib.Nifti1Image(data, affine), str(output_path))
     except Exception as e:
         raise RuntimeError(f"Error saving NIfTI file: {output_path}. Error: {e}")
@@ -36,10 +40,14 @@ def get_file_identifiers(file_name: str) -> tuple[str, str, str]:
         parts = file_name.split("_")
         subject_id = next(part for part in parts if part.startswith("sub-"))
         session_id = next(part for part in parts if part.startswith("ses-"))
-        run_id = next((part for part in parts if part.startswith("run-")), "run-00")  # Default to "run-00"
+        run_id = next(
+            (part for part in parts if part.startswith("run-")), "run-00"
+        )  # Default to "run-00"
         return subject_id, session_id, run_id
     except Exception as e:
-        raise ValueError(f"Error extracting identifiers from file name: {file_name}. Error: {e}")
+        raise ValueError(
+            f"Error extracting identifiers from file name: {file_name}. Error: {e}"
+        )
 
 
 def validate_file_path(file_path: Path, file_description: str):
@@ -109,7 +117,9 @@ def main(input_dir: str, mask_file: str, output_dir: str):
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
-        print("Usage: python script.py <input_directory> <mask_file> <output_directory>")
+        print(
+            "Usage: python script.py <input_directory> <mask_file> <output_directory>"
+        )
         sys.exit(1)
 
     input_dir, mask_file, output_dir = sys.argv[1:4]

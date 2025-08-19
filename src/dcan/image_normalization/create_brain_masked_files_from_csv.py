@@ -18,7 +18,9 @@ def load_nifti(file_path: Path) -> Tuple[nib.Nifti1Image, np.ndarray]:
         raise RuntimeError(f"Error loading NIfTI file {file_path}: {e}")
 
 
-def apply_mask(image_data: np.ndarray, mask_data: np.ndarray, mask_value: float = 1.0) -> np.ndarray:
+def apply_mask(
+    image_data: np.ndarray, mask_data: np.ndarray, mask_value: float = 1.0
+) -> np.ndarray:
     """
     Apply a binary mask to the image data. Pixels matching `mask_value` in the mask are retained.
     """
@@ -46,12 +48,14 @@ def file_exists(file_path: Path) -> bool:
     return True
 
 
-def process_subject(row: pd.Series, in_file: str, in_dir: Path, mask_file: Path, output_dir: Path) -> None:
+def process_subject(
+    row: pd.Series, in_file: str, in_dir: Path, mask_file: Path, output_dir: Path
+) -> None:
     """
     Process a single subject by applying a mask to their image data and saving the result.
     """
-    subject_id = row['anonymized_subject_id']
-    session_id = row['anonymized_session_id']
+    subject_id = row["anonymized_subject_id"]
+    session_id = row["anonymized_session_id"]
     input_file = f"{subject_id}_{session_id}_space-MNI_brain_{in_file}"
 
     in_path = in_dir / input_file
@@ -79,8 +83,8 @@ def mask_file(row: pd.Series, in_dir: Path, mask_file: Path, output_dir: Path) -
     Apply the mask to the subject's image file if eligible.
     Skips files containing 'Gd' in their name.
     """
-    in_file = row['scan']
-    if 'Gd' in in_file:
+    in_file = row["scan"]
+    if "Gd" in in_file:
         return 0
 
     process_subject(row, in_file, in_dir, mask_file, output_dir)
@@ -103,7 +107,9 @@ def main(input_dir: str, csv_file: str, mask_dir: str, output_dir: str) -> None:
 
     try:
         df = pd.read_csv(csv_file)
-        df['masked'] = df.apply(mask_file, axis=1, args=(input_dir, mask_file, output_dir))
+        df["masked"] = df.apply(
+            mask_file, axis=1, args=(input_dir, mask_file, output_dir)
+        )
     except Exception as e:
         print(f"Critical error: {e}")
         sys.exit(1)
@@ -111,7 +117,9 @@ def main(input_dir: str, csv_file: str, mask_dir: str, output_dir: str) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) != 5:
-        print("Usage: python script.py <input_dir> <csv_file> <mask_directory> <output_directory>")
+        print(
+            "Usage: python script.py <input_dir> <csv_file> <mask_directory> <output_directory>"
+        )
         sys.exit(1)
 
     input_dir, csv_file, mask_dir, output_dir = sys.argv[1:5]

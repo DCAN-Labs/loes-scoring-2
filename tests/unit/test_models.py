@@ -162,8 +162,9 @@ class TestAlexNet3D(unittest.TestCase):
         """Test that gradients can flow through the model."""
         self.model.train()
         
-        # Small input for testing
-        dummy_input = torch.randn(1, 1, 32, 32, 32, requires_grad=True)
+        # Use larger input size that works with AlexNet3D pooling layers
+        # AlexNet3D needs at least 64x64x64 to avoid negative dimensions after pooling
+        dummy_input = torch.randn(1, 1, 91, 109, 91, requires_grad=True)
         
         # Forward pass through features
         features = self.model.features(dummy_input)
@@ -194,7 +195,7 @@ class TestModelDevice(unittest.TestCase):
         self.model.cpu()
         self.model.eval()
         
-        dummy_input = torch.randn(1, 1, 32, 32, 32)
+        dummy_input = torch.randn(1, 1, 91, 109, 91)
         
         # Should not raise an error
         with torch.no_grad():
@@ -207,7 +208,7 @@ class TestModelDevice(unittest.TestCase):
         self.model.cuda()
         self.model.eval()
         
-        dummy_input = torch.randn(1, 1, 32, 32, 32).cuda()
+        dummy_input = torch.randn(1, 1, 91, 109, 91).cuda()
         
         with torch.no_grad():
             features = self.model.features(dummy_input)
@@ -218,13 +219,13 @@ class TestModelDevice(unittest.TestCase):
         self.model.eval()
         
         # Test with float32
-        dummy_input_f32 = torch.randn(1, 1, 32, 32, 32, dtype=torch.float32)
+        dummy_input_f32 = torch.randn(1, 1, 91, 109, 91, dtype=torch.float32)
         features_f32 = self.model.features(dummy_input_f32)
         self.assertEqual(features_f32.dtype, torch.float32)
         
         # Convert model to float64 and test
         self.model.double()
-        dummy_input_f64 = torch.randn(1, 1, 32, 32, 32, dtype=torch.float64)
+        dummy_input_f64 = torch.randn(1, 1, 91, 109, 91, dtype=torch.float64)
         features_f64 = self.model.features(dummy_input_f64)
         self.assertEqual(features_f64.dtype, torch.float64)
 
@@ -239,7 +240,7 @@ class TestModelRobustness(unittest.TestCase):
     
     def test_zero_input(self):
         """Test model with zero input."""
-        zero_input = torch.zeros(1, 1, 32, 32, 32)
+        zero_input = torch.zeros(1, 1, 91, 109, 91)
         
         with torch.no_grad():
             features = self.model.features(zero_input)
@@ -248,7 +249,7 @@ class TestModelRobustness(unittest.TestCase):
     
     def test_ones_input(self):
         """Test model with ones input."""
-        ones_input = torch.ones(1, 1, 32, 32, 32)
+        ones_input = torch.ones(1, 1, 91, 109, 91)
         
         with torch.no_grad():
             features = self.model.features(ones_input)
@@ -257,7 +258,7 @@ class TestModelRobustness(unittest.TestCase):
     
     def test_large_value_input(self):
         """Test model with large input values."""
-        large_input = torch.randn(1, 1, 32, 32, 32) * 1000
+        large_input = torch.randn(1, 1, 91, 109, 91) * 1000
         
         with torch.no_grad():
             features = self.model.features(large_input)
@@ -270,7 +271,7 @@ class TestModelRobustness(unittest.TestCase):
         self.model.eval()
         
         # Single sample
-        single_input = torch.randn(1, 1, 32, 32, 32)
+        single_input = torch.randn(1, 1, 91, 109, 91)
         
         # Batch of same sample repeated
         batch_input = single_input.repeat(4, 1, 1, 1, 1)

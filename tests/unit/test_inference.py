@@ -10,6 +10,7 @@ import numpy as np
 import tempfile
 import os
 import sys
+import pickle
 from unittest.mock import patch, MagicMock, mock_open
 import pandas as pd
 import nibabel as nib

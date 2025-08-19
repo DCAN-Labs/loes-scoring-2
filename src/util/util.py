@@ -1,17 +1,16 @@
-import collections
-import copy
 import datetime
-import gc
 import time
 
 # import torch
 import numpy as np
 
 from util.logconf import logging
+
 log = logging.getLogger(__name__)
 # log.setLevel(logging.WARN)
 # log.setLevel(logging.INFO)
 log.setLevel(logging.DEBUG)
+
 
 def importstr(module_str, from_=None):
     """
@@ -20,18 +19,18 @@ def importstr(module_str, from_=None):
     >>> importstr('math', 'fabs')
     <built-in function fabs>
     """
-    if from_ is None and ':' in module_str:
-        module_str, from_ = module_str.rsplit(':')
+    if from_ is None and ":" in module_str:
+        module_str, from_ = module_str.rsplit(":")
 
     module = __import__(module_str)
-    for sub_str in module_str.split('.')[1:]:
+    for sub_str in module_str.split(".")[1:]:
         module = getattr(module, sub_str)
 
     if from_:
         try:
             return getattr(module, from_)
         except:
-            raise ImportError('{}.{}'.format(module_str, from_))
+            raise ImportError("{}.{}".format(module_str, from_))
     return module
 
 
@@ -89,14 +88,17 @@ def importstr(module_str, from_=None):
 
 def prhist(ary, prefix_str=None, **kwargs):
     if prefix_str is None:
-        prefix_str = ''
+        prefix_str = ""
     else:
-        prefix_str += ' '
+        prefix_str += " "
 
     count_ary, bins_ary = np.histogram(ary, **kwargs)
     for i in range(count_ary.shape[0]):
-        print("{}{:-8.2f}".format(prefix_str, bins_ary[i]), "{:-10}".format(count_ary[i]))
+        print(
+            "{}{:-8.2f}".format(prefix_str, bins_ary[i]), "{:-10}".format(count_ary[i])
+        )
     print("{}{:-8.2f}".format(prefix_str, bins_ary[-1]))
+
 
 # def dumpCuda():
 #     # small_count = 0
@@ -121,12 +123,12 @@ def prhist(ary, prefix_str=None, **kwargs):
 
 
 def enumerateWithEstimate(
-        iter,
-        desc_str,
-        start_ndx=0,
-        print_ndx=4,
-        backoff=None,
-        iter_len=None,
+    iter,
+    desc_str,
+    start_ndx=0,
+    print_ndx=4,
+    backoff=None,
+    iter_len=None,
 ):
     """
     In terms of behavior, `enumerateWithEstimate` is almost identical
@@ -189,48 +191,56 @@ def enumerateWithEstimate(
 
     if backoff is None:
         backoff = 2
-        while backoff ** 7 < iter_len:
+        while backoff**7 < iter_len:
             backoff *= 2
 
     assert backoff >= 2
     while print_ndx < start_ndx * backoff:
         print_ndx *= backoff
 
-    log.warning("{} ----/{}, starting".format(
-        desc_str,
-        iter_len,
-    ))
+    log.warning(
+        "{} ----/{}, starting".format(
+            desc_str,
+            iter_len,
+        )
+    )
     start_ts = time.time()
-    for (current_ndx, item) in enumerate(iter):
+    for current_ndx, item in enumerate(iter):
         yield (current_ndx, item)
         if current_ndx == print_ndx:
             # ... <1>
-            duration_sec = ((time.time() - start_ts)
-                            / (current_ndx - start_ndx + 1)
-                            * (iter_len-start_ndx)
-                            )
+            duration_sec = (
+                (time.time() - start_ts)
+                / (current_ndx - start_ndx + 1)
+                * (iter_len - start_ndx)
+            )
 
             done_dt = datetime.datetime.fromtimestamp(start_ts + duration_sec)
             done_td = datetime.timedelta(seconds=duration_sec)
 
-            log.info("{} {:-4}/{}, done at {}, {}".format(
-                desc_str,
-                current_ndx,
-                iter_len,
-                str(done_dt).rsplit('.', 1)[0],
-                str(done_td).rsplit('.', 1)[0],
-            ))
+            log.info(
+                "{} {:-4}/{}, done at {}, {}".format(
+                    desc_str,
+                    current_ndx,
+                    iter_len,
+                    str(done_dt).rsplit(".", 1)[0],
+                    str(done_td).rsplit(".", 1)[0],
+                )
+            )
 
             print_ndx *= backoff
 
         if current_ndx + 1 == start_ndx:
             start_ts = time.time()
 
-    log.warning("{} ----/{}, done at {}".format(
-        desc_str,
-        iter_len,
-        str(datetime.datetime.now()).rsplit('.', 1)[0],
-    ))
+    log.warning(
+        "{} ----/{}, done at {}".format(
+            desc_str,
+            iter_len,
+            str(datetime.datetime.now()).rsplit(".", 1)[0],
+        )
+    )
+
 
 #
 # try:
