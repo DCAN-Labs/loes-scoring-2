@@ -369,8 +369,11 @@
             "program": "/users/9/reine097/projects/loes-scoring-2/src/dcan/inference/make_predictions.py",
             "console": "integratedTerminal",
             "args": [
-                "/home/feczk001/shared/data/LoesScoring/loes_scoring_18.pt",
-                "MIDB-rp_Model18_predictions.csv"
+                "/home/feczk001/shared/data/LoesScoring/loes_scoring_20.pt",
+                "data/regression_output.csv",
+                "/home/feczk001/shared/projects/S1067_Loes/data/Fairview-ag/05-training_ready",
+                "--file_pattern", "*_RAVEL.nii.gz",
+                "--device", "cpu"
             ],
             "env": {
                 "PYTHONPATH": "${workspaceFolder}$/src{pathSeparator}${env:PYTHONPATH}"

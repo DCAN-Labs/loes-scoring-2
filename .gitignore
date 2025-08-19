@@ -250,3 +250,4 @@ doc/linear_regression_overall_roc_cv.pdf
 doc/linear_regression_overall_roc_cv.png
 doc/logistic_regression/img_overall_roc_cv.pdf
 doc/logistic_regression/img_overall_roc_cv.png
+.github/workflows/claude.yml
