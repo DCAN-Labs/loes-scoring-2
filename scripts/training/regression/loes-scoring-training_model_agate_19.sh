@@ -13,7 +13,7 @@
 #SBATCH -o loes-scoring-alex-net-%j.out
 
 cd /users/9/reine097/projects/loes-scoring-2/src/dcan/training || exit
-export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src:/users/9/reine097/projects/AlexNet_Abrol2021/src/"
+export PYTHONPATH=PYTHONPATH:"/users/9/reine097/projects/loes-scoring-2/src"
 /users/9/reine097/projects/loes-scoring-2/.venv/bin/python \
   /users/9/reine097/projects/loes-scoring-2/src/dcan/training/training.py \
   --csv-input-file "/users/9/reine097/projects/loes-scoring-2/data/anon_train_scans_and_loes_training_test_non_gd.csv" \

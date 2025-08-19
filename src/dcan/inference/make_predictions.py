@@ -382,6 +382,7 @@ def get_filename_from_path(file_path):
 def make_predictions_on_folder(directory_path, file_pattern, model):
     """Generate Loes predictions for all matching MRI files in a directory.
 
+    
     Processes all NIfTI files matching the pattern, extracting subject/session IDs
     from filenames (expected format: <subject>_<session>_*.nii.gz).
 
