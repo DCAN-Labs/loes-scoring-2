@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Context
 
-This is a medical AI system for automated LOES (Loes) scoring from brain MRI scans to assess cerebral adrenoleukodystrophy (ALD) severity. The system predicts scores on a 0-35 scale and performs early disease detection using 3D deep learning models.
+This is a medical AI system for automated Loes scoring from brain MRI scans to assess cerebral adrenoleukodystrophy (ALD) severity. The system predicts scores on a 0-35 scale and performs early disease detection using 3D deep learning models.
 
 ## Essential Commands
 
@@ -34,7 +34,7 @@ python src/dcan/image_normalization/create_brain_masked_files_from_csv.py --csv 
 
 ### Model Training
 ```bash
-# Train regression model (LOES score prediction)
+# Train regression model (Loes score prediction)
 python src/dcan/regression/training.py \
   --csv-input-file data/regression.csv \
   --batch-size 1 \
@@ -60,7 +60,7 @@ python src/dcan/plot/create_scatterplot.py --csv <predictions.csv>
 ## Critical Architecture Patterns
 
 ### Data Flow Architecture
-The system follows a strict pipeline: Raw MRI → Preprocessing → 3D CNN → LOES Score
+The system follows a strict pipeline: Raw MRI → Preprocessing → 3D CNN → Loes Score
 - Input MRIs must be T1-weighted MPRAGE in NIfTI format (.nii.gz)
 - All processing expects MNI152 space registration (182×218×182 voxels)
 - Models consume full 3D volumes, not slices
@@ -136,7 +136,7 @@ model = load_model('path/to/model.pt')
 ```python
 import pandas as pd
 df = pd.read_csv('data/regression.csv')
-# Verify: No null LOES scores, scores in [0, 35], valid file paths
+# Verify: No null Loes scores, scores in [0, 35], valid file paths
 ```
 
 ## Performance Benchmarks

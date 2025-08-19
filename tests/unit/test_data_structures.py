@@ -75,7 +75,7 @@ class TestCandidateInfoTuple(unittest.TestCase):
         self.assertNotEqual(hash(tuple1), hash(tuple3))
     
     def test_ordering(self):
-        """Test ordering based on LOES score."""
+        """Test ordering based on Loes score."""
         tuple_low = CandidateInfoTuple(5.0, "/path1", "sub-01", "ses-01")
         tuple_mid = CandidateInfoTuple(15.0, "/path2", "sub-02", "ses-02")
         tuple_high = CandidateInfoTuple(25.0, "/path3", "sub-03", "ses-03")
@@ -87,7 +87,7 @@ class TestCandidateInfoTuple(unittest.TestCase):
         self.assertEqual(sorted_tuples[2].loes_score_float, 25.0)
     
     def test_edge_case_scores(self):
-        """Test edge cases for LOES scores."""
+        """Test edge cases for Loes scores."""
         # Minimum score
         tuple_min = CandidateInfoTuple(0.0, "/path", "sub-01", "ses-01")
         self.assertEqual(tuple_min.loes_score_float, 0.0)
@@ -165,7 +165,7 @@ class TestDataValidation(unittest.TestCase):
     """Test suite for data validation utilities."""
     
     def test_loes_score_validation(self):
-        """Test LOES score range validation."""
+        """Test Loes score range validation."""
         valid_scores = [0.0, 17.5, 35.0]
         invalid_scores = [-1.0, 36.0, 100.0]
         
@@ -240,7 +240,7 @@ class TestDataConsistency(unittest.TestCase):
         self.assertNotEqual(tuple1.session_str, tuple2.session_str)
     
     def test_score_distribution(self):
-        """Test realistic LOES score distribution."""
+        """Test realistic Loes score distribution."""
         np.random.seed(42)
         # Simulate realistic score distribution (skewed towards lower values)
         scores = np.concatenate([

@@ -1,12 +1,12 @@
-# LOES Scoring System - Codebase Overview
+# Loes Scoring System - Codebase Overview
 
 ## Executive Summary
 
-The LOES Scoring System is an advanced medical AI platform designed for automated assessment of Loes scores from brain MRI scans. This system supports clinical research in cerebral adrenoleukodystrophy (ALD) by providing objective, reproducible measurements of white matter disease severity.
+The Loes Scoring System is an advanced medical AI platform designed for automated assessment of Loes scores from brain MRI scans. This system supports clinical research in cerebral adrenoleukodystrophy (ALD) by providing objective, reproducible measurements of white matter disease severity.
 
 ## 🎯 Project Objectives
 
-1. **Automated LOES Scoring**: Replace manual scoring with AI-driven assessment (0-35 scale)
+1. **Automated Loes Scoring**: Replace manual scoring with AI-driven assessment (0-35 scale)
 2. **Disease Progression Tracking**: Monitor changes across multiple imaging sessions
 3. **Early Detection**: Identify ALD onset before clinical symptoms
 4. **Clinical Decision Support**: Provide objective metrics for treatment planning
@@ -33,7 +33,7 @@ The LOES Scoring System is an advanced medical AI platform designed for automate
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                     Output Layer                             │
-│  LOES Score → Confidence Metrics → Saliency Maps           │
+│  Loes Score → Confidence Metrics → Saliency Maps           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -147,13 +147,13 @@ loes-scoring-2/
 
 | Architecture | Description | Use Case |
 |-------------|-------------|----------|
-| **3D ResNet** | Residual networks adapted for volumetric data | Primary LOES regression |
+| **3D ResNet** | Residual networks adapted for volumetric data | Primary Loes regression |
 | **3D DenseNet** | Dense connections for feature reuse | Alternative architecture |
 | **Hybrid Models** | Combined architectures with attention | Experimental improvements |
 
 #### Model Specifications
 - **Input Dimensions**: 182×218×182 voxels (MNI space)
-- **Output**: Continuous LOES score (0-35) or binary classification
+- **Output**: Continuous Loes score (0-35) or binary classification
 - **Loss Functions**: MSE for regression, BCE for classification
 - **Optimization**: AdamW with OneCycle learning rate scheduling
 
@@ -181,7 +181,7 @@ config = {
 
 ## 📊 Model Performance Tracking
 
-### Regression Models (LOES Score Prediction)
+### Regression Models (Loes Score Prediction)
 
 | Model | Epochs | Architecture | Validation R² | MAE | Status |
 |-------|--------|--------------|---------------|-----|--------|
@@ -264,7 +264,7 @@ score = predict_loes_score(mri_path, model)
 ## 📈 Results & Outputs
 
 ### Prediction Outputs
-- **LOES Score**: Continuous value (0-35)
+- **Loes Score**: Continuous value (0-35)
 - **Confidence Interval**: Statistical uncertainty
 - **Saliency Maps**: Highlighted brain regions contributing to score
 - **Progression Tracking**: Change detection across sessions

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Comprehensive test runner for LOES Scoring System.
+Comprehensive test runner for Loes Scoring System.
 Runs all unit tests with coverage reporting and detailed output.
 """
 
@@ -66,7 +66,7 @@ class ColoredTextTestRunner(unittest.TextTestRunner):
     def run(self, test):
         """Run test suite with enhanced reporting."""
         print(f"\n{ColoredTextTestResult.BOLD}{'='*70}{ColoredTextTestResult.RESET}")
-        print(f"{ColoredTextTestResult.BLUE}LOES Scoring System - Test Suite{ColoredTextTestResult.RESET}")
+        print(f"{ColoredTextTestResult.BLUE}Loes Scoring System - Test Suite{ColoredTextTestResult.RESET}")
         print(f"{ColoredTextTestResult.BOLD}{'='*70}{ColoredTextTestResult.RESET}\n")
         
         result = super().run(test)
@@ -174,7 +174,7 @@ def generate_coverage_report():
 
 def main():
     """Main test runner entry point."""
-    parser = argparse.ArgumentParser(description='Run LOES Scoring System tests')
+    parser = argparse.ArgumentParser(description='Run Loes Scoring System tests')
     parser.add_argument(
         '--module', '-m',
         help='Run specific test module (e.g., test_metrics)',

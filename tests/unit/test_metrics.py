@@ -71,7 +71,7 @@ class TestMetrics(unittest.TestCase):
         self.assertGreater(srmse, 0.0)
     
     def test_large_scale_values(self):
-        """Test SRMSE with LOES score scale (0-35)."""
+        """Test SRMSE with Loes score scale (0-35)."""
         target_loes = np.array([0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0])
         preds_loes = np.array([1.0, 4.5, 11.0, 14.0, 21.0, 24.5, 31.0, 34.0])
         srmse = get_standardized_rmse(target_loes, preds_loes)

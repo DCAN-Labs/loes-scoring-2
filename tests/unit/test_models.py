@@ -52,7 +52,7 @@ class TestResNetModel(unittest.TestCase):
     
     def test_resnet_output_shape(self):
         """Test ResNet output shape for regression."""
-        # Output should be a single value (LOES score)
+        # Output should be a single value (Loes score)
         expected_output = 1
         self.assertEqual(expected_output, 1)
 

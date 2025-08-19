@@ -97,7 +97,7 @@ class TestLoesScoreDataset(unittest.TestCase):
     
     @patch('dcan.regression.dsets.get_candidate_info_list')
     def test_loes_score_sorting(self, mock_get_candidates):
-        """Test sorting by LOES score."""
+        """Test sorting by Loes score."""
         candidates = [
             CandidateInfoTuple(20.0, '/fake/path1.nii', 'sub-01', 'ses-01'),
             CandidateInfoTuple(5.0, '/fake/path2.nii', 'sub-02', 'ses-01'),
@@ -304,7 +304,7 @@ class TestDataValidation(unittest.TestCase):
     """Test data validation and error handling."""
     
     def test_invalid_score_range(self):
-        """Test handling of invalid LOES scores."""
+        """Test handling of invalid Loes scores."""
         invalid_scores = [-5.0, 40.0, np.nan, np.inf]
         
         for score in invalid_scores:

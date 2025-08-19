@@ -169,7 +169,7 @@ class TestInferencePipeline(unittest.TestCase):
         
         self.assertEqual(prediction.shape, (1, 1))
         
-        # Convert to LOES score (0-35 range)
+        # Convert to Loes score (0-35 range)
         loes_score = torch.clamp(prediction * 35, 0, 35)
         self.assertTrue(0 <= loes_score.item() <= 35)
 
@@ -178,7 +178,7 @@ class TestPostProcessing(unittest.TestCase):
     """Test post-processing of model outputs."""
     
     def test_score_denormalization(self):
-        """Test denormalizing model outputs to LOES scale."""
+        """Test denormalizing model outputs to Loes scale."""
         # Model outputs normalized values
         normalized_outputs = torch.tensor([0.0, 0.5, 1.0, 0.3, 0.7])
         
@@ -195,7 +195,7 @@ class TestPostProcessing(unittest.TestCase):
         # Some predictions might be out of range
         raw_predictions = torch.tensor([-5.0, 10.0, 40.0, 25.0])
         
-        # Clip to valid LOES range
+        # Clip to valid Loes range
         clipped = torch.clamp(raw_predictions, 0, 35)
         
         self.assertEqual(clipped[0].item(), 0.0)

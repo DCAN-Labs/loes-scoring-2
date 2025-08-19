@@ -41,8 +41,8 @@ ax1.set_yticks(range(len(subject_scores)))
 ax1.set_yticklabels(
     [s.replace("subject-", "S") for s in subject_scores.index], fontsize=9
 )
-ax1.set_xlabel("Mean LOES Score", fontsize=11, fontweight="bold")
-ax1.set_title("Top Subjects by LOES Score", fontsize=13, fontweight="bold", pad=20)
+ax1.set_xlabel("Mean Loes Score", fontsize=11, fontweight="bold")
+ax1.set_title("Top Subjects by Loes Score", fontsize=13, fontweight="bold", pad=20)
 ax1.grid(axis="x", alpha=0.2, linestyle="--")
 
 for i, (bar, val) in enumerate(zip(bars, subject_scores["mean"])):
@@ -77,7 +77,7 @@ for autotext in autotexts:
     autotext.set_fontsize(9)
     autotext.set_fontweight("bold")
 
-ax2.set_title("LOES Score Distribution", fontsize=13, fontweight="bold", pad=20)
+ax2.set_title("Loes Score Distribution", fontsize=13, fontweight="bold", pad=20)
 
 subject_progression = df.pivot_table(
     index="anonymized_session_id", columns="anonymized_subject_id", values="loes-score"
@@ -103,7 +103,7 @@ for subject in sample_subjects:
         )
 
 ax3.set_xlabel("Session Number", fontsize=11, fontweight="bold")
-ax3.set_ylabel("LOES Score", fontsize=11, fontweight="bold")
+ax3.set_ylabel("Loes Score", fontsize=11, fontweight="bold")
 ax3.set_title("Score Progression Over Time", fontsize=13, fontweight="bold", pad=20)
 ax3.legend(loc="upper left", fontsize=8, framealpha=0.3)
 ax3.grid(alpha=0.2, linestyle="--")
@@ -159,7 +159,7 @@ if score_changes:
         bbox=dict(boxstyle="round", facecolor="black", alpha=0.5, edgecolor="cyan"),
     )
 
-ax4.set_xlabel("LOES Score Change (Final - Initial)", fontsize=11, fontweight="bold")
+ax4.set_xlabel("Loes Score Change (Final - Initial)", fontsize=11, fontweight="bold")
 ax4.set_ylabel("Number of Subjects", fontsize=11, fontweight="bold")
 ax4.set_title(
     "Score Change Distribution (Multi-Session Subjects)",
@@ -188,7 +188,7 @@ fig.text(
     bbox=dict(boxstyle="round", facecolor="black", alpha=0.5, edgecolor="cyan"),
 )
 
-fig.suptitle("🧠 LOES Score Analysis Dashboard", fontsize=16, fontweight="bold", y=0.98)
+fig.suptitle("🧠 Loes Score Analysis Dashboard", fontsize=16, fontweight="bold", y=0.98)
 
 for ax in [ax1, ax2, ax3, ax4]:
     ax.set_facecolor("#1a1a1a")
@@ -206,7 +206,7 @@ print("\n✨ Visualization created successfully!")
 print("📊 Dashboard saved as 'loes_analysis_dashboard.png'")
 print("\nKey Insights:")
 print(f"  • Analyzed {df['anonymized_subject_id'].nunique()} unique subjects")
-print(f"  • Average LOES score: {df['loes-score'].mean():.2f}")
+print(f"  • Average Loes score: {df['loes-score'].mean():.2f}")
 print(
     f"  • Score variance indicates {('high' if df['loes-score'].std() > 5 else 'moderate')} variability"
 )

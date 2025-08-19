@@ -189,15 +189,6 @@ class ModelHandler:
         self.model.load_state_dict(torch.load(model_path))
 
 
-def count_items(input_list):
-    counts = {}
-    for item in input_list:
-        if item in counts:
-            counts[item] += 1
-        else:
-            counts[item] = 1
-    return counts
-
 
 # Training/Validation Loop Handler
 class TrainingLoop:

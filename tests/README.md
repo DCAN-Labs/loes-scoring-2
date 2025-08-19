@@ -1,6 +1,6 @@
-# LOES Scoring System - Test Suite
+# Loes Scoring System - Test Suite
 
-Comprehensive test suite for the LOES Scoring medical AI system.
+Comprehensive test suite for the Loes Scoring medical AI system.
 
 ## Test Structure
 

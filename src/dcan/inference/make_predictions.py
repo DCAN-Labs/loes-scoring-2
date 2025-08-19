@@ -31,7 +31,6 @@ import numpy as np
 
 import glob
 import os
-import torch.nn.functional as F
 import nibabel as nib
 import argparse
 
@@ -175,15 +174,15 @@ def compute_rmse(predictions, actuals):
     """Calculate Root Mean Square Error between predictions and actual values.
 
     Args:
-        predictions (list): Predicted LOES scores
-        actuals (list): Actual/ground truth LOES scores
+        predictions (list): Predicted Loes scores
+        actuals (list): Actual/ground truth Loes scores
 
     Returns:
         float: RMSE value
     """
     predictions_tensor = torch.tensor(predictions, dtype=torch.float32)
     actuals_tensor = torch.tensor(actuals, dtype=torch.float32)
-    mse = F.mse_loss(predictions_tensor, actuals_tensor)
+    mse = torch.nn.functional.mse_loss(predictions_tensor, actuals_tensor)
     return torch.sqrt(mse).item()
 
 
@@ -223,8 +222,8 @@ def compute_standardized_rmse(actual_scores, predict_vals):
     """Compute RMSE normalized by standard deviation of actual scores.
 
     Args:
-        actual_scores (list): Ground truth LOES scores
-        predict_vals (list): Predicted LOES scores
+        actual_scores (list): Ground truth Loes scores
+        predict_vals (list): Predicted Loes scores
 
     Returns:
         float: Standardized RMSE (RMSE / σ_actual)
@@ -240,8 +239,8 @@ def create_correlation_coefficient(actual_vals, predicted_vals):
     """Calculate Pearson correlation coefficient between actual and predicted values.
 
     Args:
-        actual_vals (list): Actual LOES scores
-        predicted_vals (list): Predicted LOES scores
+        actual_vals (list): Actual Loes scores
+        predicted_vals (list): Predicted Loes scores
 
     Returns:
         float: Pearson correlation coefficient (r value)
@@ -256,7 +255,7 @@ def create_correlation_coefficient(actual_vals, predicted_vals):
 
 
 def create_scatter_plot(actual_vals, predicted_vals, output_file):
-    """Generate scatter plot comparing predicted vs actual LOES scores.
+    """Generate scatter plot comparing predicted vs actual Loes scores.
 
     Creates a scatter plot with:
     - Points colored by prediction error magnitude
@@ -264,8 +263,8 @@ def create_scatter_plot(actual_vals, predicted_vals, output_file):
     - Equal aspect ratio for fair comparison
 
     Args:
-        actual_vals (list): Ground truth LOES scores
-        predicted_vals (list): Model predicted LOES scores
+        actual_vals (list): Ground truth Loes scores
+        predicted_vals (list): Model predicted Loes scores
         output_file (str): Path to save plot image
     """
     _, ax = plt.subplots(figsize=(8, 6))
@@ -331,12 +330,12 @@ def get_predicted_value(row, subjects, sessions, predict_vals):
 
 
 def add_predicted_values(subjects, sessions, predict_vals, input_csv_location):
-    """Add predicted LOES scores to existing CSV data.
+    """Add predicted Loes scores to existing CSV data.
 
     Args:
         subjects (list): Subject IDs with predictions
         sessions (list): Session IDs with predictions
-        predict_vals (list): Predicted LOES scores
+        predict_vals (list): Predicted Loes scores
         input_csv_location (str): Path to input CSV file
 
     Returns:
@@ -381,7 +380,7 @@ def get_filename_from_path(file_path):
 
 
 def make_predictions_on_folder(directory_path, file_pattern, model):
-    """Generate LOES predictions for all matching MRI files in a directory.
+    """Generate Loes predictions for all matching MRI files in a directory.
 
     Processes all NIfTI files matching the pattern, extracting subject/session IDs
     from filenames (expected format: <subject>_<session>_*.nii.gz).
