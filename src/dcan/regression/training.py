@@ -2,6 +2,7 @@ import argparse
 import datetime
 import os
 import sys
+import time
 
 import numpy as np
 import pandas as pd
@@ -47,6 +48,16 @@ METRICS_LABEL_NDX = 0
 METRICS_PRED_NDX = 1
 METRICS_LOSS_NDX = 2
 METRICS_SIZE = 3
+
+
+def count_items(input_list):
+    counts = {}
+    for item in input_list:
+        if item in counts:
+            counts[item] += 1
+        else:
+            counts[item] = 1
+    return counts
 
 
 # Refactored Configuration class to handle CLI arguments
@@ -171,7 +182,22 @@ class ModelHandler:
 
         # Always move to the specified device consistently
         log.info(f"Moving model to device: {self.device}")
-        model = model.to(self.device)
+        try:
+            model = model.to(self.device)
+        except RuntimeError as e:
+            if "CUDA" in str(e):
+                log.error(f"CUDA error occurred: {e}")
+                log.info("Attempting to reset CUDA and retry...")
+                torch.cuda.empty_cache()
+                try:
+                    model = model.to(self.device)
+                except RuntimeError:
+                    log.error("CUDA still unavailable. Falling back to CPU.")
+                    self.device = torch.device("cpu")
+                    self.use_cuda = False
+                    model = model.to(self.device)
+            else:
+                raise
 
         # Apply DataParallel only if using CUDA and multiple GPUs
         if self.use_cuda and torch.cuda.device_count() > 1:
@@ -205,6 +231,11 @@ class TrainingLoop:
         weighted_counts = {key: 1.0 / value for key, value in item_counts.items()}
         self.weights = weighted_counts
         self.config = config
+        
+        # Initialize timing tracking for NIFTI file processing
+        self.nifti_timing_data = []
+        self.training_start_time = None
+        self.training_end_time = None
 
     def train_epoch(self, epoch, train_dl):
         self.model_handler.model.train()
@@ -214,6 +245,12 @@ class TrainingLoop:
         for batch_ndx, batch_tup in enumerateWithEstimate(
             train_dl, f"E{epoch} Training", start_ndx=train_dl.num_workers
         ):
+            # Start timing for this batch
+            batch_start_time = time.time()
+            
+            # Extract subject and session info for timing tracking
+            _, _, subject_list, session_list = batch_tup
+            
             self.optimizer.zero_grad()
             loss_var = self._compute_batch_loss(
                 batch_ndx, batch_tup, train_dl.batch_size, trn_metrics_g
@@ -224,6 +261,28 @@ class TrainingLoop:
             # Step OneCycleLR scheduler after each batch
             if self.scheduler and isinstance(self.scheduler, OneCycleLR):
                 self.scheduler.step()
+            
+            # Record timing data for each NIFTI file in the batch
+            batch_end_time = time.time()
+            batch_duration = batch_end_time - batch_start_time
+            
+            # For each file in the batch, record the timing
+            batch_size_actual = len(subject_list) if isinstance(subject_list, (list, tuple)) else train_dl.batch_size
+            per_file_time = batch_duration / batch_size_actual
+            
+            for i in range(batch_size_actual):
+                subject = subject_list[i] if isinstance(subject_list, (list, tuple)) else subject_list
+                session = session_list[i] if isinstance(session_list, (list, tuple)) else session_list
+                
+                self.nifti_timing_data.append({
+                    'epoch': epoch,
+                    'batch_idx': batch_ndx,
+                    'subject': subject,
+                    'session': session,
+                    'processing_time_seconds': per_file_time,
+                    'batch_processing_time_seconds': batch_duration,
+                    'phase': 'training'
+                })
 
         self.total_samples += len(train_dl.dataset)
         return trn_metrics_g.to("cpu")
@@ -237,9 +296,37 @@ class TrainingLoop:
             for batch_ndx, batch_tup in enumerateWithEstimate(
                 val_dl, f"E{epoch} Validation", start_ndx=val_dl.num_workers
             ):
+                # Start timing for this validation batch
+                batch_start_time = time.time()
+                
+                # Extract subject and session info for timing tracking
+                _, _, subject_list, session_list = batch_tup
+                
                 self._compute_batch_loss(
                     batch_ndx, batch_tup, val_dl.batch_size, val_metrics_g
                 )
+                
+                # Record timing data for validation
+                batch_end_time = time.time()
+                batch_duration = batch_end_time - batch_start_time
+                
+                # For each file in the batch, record the timing
+                batch_size_actual = len(subject_list) if isinstance(subject_list, (list, tuple)) else val_dl.batch_size
+                per_file_time = batch_duration / batch_size_actual
+                
+                for i in range(batch_size_actual):
+                    subject = subject_list[i] if isinstance(subject_list, (list, tuple)) else subject_list
+                    session = session_list[i] if isinstance(session_list, (list, tuple)) else session_list
+                    
+                    self.nifti_timing_data.append({
+                        'epoch': epoch,
+                        'batch_idx': batch_ndx,
+                        'subject': subject,
+                        'session': session,
+                        'processing_time_seconds': per_file_time,
+                        'batch_processing_time_seconds': batch_duration,
+                        'phase': 'validation'
+                    })
         return val_metrics_g.to("cpu")
 
     def weighted_mse_loss(self, predictions, targets):
@@ -324,6 +411,51 @@ class TrainingLoop:
 
         return loss_mean
 
+    def save_timing_data(self, output_file_path):
+        """
+        Save NIFTI file processing timing data to CSV.
+        
+        Args:
+            output_file_path (str): Path where to save the timing CSV file
+        """
+        if not self.nifti_timing_data:
+            log.warning("No timing data to save")
+            return
+            
+        timing_df = pd.DataFrame(self.nifti_timing_data)
+        
+        # Add summary statistics
+        # Count unique files (subject-session combinations)
+        unique_files = timing_df[['subject', 'session']].drop_duplicates()
+        num_unique_files = len(unique_files)
+        
+        # Calculate total runtime (wall clock time for entire training)
+        if self.training_start_time and self.training_end_time:
+            total_runtime = self.training_end_time - self.training_start_time
+        else:
+            # Fallback to sum of processing times if runtime not available
+            total_runtime = timing_df['processing_time_seconds'].sum()
+            log.warning("Using sum of processing times as total runtime was not tracked")
+        
+        # Overall statistics
+        num_epochs = timing_df['epoch'].nunique()
+        seconds_per_file = total_runtime / num_unique_files if num_unique_files > 0 else 0
+        
+        # Get min/max from first epoch to show per-file ranges
+        first_epoch_df = timing_df[timing_df['epoch'] == timing_df['epoch'].min()]
+        
+        log.info(f"Timing Summary:")
+        log.info(f"  Total unique files: {num_unique_files}")
+        log.info(f"  Number of epochs: {num_epochs}")
+        log.info(f"  Total runtime: {total_runtime:.3f} seconds ({total_runtime/3600:.2f} hours)")
+        log.info(f"  Seconds per file: {seconds_per_file:.3f}")
+        log.info(f"  Min processing time: {first_epoch_df['processing_time_seconds'].min():.3f} seconds")
+        log.info(f"  Max processing time: {first_epoch_df['processing_time_seconds'].max():.3f} seconds")
+        
+        # Save to CSV
+        timing_df.to_csv(output_file_path, index=False)
+        log.info(f"Timing data saved to: {output_file_path}")
+
 
 # TensorBoard Logger
 class TensorBoardLogger:
@@ -377,9 +509,22 @@ class LoesScoringTrainingApp:
     def __init__(self, sys_argv=None):
         self.config = Config().parse_args(sys_argv)
         self.use_cuda = torch.cuda.is_available() and not self.config.DEBUG
-        self.device = torch.device(
-            "cuda" if torch.cuda.is_available() and not self.config.DEBUG else "cpu"
-        )
+        
+        # Test CUDA availability before proceeding
+        if self.use_cuda:
+            try:
+                # Try to allocate a small tensor on GPU to test availability
+                test_tensor = torch.zeros(1).cuda()
+                del test_tensor
+                torch.cuda.empty_cache()
+            except RuntimeError as e:
+                log.warning(f"CUDA test failed: {e}")
+                log.info("Falling back to CPU")
+                self.use_cuda = False
+        
+        self.device = torch.device("cuda" if self.use_cuda else "cpu")
+        log.info(f"Using device: {self.device}")
+        
         self.model_handler = ModelHandler(self.config.model, self.use_cuda, self.device)
         self.optimizer = self._init_optimizer()
         self.tb_run_dir = self.config.tb_run_dir
@@ -485,6 +630,9 @@ class LoesScoringTrainingApp:
 
         best_val_loss = float("inf")
 
+        # Record training start time (after all setup/initialization)
+        loop_handler.training_start_time = time.time()
+        
         for epoch in range(1, self.config.epochs + 1):
             log.info(f"Epoch {epoch}/{self.config.epochs}")
 
@@ -553,6 +701,16 @@ class LoesScoringTrainingApp:
 
         _, p_value = stats.spearmanr(actual_scores, predict_vals)
         log.info(f"Spearman correlation p-value: {p_value}")
+        
+        # Record training end time (before cleanup/saving)
+        loop_handler.training_end_time = time.time()
+        
+        # Save timing data for NIFTI file processing
+        if hasattr(loop_handler, 'nifti_timing_data') and loop_handler.nifti_timing_data:
+            timing_csv_path = output_csv_location.replace('.csv', '_timing.csv') if output_csv_location else 'nifti_timing_data.csv'
+            loop_handler.save_timing_data(timing_csv_path)
+        else:
+            log.warning("No timing data collected during training")
 
     def split_train_validation(self):
         """

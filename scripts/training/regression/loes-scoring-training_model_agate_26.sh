@@ -3,7 +3,7 @@
 #SBATCH --job-name=loes-scoring-alex-net # job name
 
 #SBATCH --mem=180g        
-#SBATCH --time=1:00:00          
+#SBATCH --time=9:00:00          
 #SBATCH -p a100-4,a100-8
 #SBATCH --gres=gpu:a100:2
 #SBATCH --ntasks=6      
